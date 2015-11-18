@@ -1,7 +1,7 @@
 var fs = require('fs');
 var path = require('path');
 
-// http://stackoverflow.com/questions/11293857/fastest-way-to-copy-file-in-node-js
+// http://stackoverflow.com/questions/11293857/fastest-way-to-copy-file-in-node-js 
 function copy(source, target, cb) {
   var cbCalled = false;
 
@@ -35,12 +35,13 @@ var mkdirSync = function (path) {
 }
 
 // set up lib folder
-mkdirSync(path.resolve(__dirname, 'lib'));
+mkdirSync(path.resolve(__dirname, 'public'));
+mkdirSync(path.resolve(__dirname, 'public', 'lib'));
 
 // copy dependencies to lib
 copy(
   path.resolve(path.dirname(path.dirname(require.resolve('bootstrap'))), 'css', 'bootstrap.css'),
-  path.resolve(__dirname, 'lib', 'bootstrap.css'),
+  path.resolve(__dirname, 'public', 'lib', 'bootstrap.css'),
   function(err) {
     if (err) console.error(err);
     else console.log('copied bootstrap');
@@ -48,7 +49,7 @@ copy(
   
 copy(
   path.resolve(path.dirname(require.resolve('checkerboard')), 'build/out.js'),
-  path.resolve(__dirname, 'lib', 'checkerboard.js'),
+  path.resolve(__dirname, 'public', 'lib', 'checkerboard.js'),
   function(err) {
     if (err) console.error(err);
     else console.log('copied checkerboard');
@@ -56,7 +57,7 @@ copy(
   
 copy(
   require.resolve('interact.js'),
-  path.resolve(__dirname, 'lib/interact.js'),
+  path.resolve(__dirname, 'public', 'lib', 'interact.js'),
   function(err) {
     if (err) console.error(err);
     else console.log('copied interact');
@@ -64,7 +65,7 @@ copy(
   
 copy(
   require.resolve('mithril'),
-  path.resolve(__dirname, 'lib/mithril.js'),
+  path.resolve(__dirname, 'public', 'lib', 'mithril.js'),
   function(err) {
     if (err) console.error(err);
     else console.log('copied mithril');
@@ -72,7 +73,7 @@ copy(
   
 copy(
   path.resolve(path.dirname(path.dirname(require.resolve('requirejs'))), 'require.js'),
-  path.resolve(__dirname, 'lib/require.js'),
+  path.resolve(__dirname, 'public', 'lib', 'require.js'),
   function(err) {
     if (err) console.error(err);
     else console.log('copied requirejs');
@@ -80,7 +81,7 @@ copy(
   
 copy(
   require.resolve('underscore'),
-  path.resolve(__dirname, 'lib/underscore.js'),
+  path.resolve(__dirname, 'public', 'lib', 'underscore.js'),
   function(err) {
     if (err) console.error(err);
     else console.log('copied underscore');
