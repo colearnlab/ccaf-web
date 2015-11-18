@@ -1,0 +1,26 @@
+{
+  "name": "ccaf-web",
+  "version": "0.4.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ccaf/ccaf-web.git"
+  },
+  "author": "Gregory Fabry",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ccaf/ccaf-web/issues"
+  },
+  "homepage": "https://github.com/ccaf/ccaf-web#readme",
+  "dependencies": {
+    "bootstrap": "^3.3.5",
+    "checkerboard": "^0.3.6",
+    "interact.js": "^1.2.6",
+    "mithril": "^0.2.0",
+    "requirejs": "^2.1.20",
+    "underscore": "^1.8.3"
+  },
+  "scripts": {
+    "install": "node build"
+  }
+}
