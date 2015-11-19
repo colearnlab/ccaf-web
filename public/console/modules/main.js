@@ -28,7 +28,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
         classroom = _classroom;
         m.redraw();
         store.classrooms[classroom].addObserver(classroomObserver);
-        m.mount(document.getElementById('navs'), m.component(playground, {'store': store, 'configuration': store.classrooms[classroom].configuration}));
+        m.mount(document.getElementById('navs'), m.component(playground, {'store': store, 'classroom': store.classrooms[classroom], 'configuration': store.classrooms[classroom].configuration}));
         window.addEventListener('resize', m.redraw);
         return false;
       });
@@ -36,21 +36,32 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
     stm.action('init')
       .onReceive(function() {
         this.classrooms = this.classrooms || {};
+        var classroom;
         for (c in this.classrooms) {
-          var classroom = this.classrooms[c];
+          classroom = this.classrooms[c];
           classroom.configuration = classroom.configuration || {};
-          classroom.configuration.instances = classroom.configuration.instances || {};
+          classroom.configuration.apps = classroom.configuration.apps || {};
+          classroom.configuration.users = classroom.configuration.users || {};
           classroom.users = classroom.users || {};
         }
       });
   
-    stm.action('create-instance')
+    stm.action('create-app-instance')
       .onReceive(function(app, el) {
         var cur = this.classrooms[classroom];
-        var i = -1, j = calculateName(app, cur.configuration.instances);
-        while (++i in cur.configuration.instances);
+        var i = -1, j = calculateName(app, cur.configuration.apps);
+        while (++i in cur.configuration.apps);
           
-        cur.configuration.instances[i] = new Instance(app, store.apps[app].title + ' ' + j, getCoords(el).x, getCoords(el).y);   
+        cur.configuration.apps[i] = new Instance(app, store.apps[app].title + ' ' + j, getCoords(el).x, getCoords(el).y);   
+      });
+    
+    stm.action('create-user-instance')
+      .onReceive(function(user, el) {
+        var cur = this.classrooms[classroom];
+        var i = -1;
+        while (++i in cur.configuration.users);
+          
+        cur.configuration.users[i] = new User(user, getCoords(el).x, getCoords(el).y);   
       });
       
     stm.action('set-coords')
@@ -59,7 +70,12 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
         this.y = getCoords(el).y;
       });
       
-    stm.action('delete-instance')
+    stm.action('delete-app-instance')
+      .onReceive(function(id) {
+        delete this[id];
+      });
+      
+    stm.action('delete-user-instance')
       .onReceive(function(id) {
         delete this[id];
       });
@@ -109,10 +125,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
     this.title = title;
     this.x = x;
     this.y = y;
-    this.users = {};
   }
   
   function User(id, x, y) {
-  
+    this.id = id;
+    this.x = x;
+    this.y = y;
   }
 });
