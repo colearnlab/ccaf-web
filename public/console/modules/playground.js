@@ -43,16 +43,13 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
   
   
   var overhead = {
-    'controller': function(args) {
-    
-    },
     'view': function(ctrl, args) {
       var store = args.store;
       return m('.col-xs-9.col-sm-9.col-md-9.stretch',
         m('.well.stretch#overhead', 
-          _.pairs(store.classrooms[args.classroom].configuration.instances)
-            .map(function(instance) {
-              return m.component(movableIcon, _.extend(_.clone(args), {'instanceId': instance[0], 'instance': instance[1]}));
+          _.pairs(args.configuration.instances)
+            .map(function(pair) {
+              return m.component(instance, _.extend(_.clone(args), {'id': pair[0], 'instance': pair[1]}));              
             })
         )
       );
@@ -67,11 +64,12 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
           'onstart': function(event) {
             var el = document.createElement('div');
             var rect = document.getElementById('overhead').getBoundingClientRect();
-            el.setAttribute('data-x', event.pageX - 32 - rect.left);
-            el.setAttribute('data-y', event.pageY - 32 - rect.top);
+            el.setAttribute('data-x', event.pageX - 64 - rect.left);
+            el.setAttribute('data-y', event.pageY - 64 - rect.top);
             
             if (event.target.getAttribute('data-app-path'))
               m.render(el, m.component(createIcon, {'icon': '/apps/' + event.target.getAttribute('data-app-path') + '/' + store.apps[event.target.getAttribute('data-app-path')].icon}));
+            
             el.classList.add('createdIcon');
             document.getElementById('overhead').appendChild(el);
             event.target.childComponent = el;
@@ -109,7 +107,7 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
   
   var createIcon = {
     'view': function(_, args) {
-      return m('img', {'src': args.icon});
+      return m('img', {'style': 'width: 64px; display: block; margin: 0 auto;', 'src': args.icon});
     }
   };
   
@@ -128,49 +126,58 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
             
             target.style.opacity = isInWell(target) ? 1 : 0.5;
             
-            store.classrooms[args.classroom].configuration.instances[event.target.getAttribute('data-instance-id')].sendAction('set-coords', event.target);
+            target.move(target);
           },
           'onend': function(event) {
             var target = event.target;
             target.style.opacity = 1;
             if (!isInWell(target))
-              store.classrooms[args.classroom].configuration.instances.sendAction('delete-instance', target.getAttribute('data-instance-id'));
+              event.target.del();
           }
         });
     },
     'view': function(ctrl, args) {
-      var store = args.store;
-      var overhead = document.getElementById('overhead');
-      
-      var instance = args.instance;
       return m('div.movableIcon', {
-        'data-instance-id': args.instanceId,
         'config': function(el) {
-            var overhead = el.parentNode;
-            var x = instance.x * overhead.offsetWidth;
-            var y = instance.y * overhead.offsetHeight;
+            var overhead = document.getElementById('overhead');
+            var x = args.x * overhead.offsetWidth;
+            var y = args.y * overhead.offsetHeight;
             el.setAttribute('data-x', x);
             el.setAttribute('data-y', y);
             el.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+            el.move = function(el) { args.move(el) };
+            el.del = args.del;
           },
-       }, m('img', {'src': '/apps/' + instance.app + '/' + store.apps[instance.app].icon}), instance.title
+       }, m('img', {'src': args.icon, 'style': 'display: block; margin: 0 auto;'}), args.title
       );
     }
   };
   
+  var instance = {
+    'view': function(ctrl, args) {
+      var store = args.store;
+      return m('span.instance', m.component(movableIcon, _.extend(_.clone(args), {
+        'icon': '/apps/' + args.instance.app + '/' + store.apps[args.instance.app].icon,
+        'title': args.instance.title,
+        'x': args.instance.x,
+        'y': args.instance.y,
+        'move': function(el) {
+          args.instance.sendAction('set-coords', el);
+        },
+        'del': function() {
+          args.configuration.instances.sendAction('delete-instance', args.id);
+        }
+      })));
+    }
+  };
+  
   var users = {
-    'controller': function(args) {
-    
-    },
     'view': function(ctrl, args) {
       return m('div', 'users');
     }
   };
   
   var content = {
-    'controller': function(args) {
-    
-    },
     'view': function(ctrl, args) {
       return m('div', 'content');
     }

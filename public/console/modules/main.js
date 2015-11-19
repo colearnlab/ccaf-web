@@ -28,7 +28,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
         classroom = _classroom;
         m.redraw();
         store.classrooms[classroom].addObserver(classroomObserver);
-        m.mount(document.getElementById('navs'), m.component(playground, {'store': store, 'classroom': classroom}));
+        m.mount(document.getElementById('navs'), m.component(playground, {'store': store, 'configuration': store.classrooms[classroom].configuration}));
         window.addEventListener('resize', m.redraw);
         return false;
       });
@@ -47,25 +47,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
     stm.action('create-instance')
       .onReceive(function(app, el) {
         var cur = this.classrooms[classroom];
-        var i = -1, j = 1;
+        var i = -1, j = calculateName(app, cur.configuration.instances);
         while (++i in cur.configuration.instances);
-        Object.keys(cur.configuration.instances)
-          .map(function(p) { return cur.configuration.instances[p]; })
-          .forEach(function(instance) { 
-            if (instance.app === app) {
-              var num;
-              if (parseInt(instance.title[instance.title.length - 1]) !== NaN) {
-                if (parseInt(instance.title[instance.title.length - 2]) !== NaN)
-                  num = parseInt(instance.title.slice(instance.title.length - 2));
-                else
-                  num = parseInt(instance.title.slice(instance.title.length - 1));
-              
-                if (num && num >= j)
-                  j = num + 1;
-              }
-            }
-          });
-        var k = cur.configuration.instances[i] = {'app': app, 'title': store.apps[app].title + ' ' + j, 'x': getCoords(el).x, 'y': getCoords(el).y};   
+          
+        cur.configuration.instances[i] = new Instance(app, store.apps[app].title + ' ' + j, getCoords(el).x, getCoords(el).y);   
       });
       
     stm.action('set-coords')
@@ -89,11 +74,45 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
     };
   });
   
+  function calculateName(app, instances) {
+    var j = 1;
+    Object.keys(instances)
+      .map(function(p) { return instances[p]; })
+      .forEach(function(instance) { 
+        if (instance.app === app) {
+          var num;
+          if (parseInt(instance.title[instance.title.length - 1]) !== NaN) {
+            if (parseInt(instance.title[instance.title.length - 2]) !== NaN)
+              num = parseInt(instance.title.slice(instance.title.length - 2));
+            else
+              num = parseInt(instance.title.slice(instance.title.length - 1));
+          
+            if (num && num >= j)
+              j = num + 1;
+          }
+        }
+      });
+      
+    return j;
+  }
+  
   function getCoords(el) {
     var overhead = document.getElementById('overhead');
     return {
       'x': el.getAttribute('data-x') / overhead.offsetWidth,
       'y': el.getAttribute('data-y') / overhead.offsetHeight
     };
+  }
+  
+  function Instance(app, title, x, y) {
+    this.app = app;
+    this.title = title;
+    this.x = x;
+    this.y = y;
+    this.users = {};
+  }
+  
+  function User(id, x, y) {
+  
   }
 });
