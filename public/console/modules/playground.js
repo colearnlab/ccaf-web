@@ -1,4 +1,4 @@
-define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, interact, _) {    
+define(['exports', 'mithril', 'interact', 'underscore', './overhead'], function(exports, m, interact, _, overhead) {    
   exports.view = function(ctrl, args) {
     return m('.container',
       m('.row',
@@ -41,25 +41,6 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
     }
   };
   
-  
-  var overhead = {
-    'view': function(ctrl, args) {
-      var store = args.store;
-      return m('.col-xs-9.col-sm-9.col-md-9.stretch',
-        m('.well.stretch#overhead', 
-          _.pairs(args.configuration.apps)
-            .map(function(pair) {
-              return m.component(appInstance, _.extend(_.clone(args), {'id': pair[0], 'instance': pair[1]}));              
-            }),
-          _.pairs(args.configuration.users)
-            .map(function(pair) {
-              return m.component(userInstance, _.extend(_.clone(args), {'id': pair[0], 'instance': pair[1]}));              
-            })
-        )
-      );
-    }
-  };
-  
   var apps = {
     'view': function(ctrl, args) {
       var store = args.store;
@@ -78,66 +59,6 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
     }
   };
   
-  var createIcon = {
-    'view': function(_, args) {
-      return m('span', m('img', {'style': 'width: 64px; display: block; margin: 0 auto;', 'src': args.icon}), args.title ? args.title : '');
-    }
-  };
-  
-  var movableIcon = {
-    'view': function(ctrl, args) {
-      return m('div.movableIcon', {
-        'config': function(el) {
-            var overhead = document.getElementById('overhead');
-            var x = args.x * overhead.offsetWidth;
-            var y = args.y * overhead.offsetHeight;
-            el.setAttribute('data-x', x);
-            el.setAttribute('data-y', y);
-            el.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
-            el.move = function(el) { args.move(el) };
-            el.del = args.del;
-          },
-       }, m('img', {'src': args.icon, 'style': 'display: block; margin: 0 auto;'}), args.title
-      );
-    }
-  };
-  
-  var appInstance = {
-    'view': function(ctrl, args) {
-      var store = args.store;
-      return m('span.instance', m.component(movableIcon, _.extend(_.clone(args), {
-        'icon': '/apps/' + args.instance.app + '/' + store.apps[args.instance.app].icon,
-        'title': args.instance.title,
-        'x': args.instance.x,
-        'y': args.instance.y,
-        'move': function(el) {
-          args.instance.sendAction('set-coords', el);
-        },
-        'del': function() {
-          args.configuration.apps.sendAction('delete-app-instance', args.id);
-        }
-      })));
-    }
-  };
-  
-  var userInstance = {
-    'view': function(ctrl, args) {
-      var store = args.store;
-      return m('span.instance', m.component(movableIcon, _.extend(_.clone(args), {
-        'icon': '/media/user.png',
-        'title': args.classroom.users[args.instance.id].name,
-        'x': args.instance.x,
-        'y': args.instance.y,
-        'move': function(el) {
-          args.instance.sendAction('set-coords', el);
-        },
-        'del': function() {
-          args.configuration.users.sendAction('delete-user-instance', args.id);
-        }
-      })));
-    }
-  };
-  
   var users = {
     'view': function(ctrl, args) {
       var store = args.store;
@@ -151,7 +72,8 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
               store.sendAction('create-user-instance', user, el.childComponent);
             }
           }}, m.trust(' ' + (dim ? '&#x2714; ' : '')), m('img', {height: '32px', src: '/media/user.png'}), args.classroom.users[user].name);
-        })
+        }),
+        m('a.list-group-item', 'Add student')
       );
     }
   };
@@ -159,6 +81,12 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
   var content = {
     'view': function(ctrl, args) {
       return m('div', 'content');
+    }
+  };
+  
+  var createIcon = {
+    'view': function(_, args) {
+      return m('span', m('img', {'style': 'width: 64px; display: block; margin: 0 auto;', 'src': args.icon}), args.title ? args.title : '');
     }
   };
   
@@ -196,7 +124,7 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
       }
     });
 
-    interact('.movableIcon')
+    interact('.icon')
       .draggable({
         'onmove': function(event) {
           var target = event.target;
@@ -217,6 +145,22 @@ define(['exports', 'mithril', 'interact', 'underscore'], function(exports, m, in
             event.target.del();
         }
       });
+  
+  interact('.appInstance>div')
+    .dropzone({
+      'accept': '.userInstance>div',
+      'overlap': 0.1,
+      'ondragenter': function(e) {
+        e.target.classList.add('drop-active');
+      },
+      'ondragleave': function(e) {
+        e.target.classList.remove('drop-active');
+      },
+      'ondrop': function(e) {
+        e.relatedTarget.assignAppInstanceId(e.target.instanceId);
+        e.target.classList.remove('drop-active');
+      }
+    });
   
   function isInWell(el) {
     var overhead = document.getElementById('overhead');

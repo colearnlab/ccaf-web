@@ -1,16 +1,19 @@
 .stretch {height: 100%}
 
-.movableIcon {
+.icon {
   position: absolute;
   top: 0;
   left: 0;
   width: 128px;
   text-align: center;
+  border: 3px solid transparent;
+  border-radius: 10px;
 }
 
-.movableIcon img {
+.icon img {
   padding: 0;
   width: 64px;
+
 }
 
 .createdIcon{
@@ -32,4 +35,8 @@
 
 .dim {
   opacity: 0.5;
+}
+
+.drop-active {
+  border: 3px darkgray dashed;
 }

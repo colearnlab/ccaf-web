@@ -79,6 +79,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
       .onReceive(function(id) {
         delete this[id];
       });
+      
+    stm.action('assign-user-instance')
+      .onReceive(function(appInstanceId) {
+        this.appInstanceId = appInstanceId;
+      });
     
     store.sendAction('init');
     
