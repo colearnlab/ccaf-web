@@ -48,15 +48,20 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
           this[prop] = val;
         });
         
-      stm.action
+      stm.action('deleteProperty')
+        .onReceive(function(prop) {
+          delete this[prop];
+        });
     
     store.sendAction('init');
         
     m.redraw.strategy('all');
-    var classroomObserver = function(newValue, oldValue) {
+    var observer = function(newValue, oldValue) {
       m.redraw(true);
     };
-      m.mount(document.getElementById('navs'), m.component(store.config.passcode !== "" && store.config.passcode !== null ? lock : component, store));
+    m.mount(document.getElementById('navs'), m.component(store.config.passcode !== "" && store.config.passcode !== null ? lock : component, store));
+  
+    store.addObserver(observer);
   });
   
   var lock = {
@@ -131,7 +136,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
     if (tab === 'Security')
       return m('.form-inline',
         m('.form-group',
-          m('p', "Enter a four-digit numeric pin code that needs to be entered whenever a teacher or admin console is accessed, or leave blank for no passcode."),
+          m('.alert.alert-info', "Enter a four-digit numeric pin code that needs to be entered whenever a teacher or admin console is accessed, or leave blank for no passcode."),
           m('input.form-control#passcode[type=\'number\']', {
             'min': 1000,
             'max': 9999,
@@ -157,6 +162,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
       
     if (tab === 'Students')
       return m('.row',
+      
+        m('.alert.alert-info', "Tap a classroom to view its students. Double-click or tap an entry to edit or delete it."),
         m('.col-xs-6.col-sm-6.col-md-6', {'style': 'padding: 0'},
           m('.panel.panel-default', {'style': 'border-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0'},
             m('.panel-heading',
@@ -167,11 +174,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
                   m.redraw(true);
                 }
               }, "+")),
-            m('.panel-body', {'style': 'padding: 0; height: 60vh'}, 
+            m('.panel-body', {'style': 'padding: 0; height: 60vh; overflow: auto'}, 
               m('table.table.table-hover',
                 m('tbody',
                   _.pairs(store.classrooms).map(function(kvPair) {
-                    return m.component(classroomRow, _.extend(kvPair[1], {'id': kvPair[0]}));
+                    return m.component(classroomRow, _.extend(kvPair[1], {'id': kvPair[0], 'del': function() { store.classrooms.sendAction('deleteProperty', kvPair[0])} }));
                   })
                 )
               )
@@ -182,15 +189,19 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
           m('.panel.panel-default', {'style': 'border-top-left-radius: 0; border-bottom-left-radius: 0'},
             m('.panel-heading', 
               m.trust("Students&nbsp;"),
-              (activeClassroom > 0 ? m('button.btn.btn-default.btn-xs', {
-              
-              }, "+") : '')
+              m('button.btn.btn-default.btn-xs', {
+                'style': (activeClassroom >= 0 ? '' : 'visibility: hidden'),
+                'onclick': function() {
+                  store.classrooms[activeClassroom].users.sendAction('setProperty', Math.max.apply(null, _.keys(store.classrooms[activeClassroom].users).map(function(val) { return val.toString() })) + 1, {'name': 'New student'});
+                  m.redraw(true);
+                }
+              }, "+")
             ),
-            m('.panel-body', {'style': 'padding: 0; height: 60vh'}, 
+            m('.panel-body', {'style': 'padding: 0; height: 60vh;  overflow: auto'}, 
               m('table.table.table-hover',
                 m('tbody',
                   _.pairs((store.classrooms[activeClassroom] || {}).users).map(function(kvPair) {
-                    return m.component(studentRow, _.extend(kvPair[1], {'id': kvPair[0]}));
+                    return m.component(studentRow, _.extend(kvPair[1], {'id': kvPair[0], 'del': function() { store.classrooms[activeClassroom].users.sendAction('deleteProperty', kvPair[0]); } }));
                   })
                 )
               )
@@ -209,7 +220,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
       };
     },
     'view': function(ctrl, args) {
-      return m('tr', m('td', {
+      return m('tr', m('td.hover-activate', {
         'config': function(el) {
           el.active = ctrl.active;
         },
@@ -218,17 +229,22 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
             var others = e.target.parentNode.parentNode.children;
             for (var i = 0; i < others.length; i++) {
               others[i].children[0].classList.remove('info');
-              others[i].children[0].active(false);
+              if (others[i].children[0].active) others[i].children[0].active(false);
             }
             e.target.classList.add('info');
             ctrl.active(true);
             activeClassroom = args.id;
-          } else {
-            ctrl.edit(true);
-            m.redraw(true);
           }
+        },
+        'ondblclick': function(e) {
+          ctrl.edit(true);
+          m.redraw(true);
         }
-      }, !ctrl.edit() ? args.name :
+      }, !ctrl.edit() ? [args.name, m('span.glyphicon.glyphicon-remove.hover-hide.pull-right', {
+        'onclick': function(e) {
+          args.del();
+        }
+        })] :
         m('input.form-control.input-sm', {
           'value': args.name,
           'config': function(el) {
@@ -255,11 +271,39 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
   var studentRow = {
     'controller': function(args) {
       return {
-      
+        'edit': m.prop(false)
       };
     },
     'view': function(ctrl, args) {
-      return m('tr', m('td', args.name));
+      return m('tr', m('td.hover-activate', {
+        'ondblclick': function(e) {
+          ctrl.edit(true);
+        }
+      }, !ctrl.edit() ? [args.name, m('span.glyphicon.glyphicon-remove.hover-hide.pull-right', {
+        'onclick': function(e) {
+          args.del();
+        }
+      })] :
+        m('input.form-control.input-sm', {
+          'value': args.name,
+          'config': function(el) {
+            el.focus();
+          },
+          'oninput': function(e) {
+            args.sendAction('setProperty', 'name', e.target.value);
+          },
+          'onblur': function(e) {
+            ctrl.edit(false);
+            m.redraw(true);
+          },
+          'onkeydown': function(e) {
+            if (e.keyCode === 13) {
+              ctrl.edit(false);
+              m.redraw(true);
+            }
+          }
+        })
+      ));
     }
   };
 });

@@ -44,7 +44,15 @@ copy(
   path.resolve(__dirname, 'public', 'lib', 'bootstrap.css'),
   function(err) {
     if (err) console.error(err);
-    else console.log('copied bootstrap');
+    else console.log('copied bootstrap 1');
+  });
+  
+  copy(
+  path.resolve(path.dirname(path.dirname(require.resolve('bootstrap'))), 'fonts', 'glyphicons-halflings-regular.woff2'),
+  path.resolve(__dirname, 'public', 'fonts', 'glyphicons-halflings-regular.woff2'),
+  function(err) {
+    if (err) console.error(err);
+    else console.log('copied bootstrap 2');
   });
   
 copy(
