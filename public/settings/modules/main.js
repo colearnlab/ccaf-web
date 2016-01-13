@@ -16,7 +16,7 @@ requirejs.config({
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(exports, checkerboard, m, clientUtil) {	 
+define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'], function(exports, checkerboard, m, _, clientUtil) {	 
   var wsAddress = 'ws://' + window.location.hostname + ':' + (clientUtil.parameter('port') || '1808');
   var stm = new checkerboard.STM(wsAddress);
   var selected, classroom = null, device;
@@ -41,6 +41,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(ex
             this.passcode = passcode;
           else
             this.passcode = null;
+        });
+        
+      stm.action('changeName')
+        .onReceive(function(name) {
+          this.name = name;
         });
     
     store.sendAction('init');
@@ -98,8 +103,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(ex
   var component = {
     'controller': function(args) {
       return {
-        'cur': m.prop(),
-        'tabs': ["Security", "Classrooms", "Students"]
+        'cur': m.prop("Students"),
+        'tabs': ["Security", "Students"]
       };
     },
     'view': function(ctrl, store) {
@@ -147,5 +152,73 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(ex
           }, "Save")
         )
       );
+      
+    if (tab === 'Students')
+      return m('.row',
+        m('.col-xs-6.col-sm-6.col-md-6', {'style': 'padding: 0'},
+          m('.panel.panel-default', {'style': 'border-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0'},
+            m('.panel-heading', "Classrooms"),
+            m('.panel-body', {'style': 'padding: 0; height: 60vh'}, 
+              m('table.table.table-hover',
+                m('tbody',
+                  _.pairs(store.classrooms).map(function(kvPair) {
+                    return m.component(classroomRow, kvPair[1]);
+                  })
+                )
+              )
+            )
+          )
+        ),
+        m('.col-xs-6.col-sm-6.col-md-6', {'style': 'padding: 0'},
+          m('.panel.panel-default', {'style': 'border-top-left-radius: 0; border-bottom-left-radius: 0'},
+            m('.panel-heading', "Students"),
+              m('.panel-body', {'style': 'padding: 0; height: 60vh'}, "hi")
+          )
+        )
+      );
   }
+  
+  var classroomRow = {
+    'controller': function(args) {
+      return {
+        'active': m.prop(false),
+        'edit': m.prop(false)
+      };
+    },
+    'view': function(ctrl, args) {
+      return m('tr', m('td', {
+        'config': function(el) {
+          el.addEventListener('click', function(e) {
+            if (!ctrl.active()) {
+              e.target.classList.add('info');
+              ctrl.active(true);
+            } else {
+              ctrl.edit(true);
+              m.redraw(true);
+            }
+          });
+        }
+      }, !ctrl.edit() ? args.name :
+        m('input.form-control.input-sm', {
+          'value': args.name,
+          'config': function(el) {
+            el.focus();
+          },
+          'oninput': function(e) {
+            args.sendAction('changeName', e.target.value);
+          },
+          'onblur': function(e) {
+            ctrl.edit(false);
+            m.redraw(true);
+          },
+          'onkeydown': function(e) {
+            if (e.keyCode === 13) {
+              ctrl.edit(false);
+              m.redraw(true);
+            }
+          }
+        })
+      ));
+    }
+  };
 });
