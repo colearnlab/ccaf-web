@@ -34,6 +34,14 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(ex
           classroom.users = classroom.users || {};
         }
       });
+      
+      stm.action('setPasscode')
+        .onReceive(function(passcode) {
+          if (!isNaN(passcode) && isFinite(passcode))
+            this.passcode = passcode;
+          else
+            this.passcode = null;
+        });
     
     store.sendAction('init');
         
@@ -41,9 +49,51 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(ex
     var classroomObserver = function(newValue, oldValue) {
       m.redraw(true);
     };
-    
-    m.mount(document.getElementById('navs'), m.component(component, store));
+      m.mount(document.getElementById('navs'), m.component(store.config.passcode !== "" && store.config.passcode !== null ? lock : component, store));
   });
+  
+  var lock = {
+    'controller': function(args) {
+      return {
+      
+      };
+    },
+    'view': function(ctrl, store) {
+      return m('.container',
+        m('.row',
+          m('.col-xs-4.col-xs-offset-4.col-sm-4.col-sm-offset-4.col-md-4.col-md-offset-4',
+            m('.panel.panel-default', 
+              m('.panel-heading', "Enter passcode"),
+              m('panel-body',
+                m('.form-group', {'style': 'width: 80%; margin: 0 auto; margin-top: 1em'},
+                  m('input.form-control#passcode[type=\'password\']')
+                ),
+                [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], [null, "0", null]].map(function(row, i) {
+                  return m((i === 3 ? 'div' : '.btn-group'), {'style': 'margin: 0 auto; width: 80%; left: 10%; margin-top: 1em'},
+                    row.map(function(key) {
+                      return m('button.btn.btn-default', {
+                        'style': 'width: 33%; ' + (key === null ? 'visibility: hidden' : ''),
+                        'onclick': function() {
+                          var passcode = document.getElementById('passcode');
+                          passcode.value += key;
+                          if (passcode.value.length === 4) {
+                            if (passcode.value == store.config.passcode)
+                              m.mount(document.getElementById('navs'), m.component(component, store));
+                            else
+                              passcode.value = "";
+                          }
+                        }
+                      }, key);
+                    })
+                  );
+                }), m.trust("&nbsp;")
+              )
+            )
+          )
+        )
+      );
+    }
+  };
   
   var component = {
     'controller': function(args) {
@@ -69,6 +119,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(ex
     }
   };
   
+  var tmpPasscode;
   function getPanel(tab, store) {
     if (tab === 'Security')
       return m('.form-inline',
@@ -79,12 +130,21 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil'], function(ex
             'max': 9999,
             'style': 'width: 12em',
             'placeholder': "No passcode",
+            'value': typeof tmpPasscode !== 'undefined' ? tmpPasscode : store.config.passcode,
             'oninput': function(e) {
-              document.getElementById('passcodeSave').disabled = !(e.target.value.toString().length === 0) && isNaN(e.target.value) || !isFinite(e.target.value) || e.target.value.toString().length != 4;
+              document.getElementById('passcodeSave').innerHTML = "Save";
+              tmpPasscode = e.target.value;
+              document.getElementById('passcodeSave').disabled = e.target.value.toString().length > 0 && (isNaN(e.target.value) || !isFinite(e.target.value) || e.target.value.toString().length != 4);
             }
           }),
           m.trust("&nbsp"),
-          m('button.btn.btn-default#passcodeSave', "Save")
+          m('button.btn.btn-default#passcodeSave', {
+            'onclick': function(e) {
+              store.config.sendAction('setPasscode', document.getElementById('passcode').value);
+              console.log(e.target.value);
+              e.target.innerHTML = "Saved &#10003;";
+            }
+          }, "Save")
         )
       );
   }
