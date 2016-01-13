@@ -43,10 +43,12 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
             this.passcode = null;
         });
         
-      stm.action('changeName')
-        .onReceive(function(name) {
-          this.name = name;
+      stm.action('setProperty')
+        .onReceive(function(prop, val) {
+          this[prop] = val;
         });
+        
+      stm.action
     
     store.sendAction('init');
         
@@ -157,12 +159,19 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
       return m('.row',
         m('.col-xs-6.col-sm-6.col-md-6', {'style': 'padding: 0'},
           m('.panel.panel-default', {'style': 'border-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0'},
-            m('.panel-heading', "Classrooms"),
+            m('.panel-heading',
+              m.trust("Classrooms&nbsp;"),
+              m('button.btn.btn-default.btn-xs', {
+                'onclick': function() {
+                  store.classrooms.sendAction('setProperty', Math.max.apply(null, _.keys(store.classrooms).map(function(val) { return val.toString() })) + 1, {'users': {}, 'configuration': {'apps': {}, 'users': {}}, 'name': 'New classroom'});
+                  m.redraw(true);
+                }
+              }, "+")),
             m('.panel-body', {'style': 'padding: 0; height: 60vh'}, 
               m('table.table.table-hover',
                 m('tbody',
                   _.pairs(store.classrooms).map(function(kvPair) {
-                    return m.component(classroomRow, kvPair[1]);
+                    return m.component(classroomRow, _.extend(kvPair[1], {'id': kvPair[0]}));
                   })
                 )
               )
@@ -171,13 +180,27 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
         ),
         m('.col-xs-6.col-sm-6.col-md-6', {'style': 'padding: 0'},
           m('.panel.panel-default', {'style': 'border-top-left-radius: 0; border-bottom-left-radius: 0'},
-            m('.panel-heading', "Students"),
-              m('.panel-body', {'style': 'padding: 0; height: 60vh'}, "hi")
+            m('.panel-heading', 
+              m.trust("Students&nbsp;"),
+              (activeClassroom > 0 ? m('button.btn.btn-default.btn-xs', {
+              
+              }, "+") : '')
+            ),
+            m('.panel-body', {'style': 'padding: 0; height: 60vh'}, 
+              m('table.table.table-hover',
+                m('tbody',
+                  _.pairs((store.classrooms[activeClassroom] || {}).users).map(function(kvPair) {
+                    return m.component(studentRow, _.extend(kvPair[1], {'id': kvPair[0]}));
+                  })
+                )
+              )
+            )
           )
         )
       );
   }
   
+  var activeClassroom;
   var classroomRow = {
     'controller': function(args) {
       return {
@@ -188,15 +211,22 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
     'view': function(ctrl, args) {
       return m('tr', m('td', {
         'config': function(el) {
-          el.addEventListener('click', function(e) {
-            if (!ctrl.active()) {
-              e.target.classList.add('info');
-              ctrl.active(true);
-            } else {
-              ctrl.edit(true);
-              m.redraw(true);
+          el.active = ctrl.active;
+        },
+        'onclick': function(e) {
+          if (!ctrl.active()) {
+            var others = e.target.parentNode.parentNode.children;
+            for (var i = 0; i < others.length; i++) {
+              others[i].children[0].classList.remove('info');
+              others[i].children[0].active(false);
             }
-          });
+            e.target.classList.add('info');
+            ctrl.active(true);
+            activeClassroom = args.id;
+          } else {
+            ctrl.edit(true);
+            m.redraw(true);
+          }
         }
       }, !ctrl.edit() ? args.name :
         m('input.form-control.input-sm', {
@@ -205,7 +235,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
             el.focus();
           },
           'oninput': function(e) {
-            args.sendAction('changeName', e.target.value);
+            args.sendAction('setProperty', 'name', e.target.value);
           },
           'onblur': function(e) {
             ctrl.edit(false);
@@ -219,6 +249,17 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
           }
         })
       ));
+    }
+  };
+  
+  var studentRow = {
+    'controller': function(args) {
+      return {
+      
+      };
+    },
+    'view': function(ctrl, args) {
+      return m('tr', m('td', args.name));
     }
   };
 });
