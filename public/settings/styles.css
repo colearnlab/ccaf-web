@@ -1,0 +1,42 @@
+.stretch {height: 100%}
+
+.icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 128px;
+  text-align: center;
+  border: 3px solid transparent;
+  border-radius: 10px;
+}
+
+.icon img {
+  padding: 0;
+  width: 64px;
+
+}
+
+.createdIcon{
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 128px;
+  text-align: center;
+}
+
+.menu {
+  border-top: 0;
+}
+
+#overhead {
+  position: relative;
+  top: 42px;
+}
+
+.dim {
+  opacity: 0.5;
+}
+
+.drop-active {
+  border: 3px darkgray dashed;
+}
