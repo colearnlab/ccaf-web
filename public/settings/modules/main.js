@@ -134,7 +134,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
           }, "Save")
         )
       );
-      
+    
     if (tab === 'Students')
       return m('.row',
         m('.alert.alert-info', "Tap a classroom to view its students. Double-click or tap an entry to edit or delete it."),
@@ -144,7 +144,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
               m.trust("Classrooms&nbsp;"),
               m('button.btn.btn-default.btn-xs', {
                 'onclick': function() {
-                  store.classrooms.sendAction('setProperty', Math.max.apply(null, _.keys(store.classrooms).map(function(val) { return val.toString() })) + 1, {'users': {}, 'configuration': {'apps': {}, 'users': {}}, 'name': 'New classroom'});
+                  var id = 0;
+                  if (_.keys(store.classrooms).length > 0)
+                    id = Math.max.apply(null, _.keys(store.classrooms).map(function(val) { return val.toString() })) + 1;
+                  store.classrooms.sendAction('setProperty', id, {'users': {}, 'configuration': {'apps': {}, 'users': {}}, 'name': 'New classroom'});
                   m.redraw(true);
                 }
               }, "+")),
@@ -166,7 +169,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
               m('button.btn.btn-default.btn-xs', {
                 'style': (activeClassroom >= 0 ? '' : 'visibility: hidden'),
                 'onclick': function() {
-                  store.classrooms[activeClassroom].users.sendAction('setProperty', Math.max.apply(null, _.keys(store.classrooms[activeClassroom].users).map(function(val) { return val.toString() })) + 1, {'name': 'New student'});
+                  var id = 0;
+                  if (_.keys(store.classrooms[activeClassroom].users).length > 0)
+                    id = Math.max.apply(null, _.keys(store.classrooms[activeClassroom].users).map(function(val) { return val.toString() })) + 1;
+                  store.classrooms[activeClassroom].users.sendAction('setProperty', id, {'name': 'New student'});
                   m.redraw(true);
                 }
               }, "+")
