@@ -1,22 +1,8 @@
-requirejs.config({
-  'paths': {
-    'interact': '/lib/interact',
-    'mithril': '/lib/mithril',
-    'checkerboard': '/lib/checkerboard',
-    'cookies': '/shared/cookies',
-    'clientUtil': '/shared/clientUtil',
-    'underscore': '/lib/underscore'
-  },
-  'shim': {
-    'underscore': {
-      'exports': '_'
-    }
-  }
-});
+{{> rjsConfig}}
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'], function(exports, checkerboard, m, _, clientUtil) {	 
+define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock'], function(exports, checkerboard, m, _, pinLock) {	 
   var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
   var stm = new checkerboard.STM(wsAddress);
   var selected, classroom = null, device;
@@ -59,59 +45,25 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
     var observer = function(newValue, oldValue) {
       m.redraw(true);
     };
-    m.mount(document.getElementById('navs'), m.component(store.config.passcode !== "" && store.config.passcode !== null ? lock : component, store));
-  
+    
+    var navs = document.getElementById('navs');
+    var callback = function() {
+      m.mount(navs, m.component(component, store));
+    }
+    
+    if (store.config.passcode !== "" || store.config.passcode)
+      pinLock.lock(store.config.passcode, navs, callback);
+    else
+      callback();
+      
     store.addObserver(observer);
   });
-  
-  var lock = {
-    'controller': function(args) {
-      return {
-      
-      };
-    },
-    'view': function(ctrl, store) {
-      return m('.container',
-        m('.row',
-          m('.col-xs-4.col-xs-offset-4.col-sm-4.col-sm-offset-4.col-md-4.col-md-offset-4',
-            m('.panel.panel-default', 
-              m('.panel-heading', "Enter passcode"),
-              m('panel-body',
-                m('.form-group', {'style': 'width: 80%; margin: 0 auto; margin-top: 1em'},
-                  m('input.form-control#passcode[type=\'password\']')
-                ),
-                [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], [null, "0", null]].map(function(row, i) {
-                  return m((i === 3 ? 'div' : '.btn-group'), {'style': 'margin: 0 auto; width: 80%; left: 10%; margin-top: 1em'},
-                    row.map(function(key) {
-                      return m('button.btn.btn-default', {
-                        'style': 'width: 33%; ' + (key === null ? 'visibility: hidden' : ''),
-                        'onclick': function() {
-                          var passcode = document.getElementById('passcode');
-                          passcode.value += key;
-                          if (passcode.value.length === 4) {
-                            if (passcode.value == store.config.passcode)
-                              m.mount(document.getElementById('navs'), m.component(component, store));
-                            else
-                              passcode.value = "";
-                          }
-                        }
-                      }, key);
-                    })
-                  );
-                }), m.trust("&nbsp;")
-              )
-            )
-          )
-        )
-      );
-    }
-  };
   
   var component = {
     'controller': function(args) {
       return {
-        'cur': m.prop("Status"),
-        'tabs': ["Status", "Security", "Students", "Networking"]
+        'cur': m.prop("Server"),
+        'tabs': ["Server", "Security", "Students", "Networking"]
       };
     },
     'view': function(ctrl, store) {
@@ -135,8 +87,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
   var ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
   var portRegex = /^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/;
   function getPanel(tab, store) {   
-    if (tab === "Status")
-      return m('div', 
+    if (tab === "Server")
+      return m('div',
+        m('.alert.alert-danger', "If the server is stopped, you will have to restart it from the physical device location."),
+        m('.alert.alert-warning', "If the server is stopped or restarted, all users will be disconnected."),
         m('button.btn.btn-warning', {
           'onclick': function(e) {
             stm.ws.send(JSON.stringify({'channel': 'restart'}));
@@ -293,7 +247,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
       };
     },
     'view': function(ctrl, args) {
-      return m('tr', m('td.hover-activate', {
+      return m('tr' + (activeClassroom === args.id ? '.info' : ''), m('td.hover-activate', {
         'config': function(el) {
           el.active = ctrl.active;
         },
@@ -315,7 +269,9 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'clientUtil'
         }
       }, !ctrl.edit() ? [args.name, m('span.glyphicon.glyphicon-remove.hover-hide.pull-right', {
         'onclick': function(e) {
+          activeClassroom = undefined;
           args.del();
+          m.redraw(true);
         }
         })] :
         m('input.form-control.input-sm', {
