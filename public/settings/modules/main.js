@@ -1,25 +1,24 @@
+// this snippet configures the location of requirejs modules. every main module
+// must have this snippet, so this prevents copy and paste
 {{> rjsConfig}}
 
+// prevent collisions in electron.
 module = null;
 
 define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', 'autoconnect'], function(exports, checkerboard, m, _, pinLock, autoconnect) {	 
   var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
   var stm = new checkerboard.STM(wsAddress);
+  
+  // autoconnect displays a modal and reconnects when the connection is dropped.
   autoconnect.monitor(stm.ws);
   
-  var selected, classroom = null, device;
-  
   stm.init(function(store) {
+    // the init function ensures that the store is properly formed and is not missing anything.
     stm.action('init')
       .onReceive(function() {
         this.classrooms = this.classrooms || {};
-        var classroom;
         for (c in this.classrooms) {
-          classroom = this.classrooms[c];
-          classroom.configuration = classroom.configuration || {};
-          classroom.configuration.apps = classroom.configuration.apps || {};
-          classroom.configuration.users = classroom.configuration.users || {};
-          classroom.users = classroom.users || {};
+          this.classrooms[c].users = this.classrooms[c].users || {};
         }
       });
       
@@ -48,13 +47,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
       m.redraw(true);
     };
     
-    var navs = document.getElementById('navs');
+    var el = document.getElementById('root');
     var callback = function() {
-      m.mount(navs, m.component(component, store));
+      m.mount(el, m.component(component, store));
     }
     
     if (store.config.passcode !== "" || store.config.passcode)
-      pinLock.lock(store.config.passcode, navs, callback);
+      pinLock.lock(store.config.passcode, el, callback);
     else
       callback();
       
@@ -74,7 +73,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
         m('.row',
           m('.col-xs-3.col-sm-3.col-md-3',
             m('ul.nav.nav-pills.nav-stacked',
-              ctrl.tabs.map(function(text, i) { return m('li' + (ctrl.cur() === text ? '.active' : ''), m('a', {'onclick': ctrl.cur.bind(null, text)}, text)); })
+              ctrl.tabs.map(function(text, i) {
+                return m('li' + (ctrl.cur() === text ? '.active' : ''),
+                  m('a', {
+                    'onclick': ctrl.cur.bind(null, text)
+                  }, text)
+                ); 
+              })
             )
           ),
           m('.col-xs-9.col-sm-9.col-md-9',
@@ -113,8 +118,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
         m('.form-group',
           m('.alert.alert-info', "Enter a four-digit numeric pin code that needs to be entered whenever a teacher or admin console is accessed, or leave blank for no passcode."),
           m('input.form-control#passcode[type=\'number\']', {
-            'min': 1000,
-            'max': 9999,
             'style': 'width: 12em',
             'placeholder': "No passcode",
             'value': tmpConfig && typeof tmpConfig.passcode !== 'undefined' ? tmpConfig.passcode : store.config.passcode,

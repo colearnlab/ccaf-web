@@ -1,6 +1,8 @@
 var fs = require('fs');
 var path = require('path');
 
+// this super simple build script copies over files from node_modules into our public folder.
+
 // http://stackoverflow.com/questions/11293857/fastest-way-to-copy-file-in-node-js 
 function copy(source, target, cb) {
   var cbCalled = false;

@@ -24,7 +24,9 @@ define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exp
   
   clientUtil.css('/shared/modal.css', true);
   
-  exports.display = function(text, args) {
+  // configuration options:
+  // - dismissable [true]: if false, user cannot exit out of modal.
+  exports.display = function(text, config) {
     var container;
     if ((container = document.getElementById('modal-container')) === null) {
       container = document.createElement('div');
@@ -32,7 +34,17 @@ define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exp
       document.body.appendChild(container)
     }
     
-    m.mount(container, m.component(modal, _.extend(args, {'text': text})));
+    if (!config)
+      config = {};
+    _.defaults(config, {
+      'dismissable': true
+    });
+    m.mount(container, m.component(modal, _.extend(config, {'text': text})));
   };
   
+  exports.close = function() {
+    var el = document.getElementById('modal-container');
+    if (!el) return;
+    el.parentNode.removeChild(el);
+  };
 });
