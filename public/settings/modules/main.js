@@ -2,9 +2,11 @@
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock'], function(exports, checkerboard, m, _, pinLock) {	 
+define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', 'autoconnect'], function(exports, checkerboard, m, _, pinLock, autoconnect) {	 
   var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
   var stm = new checkerboard.STM(wsAddress);
+  autoconnect.monitor(stm.ws);
+  
   var selected, classroom = null, device;
   
   stm.init(function(store) {

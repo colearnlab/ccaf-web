@@ -1,4 +1,4 @@
-define('modal', ['exports', 'mithril', 'clientUtil'], function(exports, m, clientUtil) {  
+define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exports, m, clientUtil, _) {  
   var modal = {
     'controller': function(args) {
       return {
@@ -9,20 +9,22 @@ define('modal', ['exports', 'mithril', 'clientUtil'], function(exports, m, clien
       if (ctrl.display())
         return m('div#modal', {
           'onclick': function(e) {
-            ctrl.display(false);
+            if (args.dismissable)
+              ctrl.display(false);
           }
         }, [
+          m('span.xmark', m.trust(args.dismissable ? "&#x2716;" : "")),
           m('span', m.trust(args.text)),
-          m('div.close-text', 'Tap to close')
+          m('div.close-text', args.dismissable ? "Tap to close" : "")
         ]);
         
       else return m('span');
     }
   }
   
-  clientUtil.css('/client/modal.css', true);
+  clientUtil.css('/shared/modal.css', true);
   
-  exports.display = function(text) {
+  exports.display = function(text, args) {
     var container;
     if ((container = document.getElementById('modal-container')) === null) {
       container = document.createElement('div');
@@ -30,6 +32,7 @@ define('modal', ['exports', 'mithril', 'clientUtil'], function(exports, m, clien
       document.body.appendChild(container)
     }
     
-    m.mount(container, m.component(modal, {'text': text}));
+    m.mount(container, m.component(modal, _.extend(args, {'text': text})));
   };
+  
 });
