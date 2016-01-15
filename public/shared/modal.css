@@ -24,4 +24,4 @@
 .frozen { opacity: 0.25; pointer-events: none; }
 /** {cursor: none;}*/
 
-.xmark { height: 30pt; width: 30pt; font-size: 20pt; position: absolute; top: 0; right: 0; padding: 0; margin: 0 }
+.xmark {color: lightgray; height: 30pt; width: 30pt; font-size: 16pt; position: absolute; top: 0; right: 0; padding: 0; margin: 0 }

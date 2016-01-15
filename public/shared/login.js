@@ -24,8 +24,8 @@ define('login', ['exports', 'mithril', 'underscore'], function(exports, m, _) {
           m('.row', [
             m('br'),
             m('.col-xs-10.col-xs-offset-1.col-sm-6-col-sm-offset-3.col-md-4.col-md-offset-4', [
-            m('.alert.alert-success', "Welcome! Log in to get started."),
-            m('h4', 'Select a classroom'),
+              m('.alert.alert-info', "Log in to get started:"),
+              m('h4', 'Select a classroom'),
               Object.keys(args.store.classrooms).map(function(classroomId) {
                 return m('a.list-group-item', {
                   'onclick': function() {

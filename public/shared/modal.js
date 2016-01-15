@@ -13,7 +13,7 @@ define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exp
               ctrl.display(false);
           }
         }, [
-          m('span.xmark', m.trust(args.dismissable ? "&#x2716;" : "")),
+          m('span.xmark', m.trust(args.dismissable ? "x" : "")),
           m('span', m.trust(args.text)),
           m('div.close-text', args.dismissable ? "Tap to close" : "")
         ]);

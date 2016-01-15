@@ -1,20 +1,19 @@
 @import "http://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css";
 
 .frozen { opacity: 0.25; pointer-events: none; }
-/** {cursor: none;}*/
-body {
+body{
   -webkit-backface-visibility: hidden;
+  background-color: #eeeeee;
+  transition: background-color 1s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
+
+.logged-in{
+  background-color: #298FCA;
+}
+
 html, body {
-  background-color: #222222;
   overflow: hidden;
   height: 100%;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
 }
 #app {
   height: 100%; width: 100%;
