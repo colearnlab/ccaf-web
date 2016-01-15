@@ -15,13 +15,16 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       });
       
     stm.action('create-app-instance')
-      .onReceive(function(classroom, app) {
+      .onReceive(function(classroom, app, title, rval) {
         var instances = this.classrooms[classroom].configuration.instances;
         var id = 0;
         if (_.keys(instances).length > 0)
           id = Math.max.apply(null, _.keys(instances).map(function(val) { return val.toString() })) + 1;
 
-        instances[id] = new Instance(app);
+        instances[id] = new Instance(app, title);
+        
+        if (typeof rval !== 'undefined')
+          rval.instanceId = id;
       });
       
     stm.action('delete-app-instance')
@@ -38,8 +41,9 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
   
   
       
-  function Instance(app, config) {
+  function Instance(app, title, config) {
     this.app = app;
+    this.title = title;
     this.config = config || {};
   }
 });

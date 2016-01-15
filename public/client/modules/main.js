@@ -19,6 +19,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
   var deviceObserver, loadApp;
   stm.init(function(store) {
     configurationActions.load(stm);
+    store.sendAction('init');
     var el = document.getElementById('root');
     login.display(el, {
       'student': true,
@@ -34,7 +35,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     'controller': function(args) {
       return {
         'state': m.prop(0),
-        'selectedApp': m.prop(null)
+        'selectedApp': m.prop(null),
+        'instanceTitle': m.prop(null)
       };
     },
     'view': function(ctrl, args) {
@@ -45,11 +47,12 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       var contents;
       if (ctrl.state() === 0)
         contents = [
-          m('.alert.alert-info', "Howdy ", m('strong', classroom.users[student].name), "! Pick a room or create your own. ", m('small', {'onclick': function() { location.reload() }}, m('a', "(Not you? Click here)"))),
+          m('.alert.alert-info', "Howdy ", m('strong', classroom.users[student].name), "! Pick a room or create your own. ", m('small', {'onclick': function() { location.reload() }}, m('a', "(That's not me)"))),
           m('.list-group',
             _.keys(classroom.configuration.instances).map(function(instance) {
+              instance = classroom.configuration.instances[instance];
               return m('a.list-group-item',
-                m('.list-group-item-heading', instance.name || apps[instance.app].name),
+                m('h4.list-group-item-heading', instance.title || apps[instance.app].title),
                 m('.list-group-item-text', "With ...")
               );
             }),
@@ -72,13 +75,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
                       'src': '/apps/' + app + '/' + store.apps[app].icon,
                       'onclick': function(e) {
                         ctrl.selectedApp(app);
+                        ctrl.instanceTitle(classroom.users[student].name + "\'s " + store.apps[app].title);
                         ctrl.state(2);
-                      },
-                      'onmouseover': function(e) {
-                        e.target.parentNode.style['opacity'] = 1;
-                      },
-                      'onmouseout': function(e) {
-                        e.target.parentNode.style['opacity'] = 0.6;
                       }
                     }),
                     m('p', store.apps[app].title)
@@ -94,9 +92,24 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
             m('.panel-heading', m('span.glyphicon.glyphicon-chevron-left.hoverlight', {'onclick': function() { ctrl.state(1); }}), " Create a room: create a name"),
             m('.panel-body',
               m('#instanceName',
-                m('div',
+                m('.selectedApp',
                   m('img', {'src': '/apps/' + ctrl.selectedApp() + '/' + store.apps[ctrl.selectedApp()].icon}),
                   m('p', store.apps[ctrl.selectedApp()].title)
+                ),
+                m('.input-group',
+                  m('input.form-control.input-lg', {
+                    'value': ctrl.instanceTitle(),
+                    'oninput': m.withAttr('value', ctrl.instanceTitle)
+                  }),
+                  m('span.input-group-btn',
+                    m('button.btn.btn-primary.btn-lg', {
+                      'onclick': function() {
+                        var rval = {};
+                        store.sendAction('create-app-instance', args.classroom, ctrl.selectedApp(), ctrl.instanceTitle(), rval);
+                        store.sendAction('associate-user-to-instance', args.classroom, args.student, rval.instanceId);
+                      }
+                    }, "Go!")
+                  )
                 )
               )
             )

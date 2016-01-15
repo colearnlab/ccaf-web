@@ -26,8 +26,10 @@ iframe {
 
 #classroom { transition: opacity 0.5s cubic-bezier(0.215, 0.61, 0.355, 1); }
 #apps { text-align: center; }
-#instanceName {  text-align: center }
+#instanceName {  text-align: center; opacity: 1 }
+.selectedApp { display: inline-block }
 .app { display: inline-block; opacity: 0.6; }
+.app:hover { opacity: 1}
 .app img {padding: 1em 2em 0em 2em}
 .hoverlight {opacity: 0.75; transition: opacity 0.25s;}
 .hoverlight:hover {opacity: 1}
