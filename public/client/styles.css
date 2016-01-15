@@ -4,7 +4,7 @@
 body{
   -webkit-backface-visibility: hidden;
   background-color: #eeeeee;
-  transition: background-color 1s cubic-bezier(0.215, 0.61, 0.355, 1);
+  transition: background-color 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 
 .logged-in{
@@ -22,8 +22,18 @@ iframe {
   border: none; height: 100%; width: 100%; min-height: 100%;
 }
 
+.dim { opacity: 0.25; }
+
+#classroom { transition: opacity 0.5s cubic-bezier(0.215, 0.61, 0.355, 1); }
+#apps { text-align: center; }
+#instanceName {  text-align: center }
+.app { display: inline-block; opacity: 0.6; }
+.app img {padding: 1em 2em 0em 2em}
+.hoverlight {opacity: 0.75; transition: opacity 0.25s;}
+.hoverlight:hover {opacity: 1}
+
 /* source: http://creative-punch.net/2014/02/making-animated-radial-menu-css3-javascript/ */
-.circular-menu {
+.circular-menu  {
   pointer-events: none;
   width: 250px;
   height: 250px;
