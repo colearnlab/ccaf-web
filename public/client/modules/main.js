@@ -74,20 +74,29 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
                 && classroom.configuration.userInstanceMapping[args.student] in classroom.configuration.instances
                 && classroom.configuration.instances[classroom.configuration.userInstanceMapping[args.student]];
             }).map(function(user) {
+              var users = _.keys(classroom.configuration.userInstanceMapping).map(function(user) {
+                if (classroom.configuration.userInstanceMapping[user] == classroom.configuration.userInstanceMapping[args.student] && user != args.student)
+                  return classroom.users[user].name;
+                }).filter(function(name) { return name; });
               return m('a.list-group-item', {
                   'onclick': function(e) {
                     ctrl.state(3);
                   }
                 },
-                m('h4.list-group-item-heading', "Return to " + classroom.configuration.instances[classroom.configuration.userInstanceMapping[args.student]].title)
+                m('h4.list-group-item-heading', "Return to " + classroom.configuration.instances[classroom.configuration.userInstanceMapping[args.student]].title),
+                m('.list-group-item-text', users.length > 0 ? [m('span.glyphicon.glyphicon-user'), m.trust("&nbsp;"), users.join(", ")] : "")
               );
             })
           ),
           m('.list-group',
             _.keys(classroom.configuration.instances).filter(function(instance) {
-              return classroom.configuration.instances[instance];
+              return classroom.configuration.instances[instance] && classroom.configuration.userInstanceMapping[args.student] != instance;
             }).map(function(instance) {
               var instanceId = instance;
+              var users = _.keys(classroom.configuration.userInstanceMapping).map(function(user) {
+                if (classroom.configuration.userInstanceMapping[user] == instanceId)
+                  return classroom.users[user].name;
+                }).filter(function(name) { return name; });
               instance = classroom.configuration.instances[instance];
               return m('a.list-group-item', {
                   'onclick': function(e) {
@@ -96,11 +105,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
                   }
                 },
                 m('h4.list-group-item-heading', instance.title || apps[instance.app].title),
-                m('.list-group-item-text', "With " + _.keys(classroom.configuration.userInstanceMapping).map(function(user) {
-                  if (classroom.configuration.userInstanceMapping[user] == instanceId)
-                    return classroom.users[user].name;
-                  }).filter(function(name) { return name; }).join(", ")
-                )
+                m('.list-group-item-text', users.length > 0 ? [m('span.glyphicon.glyphicon-user'), m.trust("&nbsp;"), users.join(", ")] : "")
               );
             }),
             m('a.list-group-item', {

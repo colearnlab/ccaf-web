@@ -56,9 +56,12 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
         
       action('add-point')
         .onReceive(function(identifier, x, y) {
+          try {
           if (curPath[identifier] >= 0) {
             deviceState.paths[curPath[identifier]].sendAction('add-point-2', x, y);
           }
+          } catch (e) { debugger; }
+          
           return false;
         })
         
@@ -79,8 +82,10 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
         
       action('undo')
         .onReceive(function(path) {
+          debugger;
+          curPath = {};
           if (lastPath.length > 0)
-            delete this.paths[lastPath.pop()];
+            this.paths[lastPath.pop()] = 0;
         });
         
       action('clear-screen')
@@ -97,7 +102,9 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
           deviceState.sendAction('create-path', 0);
         else {
           curPath[0] *= -1;
-          deviceState.paths[curPath[0]].sendAction('set-pen');
+          try {
+            deviceState.paths[curPath[0]].sendAction('set-pen');
+          } catch(e) { debugger; }
           lastPath.push(curPath[0]);
         }
         deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop);
@@ -150,14 +157,15 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
       var path;
       oldPaths = oldPaths || [];
       
-      if (newPaths.length < oldPaths.length) {
+      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length) {
         oldPaths = [];
-        lastPath = [];
+        curPath = {};
         clearScreen();
       }
       
+      console.log(newPaths.filter(Boolean));
       newPaths.forEach(function(newPath, i) {
-        if (newPath.length === 0)
+        if (!newPath || newPath.length === 0)
           return;
           
         ctx.strokeStyle = newPath[0].strokeStyle;
