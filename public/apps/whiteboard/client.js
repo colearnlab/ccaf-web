@@ -4,7 +4,7 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
     var deviceState, canvas, ctx, pen = {'strokeStyle': '#ff0000', 'lineWidth': 10};
     
     createActions();
-    store.sendAction('init');
+    store.sendAction('wb-init');
     deviceState = store.deviceState[params.device];
 
     initElements();
@@ -35,7 +35,7 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
     
     var curPath = {}, lastPath = [];
     function createActions() {
-      action('init')
+      action('wb-init')
         .onReceive(function() {
           if (typeof this.deviceState === 'undefined')
             this.deviceState = {};

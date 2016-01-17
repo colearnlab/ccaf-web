@@ -30,7 +30,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
     stm.action('delete-app-instance')
       .onReceive(function(classroom, id) {
         var instances = this.classrooms[classroom].configuration.instances;
-        delete instances[id];
+        instances[id] = null;
       });
       
     stm.action('associate-user-to-instance')
@@ -44,6 +44,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
   function Instance(app, title, config) {
     this.app = app;
     this.title = title;
+    this.root = {};
     this.config = config || {};
   }
 });
