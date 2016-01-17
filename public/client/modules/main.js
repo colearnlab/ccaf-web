@@ -32,7 +32,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       m.mount(el, m.component(appSelector, {'classroom': classroom, 'student': student, 'store': store}));
     });
     
+    var loadedApp;
     loadApp = function(instanceId) {
+      if (instanceId === loadedApp)
+        return;
+      loadedApp = instanceId;
       var app = store.classrooms[classroom].configuration.instances[instanceId].app;
       requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
         var params = {
@@ -170,7 +174,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
           
       return m('div', {
         'config': function(el) {
-          el.parentNode.removeChild(el);
+          if (el.parentNode) el.parentNode.removeChild(el);
           loadApp(classroom.configuration.userInstanceMapping[args.student]);
         }
       });

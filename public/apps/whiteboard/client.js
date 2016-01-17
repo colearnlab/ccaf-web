@@ -2,7 +2,8 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
   var canvasHeight = 5000;
   exports.load = function(el, action, store, params) {
     var deviceState, canvas, ctx, pen = {'strokeStyle': '#ff0000', 'lineWidth': 10};
-    
+    var curPath = {}, lastPath = [];
+
     createActions();
     store.sendAction('wb-init');
     deviceState = store.deviceState[params.device];
@@ -33,7 +34,6 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
       ctx = canvas.getContext('2d');
     }
     
-    var curPath = {}, lastPath = [];
     function createActions() {
       action('wb-init')
         .onReceive(function() {
@@ -65,9 +65,6 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
       action('add-point-2')
         .onReceive(function(x, y) {
           this.push({'x': x, 'y': y});
-        })
-        .onRevert(function(identifier, x, y) {
-          debugger;
         });
         
       action('end-path')
@@ -116,6 +113,31 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
       
       canvas.addEventListener('mouseleave', function(e) {
         deviceState.sendAction('end-path', 0);
+      });
+      
+      canvas.addEventListener('touchstart', function(e) {
+        var touch;
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          touch = e.changedTouches[i];
+          if (typeof curPath[touch.identifier + 1] === 'undefined')
+            deviceState.sendAction('create-path', touch.identifier + 1);
+          else {
+            curPath[touch.identifier + 1] *= -1;
+            deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
+            lastPath.push(curPath[touch.identifier + 1]);
+          }
+          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].pageX, e.changedTouches[i].pageY + canvas.canvasTop);
+        }
+      });
+      
+      canvas.addEventListener('touchmove', function(e) {
+        for (var i = 0; i < e.changedTouches.length; i++)
+          deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, e.changedTouches[i].pageX, e.changedTouches[i].pageY + canvas.canvasTop);
+      });
+      
+      canvas.addEventListener('touchend', function(e) {
+        for (var i = 0; i < e.changedTouches.length; i++)
+          deviceState.sendAction('end-path', e.changedTouches[i].identifier + 1);
       });
       
       window.addEventListener('resize', function() {
