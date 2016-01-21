@@ -95,6 +95,8 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
       canvas.addEventListener('mousedown', function(e) {
         if (typeof curPath[0] === 'undefined')
           deviceState.sendAction('create-path', 0);
+        else if (curPath[0] >= 0)
+          return;
         else {
           curPath[0] *= -1;
           deviceState.paths[curPath[0]].sendAction('set-pen');
@@ -122,6 +124,8 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
           touch = e.changedTouches[i];
           if (typeof curPath[touch.identifier + 1] === 'undefined')
             deviceState.sendAction('create-path', touch.identifier + 1);
+          else if (curPath[touch.identifier] >= 0)
+            return;
           else {
             curPath[touch.identifier + 1] *= -1;
             deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
