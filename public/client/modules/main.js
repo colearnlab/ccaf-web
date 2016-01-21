@@ -30,9 +30,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       classroom = _classroom;
       student = _student;
       document.body.classList.add('logged-in');
+      m.mount(el, m.component(appSelector, {'classroom': classroom, 'student': student, 'store': store}));
       store.addObserver(function(newStore) {
         if (typeof loadedApp === 'undefined')
-          m.mount(el, m.component(appSelector, {'classroom': classroom, 'student': student, 'store': newStore}));
+          m.redraw(true);
       });
     });
     
@@ -85,6 +86,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
               return m('a.list-group-item', {
                   'onclick': function(e) {
                     ctrl.state(3);
+                    m.redraw(true);
                   }
                 },
                 m('h4.list-group-item-heading', "Return to " + classroom.configuration.instances[classroom.configuration.userInstanceMapping[args.student]].title),
@@ -106,6 +108,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
                   'onclick': function(e) {
                     store.sendAction('associate-user-to-instance', args.classroom, args.student, instanceId);
                     ctrl.state(3);
+                    m.redraw(true);
                   }
                 },
                 m('h4.list-group-item-heading', instance.title || apps[instance.app].title),
@@ -164,6 +167,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
                         store.sendAction('create-app-instance', args.classroom, ctrl.selectedApp(), ctrl.instanceTitle(), rval);
                         store.sendAction('associate-user-to-instance', args.classroom, args.student, rval.instanceId);
                         ctrl.state(3);
+                        m.redraw(true);
                       }
                     }, "Go!")
                   )
