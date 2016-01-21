@@ -56,12 +56,8 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
         
       action('add-point')
         .onReceive(function(identifier, x, y) {
-          try {
-          if (curPath[identifier] >= 0) {
+          if (curPath[identifier] >= 0)
             deviceState.paths[curPath[identifier]].sendAction('add-point-2', x, y);
-          }
-          } catch (e) { debugger; }
-          
           return false;
         })
         
@@ -82,7 +78,6 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
         
       action('undo')
         .onReceive(function(path) {
-          debugger;
           curPath = {};
           if (lastPath.length > 0)
             this.paths[lastPath.pop()] = 0;
@@ -102,12 +97,11 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
           deviceState.sendAction('create-path', 0);
         else {
           curPath[0] *= -1;
-          try {
-            deviceState.paths[curPath[0]].sendAction('set-pen');
-          } catch(e) { debugger; }
+          deviceState.paths[curPath[0]].sendAction('set-pen');
           lastPath.push(curPath[0]);
         }
         deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop);
+        deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop + 1);
       });
       
       canvas.addEventListener('mousemove', function(e) {
@@ -163,7 +157,6 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
         clearScreen();
       }
       
-      console.log(newPaths.filter(Boolean));
       newPaths.forEach(function(newPath, i) {
         if (!newPath || newPath.length === 0)
           return;
@@ -195,7 +188,8 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
   var Controls = {
     'controller': function() {
       return {
-        'colors': ['red', 'green', 'blue', 'black']
+        'colors': ['red', 'green', 'blue', 'black'],
+        'sliderValue': m.prop(canvasHeight)
       };
     },
     'view': function(ctrl, args) {
@@ -208,9 +202,10 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
             m('input#slider[type=range]', {
               min: 0,
               max: canvasHeight - window.innerHeight,
-              value: canvasHeight - window.innerHeight,
+              value: ctrl.sliderValue(),
               config: function(el) {
                 el.addEventListener('input', function(e) {
+                  ctrl.sliderValue(e.target.value);
                   canvas.canvasTop = (canvasHeight - window.innerHeight - e.target.value);
                   canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
                 });

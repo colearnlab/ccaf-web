@@ -22,6 +22,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     store.sendAction('init');
     var el = document.getElementById('root');
     var classroom, student;
+    store.addObserver(function(){});
     login.display(el, {
       'student': true,
       'store': store
@@ -29,7 +30,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       classroom = _classroom;
       student = _student;
       document.body.classList.add('logged-in');
-      m.mount(el, m.component(appSelector, {'classroom': classroom, 'student': student, 'store': store}));
+      store.addObserver(function(newStore) {
+        if (typeof loadedApp === 'undefined')
+          m.mount(el, m.component(appSelector, {'classroom': classroom, 'student': student, 'store': newStore}));
+      });
     });
     
     var loadedApp;
