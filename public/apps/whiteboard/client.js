@@ -47,6 +47,10 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
         .onReceive(function(identifier) {
           this.paths[this.paths.length] = [pen];
           lastPath.push(curPath[identifier] = this.paths.length - 1);
+        }).onRevert(function(identifier) {
+          console.log("reverted");
+          lastPath = [];
+          delete curPath[identifier];
         });
         
       action('set-pen')
@@ -74,13 +78,17 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
           } else {
             return false;
           }
+        })
+        .onRevert(function(identifier) {
+          console.log("reverted");
+          delete curPath[identifier];
         });
         
       action('undo')
         .onReceive(function(path) {
           curPath = {};
           if (lastPath.length > 0)
-            this.paths[lastPath.pop()] = 0;
+            this.paths[lastPath.pop()] = null;
         });
         
       action('clear-screen')
@@ -99,8 +107,12 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
           return;
         else {
           curPath[0] *= -1;
-          deviceState.paths[curPath[0]].sendAction('set-pen');
-          lastPath.push(curPath[0]);
+          if (!deviceState.paths[curPath[0]])
+            deviceState.sendAction('create-path', 0);
+          else {
+            deviceState.paths[curPath[0]].sendAction('set-pen');
+            lastPath.push(curPath[0]);
+          }
         }
         deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop);
         deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop + 1);
@@ -124,12 +136,16 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
           touch = e.changedTouches[i];
           if (typeof curPath[touch.identifier + 1] === 'undefined')
             deviceState.sendAction('create-path', touch.identifier + 1);
-          else if (curPath[touch.identifier] >= 0)
+          else if (curPath[touch.identifier + 1] >= 0)
             return;
           else {
             curPath[touch.identifier + 1] *= -1;
-            deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
-            lastPath.push(curPath[touch.identifier + 1]);
+            if (!deviceState.paths[curPath[touch.identifier + 1]])
+              deviceState.sendAction('create-path', touch.identifier + 1);
+            else {
+              deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
+              lastPath.push(curPath[touch.identifier + 1]);
+            }
           }
           deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].pageX, e.changedTouches[i].pageY + canvas.canvasTop);
         }
@@ -154,7 +170,7 @@ define(['clientUtil', 'exports'], function(clientUtil, exports) {
     function drawPaths(newPaths, oldPaths) {
       var path;
       oldPaths = oldPaths || [];
-      
+          
       if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length) {
         oldPaths = [];
         curPath = {};
