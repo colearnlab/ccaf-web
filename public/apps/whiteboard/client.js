@@ -1,4 +1,4 @@
-define(['clientUtil', 'exports'], function(clientUtil, exports) {
+define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
   var canvasHeight = 5000;
   exports.load = function(el, action, store, params) {
     var deviceState, canvas, ctx, pen = {'strokeStyle': '#ff0000', 'lineWidth': 10};

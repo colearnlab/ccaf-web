@@ -2,8 +2,8 @@
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector', './playground'], function(exports, checkerboard, m, clientUtil, selector, playground) {  
-  var wsAddress = 'ws://' + window.location.hostname + ':' + (clientUtil.parameter('port') || '1808');
+define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', 'login', './playground'], function(exports, checkerboard, m, clientUtil, selector, playground) {  
+  var wsAddress = 'ws://' + window.location.hostname + ':' + ({{ws}});
   var stm = new checkerboard.STM(wsAddress);
   var selected, classroom = null, device;
   
@@ -40,7 +40,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', './selector'
         this.appInstanceId = appInstanceId;
       });
     
-    store.sendAction('init');
+    //store.sendAction('init');
     
     m.mount(document.getElementById('navs'), m.component(selector, store));
     
