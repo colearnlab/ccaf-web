@@ -31,7 +31,15 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
 
     stm.action('delete-app-instance')
       .onReceive(function(instance) {
+        for (var user in this.userInstanceMapping)
+          if (this.userInstanceMapping[user] == instance)
+            delete this.userInstanceMapping[user];
         delete this.instances[instance];
+      });
+
+    stm.action('associate-user-to-instance')
+      .onReceive(function(user, instance) {
+          this.userInstanceMapping[user] = instance;
       });
   };
 

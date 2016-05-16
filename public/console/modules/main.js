@@ -38,7 +38,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'm
         'store': store
       }, function(classroom) {
         store.addObserver(function(){});
-        stateVisualizer.display(root, store, store.classrooms[classroom].currentState);
+        stateVisualizer.display(root, store, classroom, store.classrooms[classroom].currentState);
     });
   });
 });
