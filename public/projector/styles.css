@@ -1,0 +1,13 @@
+@import "http://netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css";
+
+body {
+  overflow: hidden;
+}
+
+.appPanel {
+  position: absolute;
+  width: 800px;
+  height: 600px;
+  border-radius: 5px;
+  background-color: orange;
+}

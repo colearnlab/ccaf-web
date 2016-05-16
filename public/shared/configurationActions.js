@@ -16,6 +16,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
           classroom.currentActivity = classroom.currentActivity || null;
           classroom.currentState = classroom.currentState || {instances:{}, userInstanceMapping:{}};
           classroom.activities = classroom.activities || {};
+          classroom.projections = classroom.projections || [{x:0, y:0, a:0, s:1}];
         }
       });
 
@@ -40,6 +41,14 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
     stm.action('associate-user-to-instance')
       .onReceive(function(user, instance) {
           this.userInstanceMapping[user] = instance;
+      });
+
+    stm.action('update-projection')
+      .onReceive(function(x, y, a, s) {
+        this.x = x || this.x;
+        this.y = y || this.y;
+        this.a = a || this.a;
+        this.s = s || this.s;
       });
   };
 
