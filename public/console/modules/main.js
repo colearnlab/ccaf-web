@@ -1,52 +1,44 @@
+/* jshint ignore:start */
 {{> rjsConfig}}
+/* jshint ignore:end */
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'clientUtil', 'login', './playground'], function(exports, checkerboard, m, clientUtil, selector, playground) {  
-  var wsAddress = 'ws://' + window.location.hostname + ':' + ({{ws}});
-  var stm = new checkerboard.STM(wsAddress);
-  var selected, classroom = null, device;
-  
-  stm.init(function(store) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'modal', 'configurationActions', './stateVisualizer'], function(exports, checkerboard, m, autoconnect, login, modal, configurationActions, stateVisualizer) {
 
-    
-    stm.action('create-user-instance')
-      .onReceive(function(user, el) {
-        var cur = this.classrooms[classroom];
-        var i = -1;
-        while (++i in cur.configuration.users);
-          
-        cur.configuration.users[i] = new User(user, getCoords(el).x, getCoords(el).y);   
-      });
-      
-    stm.action('set-coords')
-      .onReceive(function(el) {
-        this.x = getCoords(el).x;
-        this.y = getCoords(el).y;
-      });
-      
-    stm.action('delete-app-instance')
-      .onReceive(function(id) {
-        delete this[id];
-      });
-      
-    stm.action('delete-user-instance')
-      .onReceive(function(id) {
-        delete this[id];
-      });
-      
-    stm.action('assign-user-instance')
-      .onReceive(function(appInstanceId) {
-        this.appInstanceId = appInstanceId;
-      });
-    
-    //store.sendAction('init');
-    
-    m.mount(document.getElementById('navs'), m.component(selector, store));
-    
-    m.redraw.strategy('all');
-    var classroomObserver = function(newValue, oldValue) {
-      m.redraw(true);
-    };
+  // connect to our websocket server (port spliced in by template processor
+  /* jshint ignore:start */
+  var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
+  /* jshint ignore:end */
+  var stm = new checkerboard.STM(wsAddress);
+
+  // reload automatically if disconnected
+  autoconnect.monitor(stm.ws);
+
+  // the following functions prevent users from zooming in chrome via multitouch
+  document.body.addEventListener('mousewheel', function(e) {
+    return e.preventDefault(), false;
+  });
+
+  document.body.addEventListener('touchmove', function(e) {
+    if (e.target.tagName !== 'INPUT')
+      return e.preventDefault(), false;
+  });
+
+  stm.init(function(store) {
+    // get base element to mount to
+    var root = document.getElementById('root');
+
+    // load actions from shared source and initialize
+    configurationActions.load(stm);
+    store.sendAction('init');
+
+    login.display(root, {
+        'student': false,
+        'store': store
+      }, function(classroom) {
+        store.addObserver(function(){});
+        stateVisualizer.display(root, store, store.classrooms[classroom].currentState);
+    });
   });
 });
