@@ -1,4 +1,4 @@
-.stretch {height: 100%}
+html, body, .stretch {height: 100%}
 
 #appPalette {
   border: 1px solid black;
@@ -7,6 +7,8 @@
 
 .icon {
   width: 96px;
+  display: block;
+  margin: auto;
 }
 
 .icon img {
@@ -17,4 +19,19 @@
 .appTitle {
   text-align: center;
   width: 96px;
+}
+
+#cards {
+  column-count: 3;
+}
+
+.instance {
+  display: inline-block;
+  width: 200px;
+  margin-right: 30px;
+  margin-left: 30px;
+  margin-bottom: 5px;
+  padding: 15px;
+  border: 1px solid gray;
+  border-radius: 3px;
 }

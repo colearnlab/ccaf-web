@@ -17,11 +17,11 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
         m('div.container',
           m('div.row',
             m.component(appPalette, {'state': args.state, 'apps': apps}),
-            m('div.col-sm-10.col-md-10.panel#cards',
-              m.trust('&nbsp;'),
+            m('div.col-sm-10.col-md-10.panel.panel-default.panel-body#cards',
               _.values(instances).map(function(instance) {
-                return m.component(instanceCard, {'instance': instance});
-              })
+                return m.component(instanceCard, {'state': args.state, 'instance': instance});
+              }),
+              m.trust('&nbsp;')
             )
           )
         )
@@ -61,7 +61,19 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
 
     },
     'view': function(ctrl, args) {
-      return m('div', args.instance.app);
+      return m('div.instance',
+        args.instance.app,
+        m('button', {
+          'onclick': function() {
+            var toDelete;
+            _.pairs(args.state.instances).forEach(function(pair) {
+              if (pair[1] === args.instance)
+                toDelete = pair[0];
+            });
+            args.state.sendAction('delete-app-instance', toDelete);
+          }
+        }, "Delete")
+      );
     }
   };
 

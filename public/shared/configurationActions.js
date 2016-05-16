@@ -30,9 +30,8 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       });
 
     stm.action('delete-app-instance')
-      .onReceive(function(classroom, id) {
-        var instances = this.classrooms[classroom].configuration.instances;
-        instances[id] = null;
+      .onReceive(function(instance) {
+        delete this.instances[instance];
       });
   };
 
