@@ -71,9 +71,16 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
         args.instance.app,
         m('button', {
           'onclick': function() {
+            if (typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined')
+              args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
             args.state.sendAction('delete-app-instance', id);
           }
         }, "Delete"),
+        m('button', {
+          'onclick': function() {
+            args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
+          }
+        }, typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined' ? "Unproject" : "Project"),
         m('ul',
           _.pairs(args.state.userInstanceMapping).filter(function(pair) {
             return pair[1] == id;
@@ -83,6 +90,8 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
           m('li',
             m('select', {
               'onchange': function(e) {
+                if (e.target.value === -1)
+                  return;
                 args.state.sendAction('associate-user-to-instance', e.target.value, id);
                 e.target.value = -1;
               }

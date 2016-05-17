@@ -16,7 +16,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
           classroom.currentActivity = classroom.currentActivity || null;
           classroom.currentState = classroom.currentState || {instances:{}, userInstanceMapping:{}};
           classroom.activities = classroom.activities || {};
-          classroom.projections = classroom.projections || [{x:0, y:0, a:0, s:1}];
+          classroom.projections = classroom.projections || {};
         }
       });
 
@@ -43,12 +43,30 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
           this.userInstanceMapping[user] = instance;
       });
 
+    stm.action('toggle-projection')
+      .onReceive(function(instance) {
+        var projections = this.projections;
+        for (var projection in projections)
+          if (projections[projection].instanceId == instance) {
+            delete projections[projection];
+            return true;
+          }
+
+        var id = 0;
+          if (_.keys(projections).length > 0)
+            id = Math.max.apply(null, _.keys(projections).map(function(val) { return val.toString(); })) + 1;
+
+        projections[id] = {x:0, y:0, a:0, s:1, z:0, instanceId: instance};
+
+      });
+
     stm.action('update-projection')
-      .onReceive(function(x, y, a, s) {
+      .onReceive(function(x, y, a, s, z) {
         this.x = x || this.x;
         this.y = y || this.y;
         this.a = a || this.a;
         this.s = s || this.s;
+        this.z = z || this.z;
       });
   };
 
