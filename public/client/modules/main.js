@@ -74,14 +74,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
      * 2) Update the list of students assigned to this instance, for the titlebar.
      * 3) Check if thet app has been loaded. If not, load the app via RequireJS.
      */
-    var classroom, student, loadedApp;
-    function updateApp(instanceId) {
+    var loadedApp;
+    function updateApp(instanceId, classroom, student, reloadApp) {
       var instance = store.classrooms[classroom].currentState.instances[instanceId];
 
       // Check if the instance has been removed. If so, clear the screen.
       if (typeof instance === 'undefined') {
         reRoot();
-        loadedApp = undefined;
 
         // Want the titlebar to have some indication that things are working.
         if (typeof student !== 'undefined')
@@ -104,13 +103,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       // Set the titlebar text to "[apptitle] | [users]", omitting the pipe if no users connected.
       document.getElementById('titlebar').textContent = appName + (users.length > 0 ? " | " + users.join(", ") : "");
 
-      // If we've already loaded the app, we don't need to do more and can finish here.
-      if (instanceId === loadedApp)
+      if (!reloadApp)
         return;
 
       // Otherwise, we need to load the app. To do this, we import it using RequireJS and
       // call the 'load' function specified by the app interface.
-      loadedApp = instanceId;
       requirejs(['/apps/' + instance.app + '/' + store.apps[instance.app].client], function(appModule) {
         // Posssible params for the future are the name of the classroom, user, other connected users, etc.
         // For now, these are not implemented but we leave a placeholder.
@@ -128,21 +125,17 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     // We check to see whether there are URL parameters pointing to a specific instance.
     // If there are none, we default to visual login.
     if (gup('classroom') && gup('instance')) {
-      classroom = gup('classroom');
-      store.classrooms[classroom].currentState.addObserver(function(newStore) {
-        updateApp(gup('instance'));
+      store.classrooms[gup('classroom')].currentState.addObserver(function(newStore, oldStore) {
+        updateApp(gup('instance'), gup('classroom'), undefined, oldStore === null);
       });
     }
     else {
-      login.display(reRoot(), {
-        'student': true,
-        'store': store
-      }, function (_classroom, _student) {
-        classroom = _classroom;
-        student = _student;
-
-        store.classrooms[classroom].currentState.addObserver(function(newStore) {
-          updateApp(newStore.userInstanceMapping[student]);
+      login.display(reRoot(), {'student': true, 'store': store}, function (classroom, student) {
+        store.classrooms[classroom].currentState.addObserver(function(newStore, oldStore) {
+          // We want to reload the app if this is the first time observer is called (data being populated,
+          // oldStore will be null) or if the app has changed. Otherwise just update student names.
+          var reloadApp = oldStore === null || newStore.userInstanceMapping[student] != oldStore.userInstanceMapping[student];
+          updateApp(newStore.userInstanceMapping[student], classroom, student, reloadApp);
         });
       });
     }

@@ -1,3 +1,10 @@
+/* The projector is a simple module that allows the teacher to manipulate multiple
+ * "views" into different instances. These manipulations are also shared across
+ * different screens the projector is opened on. Each classroom has an array of
+ * instances being projected, along with x, y, z, [s]cale and [a]ngle information.
+ * From the console, the teacher can toggle how each instance is projected.
+ */
+
 /* jshint ignore:start */
 {{> rjsConfig}}
 /* jshint ignore:end */
@@ -7,52 +14,64 @@ module = null;
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'cookies', 'modal', 'configurationActions', 'interact'], function(exports, checkerboard, m, autoconnect, login, cookies, modal, configurationActions, interact) {
   /* jshint ignore:start */
   var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
-  /* jshint ignore:end */  var stm = new checkerboard.STM(wsAddress);
+  /* jshint ignore:end */
+  var stm = new checkerboard.STM(wsAddress);
+
+  // autoconnect will detect a WebSocket disconnect, show a modal and try to reconnect.
   autoconnect.monitor(stm.ws);
 
+  // Prevent multitouch zoom in Google Chrome.
   document.body.addEventListener('mousewheel', function(e) {
     return e.preventDefault(), false;
   });
 
+  // Prevent back/forward gestures in Google Chrome.
   document.body.addEventListener('touchmove', function(e) {
     if (e.target.tagName !== 'INPUT')
       return e.preventDefault(), false;
   });
 
-  var panels, loadApp;
   stm.init(function(store) {
     configurationActions.load(stm);
     store.sendAction('init');
-    var el = document.getElementById('root');
-    var classroom;
+
     store.addObserver(function(){});
-    login.display(el, {
-      'student': false,
-      'store': store
-    }, function(_classroom) {
-      classroom = _classroom;
-      m.mount(el, m.component(panelComponent, {'classroom': classroom, 'panels': store.classrooms[classroom].projections}));
-      m.render(el, m.component(panelComponent, {'classroom': classroom, 'panels': store.classrooms[classroom].projections}));
-      store.classrooms[classroom].addObserver(function(classroom) {
+
+    var root = document.getElementById('root');
+    login.display(root, {'student': false, 'store': store}, function(classroom) {
+      m.mount(root, m.component(panelComponent, {'classroom': classroom, 'panels': store.classrooms[classroom].projections}));
+      store.classrooms[classroom].projections.addObserver(function(classroom, oldClassroom) {
         m.redraw(true);
-        //m.render(el, m.component(panelComponent, {'classroom': _classroom, 'panels': classroom.projections}));
       });
     });
   });
 
+  /* Update the z-indexes of all the projections.
+   */
   function updateZ(args, event) {
+    // Record the largest z-index of all projections.
     var zIndex = 0;
 
     [].forEach.call(document.getElementsByClassName('appPanel'), function(panel) {
+      // Mark if this z-index is largest so far.
       if (parseInt(panel.style.zIndex) > zIndex)
         zIndex = parseInt(panel.style.zIndex);
-
-      args.panels[panel.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, parseInt(panel.style.zIndex) - 1);
     });
 
+    // Set the z-index of the touched panel to one greater than the current greatest.
+    // The maximum z-index in most modern browsers is 2^31-1. By my calculations,
+    // this method of keeping the most recently touched projection on top will last
+    // ~70 years of continuous use. If this becomes an issue, you can find me in
+    // the nursing home as I'll be 90 years old.
     args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, zIndex + 1);
   }
 
+  /* Update the x- and y-coordinates, the angle, and the scale. To do this, grab
+   * the existing value, modify it according to the delta in the event, and
+   * update the value in the store. Mithril and Checkerboard will handle the rest.
+   * This method is used for both interact draggable and gesturable events. Draggable
+   * events don't have a da and ds, so we substitute values that result in no change.
+   */
   function updateCoords(args, event) {
     var target = event.target,
       x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
