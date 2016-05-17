@@ -6,11 +6,25 @@ body {
 
 .appPanel {
   position: absolute;
-  width: 800px;
-  height: 600px;
+  width: 1024px;
+  height: 768px;
   border-radius: 5px;
   border-style: solid;
   border-color: black;
   background-color: orange;
-  border-width: 15px;
+  border-width: 10px;
+}
+
+iframe {
+  height: 100%;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.frameBlocker {
+  position: absolute;
+  height: 100%;
+  width: 100%;
 }

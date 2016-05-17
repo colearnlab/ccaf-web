@@ -56,7 +56,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
           if (_.keys(projections).length > 0)
             id = Math.max.apply(null, _.keys(projections).map(function(val) { return val.toString(); })) + 1;
 
-        projections[id] = {x:0, y:0, a:0, s:1, z:0, instanceId: instance};
+        projections[id] = {x:0, y:0, a:0, s:0.5, z:0, instanceId: instance};
 
       });
 

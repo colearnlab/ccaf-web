@@ -34,7 +34,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       m.mount(el, m.component(panelComponent, {'classroom': classroom, 'panels': store.classrooms[classroom].projections}));
       m.render(el, m.component(panelComponent, {'classroom': classroom, 'panels': store.classrooms[classroom].projections}));
       store.classrooms[classroom].addObserver(function(classroom) {
-        m.render(el, m.component(panelComponent, {'classroom': classroom, 'panels': classroom.projections}));
+        m.redraw(true);
+        //m.render(el, m.component(panelComponent, {'classroom': _classroom, 'panels': classroom.projections}));
       });
     });
   });
@@ -95,16 +96,21 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     },
     'view': function(ctrl, args) {
       return m('div', _.pairs(args.panels).map(function(panel) {
-        return m('iframe.appPanel', {
-          'src': 'client?classroom=' + args.classroom + '&instance=' + panel[1].instanceId,
+        return m('div.appPanel', {
           'data-index': panel[0],
           'data-instance': panel[1].instanceId,
+          'key': panel[1].instanceId,
           'data-x': panel[1].x,
           'data-y': panel[1].y,
           'data-a': panel[1].a,
           'data-s': panel[1].s,
           'style': 'transform: translate(' + panel[1].x + 'px, ' + panel[1].y + 'px) rotate(' + panel[1].a + 'deg) scale(' + panel[1].s + '); z-index: ' + panel[1].z
-        });
+        },
+          m('div.frameBlocker'),
+          m('iframe', {
+            'src': 'client?classroom=' + args.classroom + '&instance=' + panel[1].instanceId
+          })
+        );
       }));
     }
   };
