@@ -107,8 +107,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
     }
   };
 
-  exports.display = function(el, store, classroom, state) {
-    m.mount(el, m.component(visualizer, {'store': store, 'classroom': classroom, 'state': state}));
+  exports.display = function(el, store, classroom, state, isLive) {
     state.addObserver(function(newState) {
       m.mount(el, m.component(visualizer, {'store': store, 'classroom': classroom, 'state': newState}));
     });

@@ -1,10 +1,30 @@
+/* Main client module
+ * This is the main module for the CCAF client application. The client application
+ * is how students will use applications. It can be run in the browser, in the electron-browser
+ * app (which has some extra external logic to handle server discovery), or projected
+ * (ie via iframe). The client module first identifies with a student (via GUI login)
+ * or a specific instance (via URL parameters).
+ * - GUI login
+ *    Loads the instance pointed to by the user-instance mapping. If there is no
+ *    instance, it shows a blank screen. It automatically unloads/loads instances
+ *    when the mapping is changed.
+ * - URL login
+ *    Used when instances are loaded via iframe to be shown as projector panels.
+ *    Loads the specified instance. If the instance is deleted, it shows a blank screen.
+ *    However, as projections are also removed when instances are removed, this is
+ *    a fallback and shouldn't ever be seen by the end-user.
+ */
+
 /* jshint ignore:start */
 {{> rjsConfig}}
 /* jshint ignore:end */
 
+// Ensures that RequireJS plays nicely with electron-browser.
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', './cornerMenu', 'cookies', 'modal', 'configurationActions'], function(exports, checkerboard, m, autoconnect, login, cornerMenu, cookies, modal, configurationActions) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', './cornerMenu'], function(exports, checkerboard, m, autoconnect, login, cornerMenu) {
+  // TODO Move gup function to a better place.
+  // http://stackoverflow.com/a/979997
   function gup( name, url ) {
     if (!url) url = location.href;
     name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
@@ -16,83 +36,113 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
 
   /* jshint ignore:start */
   var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
-  /* jshint ignore:end */  var stm = new checkerboard.STM(wsAddress);
+  /* jshint ignore:end */
+  var stm = new checkerboard.STM(wsAddress);
+
+  // autoconnect will detect a WebSocket disconnect, show a modal and try to reconnect.
   autoconnect.monitor(stm.ws);
 
+  // Prevent multitouch zoom in Google Chrome.
   document.body.addEventListener('mousewheel', function(e) {
     return e.preventDefault(), false;
   });
 
+  // Prevent back/forward gestures in Google Chrome.
   document.body.addEventListener('touchmove', function(e) {
     if (e.target.tagName !== 'INPUT')
       return e.preventDefault(), false;
   });
 
-  var loadApp;
-  stm.init(function(store) {
-    configurationActions.load(stm);
-    store.sendAction('init');
-    var el = document.getElementById('root');
-    var classroom, student;
+  /* The reRoot function prunes the root element which all applications attach
+   * themselves to.
+   */
+  function reRoot() {
+    if (document.getElementById('root'))
+      document.body.removeChild(document.getElementById('root'));
 
-    var loadedApp;
-    loadApp = function(instanceId) {
-      if (typeof store.classrooms[classroom].currentState.instances[instanceId] === 'undefined') {
-        document.body.removeChild(document.getElementById('root'));
-        el = document.createElement('div');
-        el.id = 'root';
-        document.body.appendChild(el);
+    var el = document.createElement('div');
+    el.id = 'root';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  stm.init(function(store) {
+    /* --- Definitions dependent on store --- */
+
+    /* The updateApp routine has three tasks.
+     * 1) Check whether instance still exists. If not, clear the screen.
+     * 2) Update the list of students assigned to this instance, for the titlebar.
+     * 3) Check if thet app has been loaded. If not, load the app via RequireJS.
+     */
+    var classroom, student, loadedApp;
+    function updateApp(instanceId) {
+      var instance = store.classrooms[classroom].currentState.instances[instanceId];
+
+      // Check if the instance has been removed. If so, clear the screen.
+      if (typeof instance === 'undefined') {
+        reRoot();
         loadedApp = undefined;
-        document.getElementById('titlebar').textContent = "";
+
+        // Want the titlebar to have some indication that things are working.
+        if (typeof student !== 'undefined')
+          document.getElementById('titlebar').textContent = "Logged in as " + store.classrooms[classroom].users[student].name;
+        else
+          document.getElementById('titlebar').textContent = "";
+
         return;
       }
-      var users = [];
-      var appName = store.apps[store.classrooms[classroom].currentState.instances[instanceId].app].title;
-      _.pairs(store.classrooms[classroom].currentState.userInstanceMapping).forEach(function(pair) {
-        if (pair[1] == instanceId)
-          users.push(store.classrooms[classroom].users[pair[0]].name);
-      });
 
-      document.getElementById('titlebar').textContent = appName + (users.length > 0 ? " | " +users.join(", ") : "");
+      // Collect all the names of users who are assigned to the current instance, and push them to the array.
+      var users = _.pairs(store.classrooms[classroom].currentState.userInstanceMapping)
+        .filter(function(pair) {
+          return pair[1] == instanceId;
+        }).map(function(pair) {
+          return store.classrooms[classroom].users[pair[0]].name;
+        });
+      var appName = store.apps[instance.app].title;
 
+      // Set the titlebar text to "[apptitle] | [users]", omitting the pipe if no users connected.
+      document.getElementById('titlebar').textContent = appName + (users.length > 0 ? " | " + users.join(", ") : "");
+
+      // If we've already loaded the app, we don't need to do more and can finish here.
       if (instanceId === loadedApp)
         return;
-      document.body.removeChild(document.getElementById('root'));
-      el = document.createElement('div');
-      el.id = 'root';
-      document.body.appendChild(el);
-      loadedApp = instanceId;
-      var app = store.classrooms[classroom].currentState.instances[instanceId].app;
-      requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
-        var params = {
-          'device': 0
-        };
-        appModule.load(document.getElementById('root'), stm.action, store.classrooms[classroom].currentState.instances[instanceId].root, params);
-      });
-    };
 
+      // Otherwise, we need to load the app. To do this, we import it using RequireJS and
+      // call the 'load' function specified by the app interface.
+      loadedApp = instanceId;
+      requirejs(['/apps/' + instance.app + '/' + store.apps[instance.app].client], function(appModule) {
+        // Posssible params for the future are the name of the classroom, user, other connected users, etc.
+        // For now, these are not implemented but we leave a placeholder.
+        var params = {};
+
+        // The load function takes a root element, an action creator, the root store and the future paramters object.
+        appModule.load(reRoot(), stm.action, instance.root, params);
+      });
+    }
+
+    /* --- Start of code run on initialization --- */
+
+    // The client can be logged in via URL parameters or via user GUI. The gup
+    // function [g]ets [u]RL [p]arameters or returns null if they don't exist.
+    // We check to see whether there are URL parameters pointing to a specific instance.
+    // If there are none, we default to visual login.
     if (gup('classroom') && gup('instance')) {
       classroom = gup('classroom');
-      loadApp(gup('instance'));
       store.classrooms[classroom].currentState.addObserver(function(newStore) {
-        store.classrooms[classroom].currentState = newStore;
-        loadApp(gup('instance'));
+        updateApp(gup('instance'));
       });
     }
     else {
-      login.display(el, {
+      login.display(reRoot(), {
         'student': true,
         'store': store
       }, function (_classroom, _student) {
         classroom = _classroom;
         student = _student;
-        document.body.removeChild(document.getElementById('root'));
-        el = document.createElement('div');
-        el.id = 'root';
-        document.body.appendChild(el);
+
         store.classrooms[classroom].currentState.addObserver(function(newStore) {
-          store.classrooms[classroom].currentState = newStore;
-          loadApp(newStore.userInstanceMapping[student]);
+          updateApp(newStore.userInstanceMapping[student]);
         });
       });
     }

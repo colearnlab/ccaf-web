@@ -115,7 +115,6 @@ Client.prototype.processCursorSet = function(packet, message){
 };
 
 Client.prototype.processFseq = function(packet, message){
-  // TODO: Figure out what to do with fseq messages.
 };
 
 Client.prototype.getCursor = function(sessionID){
@@ -135,7 +134,6 @@ Client.prototype.createTouchEvent = function(type, touch){
 
   // Convert touches hash to array because that's what W3C says
   // it should be.
-  // TODO: Find a better way! This is super efficient, NOT!
   for (var namespace in this.touches){
     for (var key in this.touches[namespace]){
       touches.push(this.touches[namespace][key]);
@@ -204,7 +202,6 @@ var TuioCursor = TUIO.TuioCursor = function TuioCursor(options){
 TuioCursor.prototype.coherceToTouch = function() {
   var identifier = this.sessionId;
 
-  //TODO: Verify? I think these are correct but not 100% sure
   var clientX = window.innerWidth * this.xPosition;
   var clientY = window.innerHeight * this.yPosition;
   var pageX = document.documentElement.clientWidth * this.xPosition;

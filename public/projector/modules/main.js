@@ -40,65 +40,45 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     });
   });
 
+  function updateZ(args, event) {
+    var zIndex = 0;
+
+    [].forEach.call(document.getElementsByClassName('appPanel'), function(panel) {
+      if (parseInt(panel.style.zIndex) > zIndex)
+        zIndex = parseInt(panel.style.zIndex);
+
+      args.panels[panel.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, parseInt(panel.style.zIndex) - 1);
+    });
+
+    args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, zIndex + 1);
+  }
+
+  function updateCoords(args, event) {
+    var target = event.target,
+      x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
+      y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy,
+      a = (parseFloat(target.getAttribute('data-a')) || 0) + (event.da || 0),
+      s = (parseFloat(target.getAttribute('data-s')) || 1) * (1 + (event.ds || 0));
+
+    args.panels[target.getAttribute('data-index')].sendAction('update-projection', x, y, a, s);
+  }
+
   var panelComponent = {
     'controller': function(args) {
         interact('.appPanel')
           .draggable({
-            'autoscroll': false,
-            'onstart': function(event) {
-              var zIndex = 0;
-              [].forEach.call(document.getElementsByClassName('appPanel'), function(panel) {
-                if (isNaN(parseInt(panel.style.zIndex)))
-                  args.panels[panel.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, 0);
-                else if (parseInt(panel.style.zIndex) > zIndex)
-                  zIndex = parseInt(panel.style.zIndex);
-
-                args.panels[panel.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, parseInt(panel.style.zIndex) - 1);
-              });
-              console.log(zIndex);
-              args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, zIndex);
-            },
-            'onmove': function(event) {
-              var target = event.target,
-                x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
-                y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy,
-                a = (parseFloat(target.getAttribute('data-a')) || 0),
-                s = (parseFloat(target.getAttribute('data-s')) || 1);
-
-              args.panels[target.getAttribute('data-index')].sendAction('update-projection', x, y, a, s);
-            }
+            'onstart': updateZ.bind(null, args),
+            'onmove': updateCoords.bind(null, args)
           })
           .gesturable({
-            'onstart': function(event) {
-              var zIndex = 0;
-              [].forEach.call(document.getElementsByClassName('appPanel'), function(panel) {
-                //if (isNaN(parseInt(panel.style.zIndex)))
-                //  args.panels[panel.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, 0);
-                //else if (parseInt(panel.style.zIndex) > zIndex)
-                //  zIndex = parseInt(panel.style.zIndex);
-
-                //args.panels[panel.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, parseInt(panel.style.zIndex) - 1);
-              });
-
-              //args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, zIndex);
-
-            },
-            'onmove': function(event) {
-              var target = event.target,
-                x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
-                y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy,
-                a = (parseFloat(target.getAttribute('data-a')) || 0) + event.da,
-                s = (parseFloat(target.getAttribute('data-s')) || 1) * (1 + event.ds);
-
-              args.panels[target.getAttribute('data-index')].sendAction('update-projection', x, y, a, s);
-            }
+            'onstart': updateZ.bind(null, args),
+            'onmove': updateCoords.bind(null, args)
           });
     },
     'view': function(ctrl, args) {
       return m('div', _.pairs(args.panels).map(function(panel) {
         return m('div.appPanel', {
           'data-index': panel[0],
-          'data-instance': panel[1].instanceId,
           'key': panel[1].instanceId,
           'data-x': panel[1].x,
           'data-y': panel[1].y,
