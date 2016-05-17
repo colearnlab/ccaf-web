@@ -19,10 +19,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       return e.preventDefault(), false;
   });
 
-  function installPanels(projections) {
-
-  }
-
   var panels, loadApp;
   stm.init(function(store) {
     configurationActions.load(stm);
@@ -35,30 +31,12 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       'store': store
     }, function(_classroom) {
       classroom = _classroom;
-      m.mount(el, m.component(panelComponent, {'panels': store.classrooms[classroom].projections}));
-
-      store.classrooms[classroom].projections.addObserver(function(projections) {
-        m.render(el, m.component(panelComponent, {'panels': projections}));
+      m.mount(el, m.component(panelComponent, {'classroom': classroom, 'panels': store.classrooms[classroom].projections}));
+      m.render(el, m.component(panelComponent, {'classroom': classroom, 'panels': store.classrooms[classroom].projections}));
+      store.classrooms[classroom].addObserver(function(classroom) {
+        m.render(el, m.component(panelComponent, {'classroom': classroom, 'panels': classroom.projections}));
       });
     });
-
-    var loadedApp;
-    loadApp = function(instanceId) {
-      if (instanceId === loadedApp)
-        return;
-      document.body.removeChild(document.getElementById('root'));
-      el = document.createElement('div');
-      el.id = 'root';
-      document.body.appendChild(el);
-      loadedApp = instanceId;
-      var app = store.classrooms[classroom].currentState.instances[instanceId].app;
-      requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
-        var params = {
-          'device': 0
-        };
-        appModule.load(document.getElementById('root'), stm.action, store.classrooms[classroom].currentState.instances[instanceId].root, params);
-      });
-    };
   });
 
   var panelComponent = {
@@ -77,7 +55,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
                 args.panels[panel.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, parseInt(panel.style.zIndex) - 1);
               });
               console.log(zIndex);
-              args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, zIndex + 1);
+              args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, zIndex);
             },
             'onmove': function(event) {
               var target = event.target,
@@ -117,14 +95,16 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     },
     'view': function(ctrl, args) {
       return m('div', _.pairs(args.panels).map(function(panel) {
-        return m('div.appPanel', {
+        return m('iframe.appPanel', {
+          'src': 'client?classroom=' + args.classroom + '&instance=' + panel[1].instanceId,
           'data-index': panel[0],
+          'data-instance': panel[1].instanceId,
           'data-x': panel[1].x,
           'data-y': panel[1].y,
           'data-a': panel[1].a,
           'data-s': panel[1].s,
           'style': 'transform: translate(' + panel[1].x + 'px, ' + panel[1].y + 'px) rotate(' + panel[1].a + 'deg) scale(' + panel[1].s + '); z-index: ' + panel[1].z
-        }, panel[1].instanceId);
+        });
       }));
     }
   };

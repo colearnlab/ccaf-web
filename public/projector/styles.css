@@ -9,5 +9,8 @@ body {
   width: 800px;
   height: 600px;
   border-radius: 5px;
+  border-style: solid;
+  border-color: black;
   background-color: orange;
+  border-width: 15px;
 }
