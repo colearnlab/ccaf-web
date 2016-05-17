@@ -106,3 +106,16 @@ iframe {
 .activated {
   background-color: #eef !important;
 }
+
+#titlebar {
+  margin: 0;
+  font-size: 18px;
+  color: white;
+  padding-left: 1.5em;
+  background-color: gray;
+  position: absolute;
+  z-index: 100;
+  width: 100vw;
+  border: 1px solid lightgray;
+  border-radius: 5px;
+}

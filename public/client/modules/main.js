@@ -34,10 +34,27 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     store.sendAction('init');
     var el = document.getElementById('root');
     var classroom, student;
-    store.addObserver(function(){});
 
     var loadedApp;
     loadApp = function(instanceId) {
+      if (typeof store.classrooms[classroom].currentState.instances[instanceId] === 'undefined') {
+        document.body.removeChild(document.getElementById('root'));
+        el = document.createElement('div');
+        el.id = 'root';
+        document.body.appendChild(el);
+        loadedApp = undefined;
+        document.getElementById('titlebar').textContent = "";
+        return;
+      }
+      var users = [];
+      var appName = store.apps[store.classrooms[classroom].currentState.instances[instanceId].app].title;
+      _.pairs(store.classrooms[classroom].currentState.userInstanceMapping).forEach(function(pair) {
+        if (pair[1] == instanceId)
+          users.push(store.classrooms[classroom].users[pair[0]].name);
+      });
+
+      document.getElementById('titlebar').textContent = appName + (users.length > 0 ? " | " +users.join(", ") : "");
+
       if (instanceId === loadedApp)
         return;
       document.body.removeChild(document.getElementById('root'));
@@ -57,6 +74,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     if (gup('classroom') && gup('instance')) {
       classroom = gup('classroom');
       loadApp(gup('instance'));
+      store.classrooms[classroom].currentState.addObserver(function(newStore) {
+        store.classrooms[classroom].currentState = newStore;
+        loadApp(gup('instance'));
+      });
     }
     else {
       login.display(el, {
@@ -70,6 +91,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
         el.id = 'root';
         document.body.appendChild(el);
         store.classrooms[classroom].currentState.addObserver(function(newStore) {
+          store.classrooms[classroom].currentState = newStore;
           loadApp(newStore.userInstanceMapping[student]);
         });
       });
