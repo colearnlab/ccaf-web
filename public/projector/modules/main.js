@@ -113,5 +113,4 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       }));
     }
   };
-
 });

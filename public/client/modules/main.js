@@ -23,17 +23,6 @@
 module = null;
 
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', './cornerMenu'], function(exports, checkerboard, m, autoconnect, login, cornerMenu) {
-  // TODO Move gup function to a better place.
-  // http://stackoverflow.com/a/979997
-  function gup( name, url ) {
-    if (!url) url = location.href;
-    name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
-    var regexS = "[\\?&]"+name+"=([^&#]*)";
-    var regex = new RegExp( regexS );
-    var results = regex.exec( url );
-    return results === null ? null : results[1];
-  }
-
   /* jshint ignore:start */
   var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
   /* jshint ignore:end */
@@ -52,19 +41,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     if (e.target.tagName !== 'INPUT')
       return e.preventDefault(), false;
   });
-
-  /* The reRoot function prunes the root element which all applications attach
-   * themselves to.
-   */
-  function reRoot() {
-    if (document.getElementById('root'))
-      document.body.removeChild(document.getElementById('root'));
-
-    var el = document.createElement('div');
-    el.id = 'root';
-    document.body.appendChild(el);
-    return el;
-  }
 
   stm.init(function(store) {
     /* --- Definitions dependent on store --- */
@@ -140,4 +116,31 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       });
     }
   });
+  
+  /* --- support functions --- */
+
+  /* [g]et [u]RL [p]arameters, or return null if there are none.
+   * http://stackoverflow.com/a/979997
+   */
+  function gup( name, url ) {
+    if (!url) url = location.href;
+    name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+    var regexS = "[\\?&]"+name+"=([^&#]*)";
+    var regex = new RegExp( regexS );
+    var results = regex.exec( url );
+    return results === null ? null : results[1];
+  }
+
+  /* The reRoot function prunes the root element which all applications attach
+   * themselves to.
+   */
+  function reRoot() {
+    if (document.getElementById('root'))
+      document.body.removeChild(document.getElementById('root'));
+
+    var el = document.createElement('div');
+    el.id = 'root';
+    document.body.appendChild(el);
+    return el;
+  }
 });
