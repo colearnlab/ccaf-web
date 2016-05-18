@@ -63,7 +63,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     // this method of keeping the most recently touched projection on top will last
     // ~70 years of continuous use. If this becomes an issue, you can find me in
     // the nursing home as I'll be 90 years old.
-    args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', undefined, undefined, undefined, undefined, zIndex + 1);
+    args.panels[event.target.getAttribute('data-index')].sendAction('update-projection', void 0, void 0, void 0, void 0, zIndex + 1);
   }
 
   /* Update the x- and y-coordinates, the angle, and the scale. To do this, grab
