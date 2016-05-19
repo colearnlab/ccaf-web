@@ -22,6 +22,8 @@ canvas {
   z-index: 1;
   right: 20px;
   top: 32px;
+  background-color: rgba(255, 255, 255, 0.75);
+  border-radius: 5px;
 }
 
 .controlComponent {
@@ -30,8 +32,6 @@ canvas {
   margin-left: 12px;
   width: 48px;
   text-align: center;
-  background-color: rgba(255, 255, 255, 0.75);
-  border-radius: 5px;
 }
 
 .colorIndicator {
@@ -43,7 +43,7 @@ canvas {
 }
 
 .line {
-  opacity: 0.8;
+  opacity: 0.75;
   background-color: black;
   width: 24px;
   margin: auto;
@@ -52,7 +52,7 @@ canvas {
 
 .buttonLabel {
   color: black;
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
 .spacer {
@@ -60,7 +60,7 @@ canvas {
 }
 
 .controlIcon {
-  opacity: 0.8;
+  opacity: 0.75;
   height: 20px;
 }
 
@@ -72,7 +72,7 @@ canvas {
   position: absolute;
   right: 1vw;
   top: 5vh;
-  background-color: rgba(0, 0, 0, 0.25);
+  background-color: rgba(0, 0, 0, 0.15);
   transform:  rotate(-90deg);
   transform-origin: right;
   width: 85vh;
@@ -98,6 +98,7 @@ canvas {
   cursor: pointer;
   -webkit-appearance: none;
   margin-top: -14px;
+  opacity: 0.75;
 }
 #slider:focus::-webkit-slider-runnable-track {
   background: #367ebd;

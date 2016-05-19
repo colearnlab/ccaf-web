@@ -283,8 +283,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           ctrl.trayOpen = !ctrl.trayOpen;
         }
       },
-        m.component(LineIndicator, {pen: args.pen, width: args.pen.lineWidth, margin: margin}),
-        m('span.buttonLabel', "Line"),
+        m('img.controlIcon', {'src': '/apps/whiteboard-new/pen.png'}),
+        m('div.buttonLabel', "Line"),
         m('div.lineTray', {
           'style': 'display: ' + (ctrl.trayOpen ? 'block' : 'none')
         },
