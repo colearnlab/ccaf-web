@@ -46,7 +46,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
       action('create-path')
         .onReceive(function(identifier) {
-          this.paths[this.paths.length] = [pen];
+          this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth}];
           lastPath.push(curPath[identifier] = this.paths.length - 1);
         }).onRevert(function(identifier) {
           console.log("reverted");
@@ -55,8 +55,9 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         });
 
       action('set-pen')
-        .onReceive(function() {
-          this[0] = pen;
+        .onReceive(function()
+        {
+          this[0] = {'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth};
         });
 
       action('add-point')
@@ -144,7 +145,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
             if (!deviceState.paths[curPath[touch.identifier + 1]])
               deviceState.sendAction('create-path', touch.identifier + 1);
             else {
-              deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
+              //deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
               lastPath.push(curPath[touch.identifier + 1]);
             }
           }
