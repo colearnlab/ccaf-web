@@ -4,30 +4,15 @@ body {
   overflow: hidden;
 }
 
-.tile1 {
-  width: 100vw;
-  height: 100vh;
-}
-
-.tile2 {
-  width: 50vw;
-  height: 100vh;
-}
-
-.tile3, .tile4 {
-  width: 50vw;
-  height: 50vh;
-}
-
 .appPanel {
-  display: inline-block;
-  padding: 0;
-  margin: 0;
+  position: absolute;
+  width: 1024px;
+  height: 768px;
   border-radius: 5px;
   border-style: solid;
   border-color: black;
   background-color: orange;
-  border-width: 3px;
+  border-width: 10px;
 }
 
 iframe {
@@ -36,4 +21,10 @@ iframe {
   border: 0;
   padding: 0;
   margin: 0;
+}
+
+.frameBlocker {
+  position: absolute;
+  height: 100%;
+  width: 100%;
 }
