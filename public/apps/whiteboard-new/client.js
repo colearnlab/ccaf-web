@@ -1,7 +1,8 @@
 define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
   var canvasHeight = 5000;
+  var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
   exports.load = function(el, action, store, params) {
-    var deviceState, canvas, ctx, pen = {'strokeStyle': 'red', 'lineWidth': 10};
+    var deviceState, canvas, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 10};
     var curPath = {}, lastPath = [];
 
     createActions();
@@ -168,6 +169,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
 
     function drawPaths(newPaths, oldPaths) {
+      deviceState.paths = newPaths;
       var path;
       oldPaths = oldPaths || [];
 
@@ -213,13 +215,14 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       return m('div#controls',
         m.component(ColorSelect, args),
         m.component(LineSelect, args),
-        m.component(EraseButton),
-        m.component(UndoButton)
+        m.component(EraseButton, args),
+        m('div.controlComponent', m.trust('&nbsp;')),
+        m.component(UndoButton, args),
+        m.component(ClearButton, args)
       );
     }
   };
 
-  var colors = ['red', 'green', 'blue', 'black'];
   var ColorSelect = {
     'controller': function(args) {
       return {
@@ -227,12 +230,12 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       };
     },
     'view': function(ctrl, args) {
-      return m('div.colorSelect', {
+      return m('div.controlComponent', {
         'onclick': function(e) {
           ctrl.trayOpen = !ctrl.trayOpen;
         }
       },
-        m.component(ColorIndicator, {'pen': args.pen, 'color': args.pen.strokeStyle}),
+        m.component(ColorIndicator, {'pen': args.pen, 'color': saved ? saved : args.pen.strokeStyle}),
         m('span.buttonLabel', "Color"),
         m('div.colorTray', {
           'style': 'display: ' + (ctrl.trayOpen ? 'block' : 'none')
@@ -264,23 +267,29 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
   };
 
   var lines = [];
-  for (var i = 2; i < 8; i++)
-    lines.push(i*2);
+  for (var i = 1; i < 7; i++)
+    lines.push(i*3);
   var LineSelect = {
     'controller': function(args) {
-
+      return {
+        'trayOpen': false
+      };
     },
     'view': function(ctrl, args) {
       var margin = (20 - args.pen.lineWidth)/2;
-      return m('div.lineSelect',
+      return m('div.controlComponent', {
+        'onclick': function(e) {
+          ctrl.trayOpen = !ctrl.trayOpen;
+        }
+      },
         m.component(LineIndicator, {pen: args.pen, width: args.pen.lineWidth, margin: margin}),
         m('span.buttonLabel', "Line"),
         m('div.lineTray', {
-
+          'style': 'display: ' + (ctrl.trayOpen ? 'block' : 'none')
         },
           lines.map(function(line) {
             return [
-              m.component(LineIndicator, {pen: args.pen, width: line, margin: 10})
+              m.component(LineIndicator, {pen: args.pen, width: line, margin: 15})
             ];
           })
         )
@@ -292,26 +301,80 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     'view': function(ctrl, args) {
       var margin = args.margin || 0;
       return m('div.line', {
+        'onclick': function(e) {
+          args.pen.lineWidth = args.width;
+        },
         'style': 'height: ' + args.width + 'px; margin-top: ' + margin + 'px; margin-bottom: ' + margin + 'px'
       }, m.trust('&nbsp;'));
     }
   };
 
+  var saved;
   var EraseButton = {
-    'controller': function(args) {
-
-    },
     'view': function(ctrl, args) {
-      return m('div');
+      var selected = args.pen.strokeStyle === '#ffffff';
+      return m('div.controlComponent', {
+        'onclick': function(e) {
+          if (selected) {
+            args.pen.strokeStyle = saved;
+            saved = null;
+          } else {
+            saved = args.pen.strokeStyle;
+            args.pen.strokeStyle = '#ffffff';
+          }
+        }
+      },
+        m('img.controlIcon', {'src': selected ? 'apps/whiteboard-new/eraser-selected.png' : 'apps/whiteboard-new/eraser.png'}),
+        m('span.buttonLabel', {
+          'style': 'font-weight: ' + (selected ? 'bold' : 'normal')
+        }, "Eraser")
+      );
     }
   };
 
   var UndoButton = {
-    'controller': function(args) {
+    'view': function(ctrl, args) {
+      return m('div.controlComponent',
+      {
+        'onclick': function(e) {
+          args.deviceState.sendAction('undo');
+        }
+      },
+      m('img.controlIcon', {'src': '/apps/whiteboard-new/undo-arrow.png'}),
+      m('span.buttonLabel', "Undo")
+      );
+    }
+  };
 
+  var ClearButton = {
+    'controller': function(args) {
+      return {
+        'confirmState': false
+      };
     },
     'view': function(ctrl, args) {
-      return m('div');
+      return m('div.controlComponent',
+      {
+        'onclick': function(e) {
+          if (!ctrl.confirmState) {
+            setTimeout(function() {
+              ctrl.confirmState = true;
+              m.redraw(true);
+              setTimeout(function() {
+                ctrl.confirmState = false;
+                m.redraw(true);
+              }, 5000);
+            }, 250);
+          }
+            else {
+            args.deviceState.sendAction('clear-screen');
+            ctrl.confirmState = false;
+          }
+        }
+      },
+      m('img.controlIcon', {'src': '/apps/whiteboard-new/clear-button.png'}),
+      m('span.buttonLabel', !ctrl.confirmState ? "Clear" : "Really clear?")
+      );
     }
   };
 
