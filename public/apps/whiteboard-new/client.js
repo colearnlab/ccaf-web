@@ -145,7 +145,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
             if (!deviceState.paths[curPath[touch.identifier + 1]])
               deviceState.sendAction('create-path', touch.identifier + 1);
             else {
-              //deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
+              deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
               lastPath.push(curPath[touch.identifier + 1]);
             }
           }
@@ -170,7 +170,6 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
 
     function drawPaths(newPaths, oldPaths) {
-      deviceState.paths = newPaths;
       var path;
       oldPaths = oldPaths || [];
 
@@ -219,7 +218,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         m.component(EraseButton, args),
         m('div.controlComponent', m.trust('&nbsp;')),
         m.component(UndoButton, args),
-        m.component(ClearButton, args)
+        m.component(ClearButton, args),
+        m.component(Slider)
       );
     }
   };
@@ -376,6 +376,31 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       m('img.controlIcon', {'src': '/apps/whiteboard-new/clear-button.png'}),
       m('span.buttonLabel', !ctrl.confirmState ? "Clear" : "Really clear?")
       );
+    }
+  };
+
+  var Slider = {
+    'controller': function(args) {
+      return {
+        'sliderValue': m.prop(canvasHeight)
+      };
+    },
+    'view': function(ctrl, args) {
+      var canvas = document.getElementsByTagName('canvas')[0];
+      return m('#slidercontainer', [
+        m('input#slider[type=range]', {
+          min: 0,
+          max: canvasHeight - window.innerHeight,
+          value: ctrl.sliderValue(),
+          config: function(el) {
+            el.addEventListener('input', function(e) {
+              ctrl.sliderValue(e.target.value);
+              canvas.canvasTop = (canvasHeight - window.innerHeight - e.target.value);
+              canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
+            });
+          }
+        })
+      ]);
     }
   };
 
