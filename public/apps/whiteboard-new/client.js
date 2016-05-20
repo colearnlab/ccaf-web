@@ -46,30 +46,41 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
       action('create-path')
         .onReceive(function(identifier) {
-          this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth}];
-          lastPath.push(curPath[identifier] = this.paths.length - 1);
+          if (typeof curPath[identifier] === 'undefined') {
+            this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth}];
+            lastPath.push(curPath[identifier] = this.paths.length - 1);
+          } else if (curPath[identifier] >= 0) {
+            return false;
+          } else {
+            curPath[identifier] *= -1;
+            if (!this.paths[curPath[identifier]]) {
+              this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth}];
+              lastPath.push(curPath[identifier] = this.paths.length - 1);
+            } else {
+              this.paths[curPath[identifier]][0] = {'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth};
+              lastPath.push(curPath[identifier]);
+            }
+          }
         }).onRevert(function(identifier) {
           console.log("reverted");
           lastPath = [];
           delete curPath[identifier];
         });
 
-      action('set-pen')
-        .onReceive(function()
-        {
-          this[0] = {'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth};
-        });
-
       action('add-point')
         .onReceive(function(identifier, x, y) {
-          if (curPath[identifier] >= 0)
+          if (curPath[identifier] >= 0 && deviceState.paths[curPath[identifier]])
             deviceState.paths[curPath[identifier]].sendAction('add-point-2', x, y);
           return false;
         });
 
       action('add-point-2')
         .onReceive(function(x, y) {
-          this.push({'x': x, 'y': y});
+          if (!isNaN(parseInt(x)) && !isNaN(parseInt(y)))
+            this.push({'x': parseInt(x), 'y': parseInt(y)});
+          else {
+              return false;
+          }
         });
 
       action('end-path')
@@ -103,21 +114,10 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
     function initListeners() {
       canvas.addEventListener('mousedown', function(e) {
-        if (typeof curPath[0] === 'undefined')
-          deviceState.sendAction('create-path', 0);
-        else if (curPath[0] >= 0)
-          return;
-        else {
-          curPath[0] *= -1;
-          if (!deviceState.paths[curPath[0]])
-            deviceState.sendAction('create-path', 0);
-          else {
-            deviceState.paths[curPath[0]].sendAction('set-pen');
-            lastPath.push(curPath[0]);
-          }
-        }
+        deviceState.sendAction('create-path', 0);
+
         deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop);
-        deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop + 1);
+        deviceState.sendAction('add-point', 0, e.pageX + 1, e.pageY + canvas.canvasTop + 1);
       });
 
       canvas.addEventListener('mousemove', function(e) {
@@ -136,19 +136,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         var touch;
         for (var i = 0; i < e.changedTouches.length; i++) {
           touch = e.changedTouches[i];
-          if (typeof curPath[touch.identifier + 1] === 'undefined')
-            deviceState.sendAction('create-path', touch.identifier + 1);
-          else if (curPath[touch.identifier + 1] >= 0)
-            return;
-          else {
-            curPath[touch.identifier + 1] *= -1;
-            if (!deviceState.paths[curPath[touch.identifier + 1]])
-              deviceState.sendAction('create-path', touch.identifier + 1);
-            else {
-              deviceState.paths[curPath[touch.identifier + 1]].sendAction('set-pen');
-              lastPath.push(curPath[touch.identifier + 1]);
-            }
-          }
+          deviceState.sendAction('create-path', touch.identifier + 1);
           deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].pageX, e.changedTouches[i].pageY + canvas.canvasTop);
         }
       });
@@ -187,8 +175,10 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         ctx.lineWidth = newPath[0].lineWidth;
         ctx.lineJoin = "round";
 
+        path = newPath;
         for (var j = oldPaths[i] ? oldPaths[i].length : 1; j < newPaths[i].length; j++) {
-          path = newPath;
+          if (!path[j])
+            continue;
           ctx.beginPath();
           if (path[j - 1])
             ctx.moveTo(path[j - 1].x, path[j - 1].y);
