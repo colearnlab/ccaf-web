@@ -1,3 +1,6 @@
+// fe9lix/Tuio.js
+// TODO: include as proper dependency... if we ever decide we need TUIO again!
+
 var TUIO = {};
 var Client = TUIO.Client = function Client(options) {
   options = options || {};

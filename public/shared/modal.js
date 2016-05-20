@@ -1,5 +1,9 @@
-define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exports, m, clientUtil, _) {  
-  var modal = {
+/* modal.js: simple info modal that occupies the center of the screen. Can be dismissible
+ * by user (via click/tap) or permanent. Only one modal can be displayed at a time.
+ */
+
+define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exports, m, clientUtil, _) {
+  var Modal = {
     'controller': function(args) {
       return {
         'display': m.prop(args.display || true)
@@ -17,13 +21,13 @@ define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exp
           m('span', m.trust(args.text)),
           m('div.close-text', args.dismissable ? "Tap to close" : "")
         ]);
-        
+
       else return m('span');
     }
-  }
-  
+  };
+
   clientUtil.css('/shared/modal.css', true);
-  
+
   // configuration options:
   // - dismissable [true]: if false, user cannot exit out of modal.
   exports.display = function(text, config) {
@@ -31,17 +35,17 @@ define('modal', ['exports', 'mithril', 'clientUtil', 'underscore'], function(exp
     if ((container = document.getElementById('modal-container')) === null) {
       container = document.createElement('div');
       container.id = 'modal-container';
-      document.body.appendChild(container)
+      document.body.appendChild(container);
     }
-    
+
     if (!config)
       config = {};
     _.defaults(config, {
       'dismissable': true
     });
-    m.mount(container, m.component(modal, _.extend(config, {'text': text})));
+    m.mount(container, m.component(Modal, _.extend(config, {'text': text})));
   };
-  
+
   exports.close = function() {
     var el = document.getElementById('modal-container');
     if (!el) return;

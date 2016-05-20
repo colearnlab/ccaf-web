@@ -1,15 +1,21 @@
-define('pinLock', ['exports', 'mithril'], function(exports, m) { 
+/* pinLock.js: numberpad pin lock for sensitive screens.
+ */
+
+define('pinLock', ['exports', 'mithril'], function(exports, m) {
+  /* Mount the pinlock on the specified element. When the expected passcode is entered,
+   * call the callback.
+   */
   exports.lock = function(passcode, el, callback) {
-    m.mount(el, m.component(lock, {'passcode': passcode, 'callback': callback}));
-  }
-  
-  var lock = {
+    m.mount(el, m.component(Lock, {'passcode': passcode, 'callback': callback}));
+  };
+
+  var Lock = {
     'view': function(ctrl, args) {
       return m('.container',
         m('br'),
         m('.row',
           m('.col-xs-4.col-xs-offset-4.col-sm-4.col-sm-offset-4.col-md-4.col-md-offset-4',
-            m('.panel.panel-default', 
+            m('.panel.panel-default',
               m('.panel-heading', "Enter passcode"),
               m('panel-body',
                 m('.form-group', {'style': 'width: 80%; margin: 0 auto; margin-top: 1em'},

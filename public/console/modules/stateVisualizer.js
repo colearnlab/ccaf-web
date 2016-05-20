@@ -14,14 +14,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
       var instances = args.state.instances;
       var userInstanceMapping = args.state.userInstanceMapping;
       return (
-        m('div.container',
-          m('div.row',
-            m.component(appPalette, {'state': args.state, 'apps': apps}),
-            m('div.col-sm-10.col-md-10.panel.panel-default.panel-body#cards',
+        m('div#visualizer',
+          m('div',
+            m('div#cards',
               _.values(instances).map(function(instance) {
                 return m.component(instanceCard, {'store': args.store, 'state': args.state, 'classroom': args.classroom, 'instance': instance});
               }),
-              m.trust('&nbsp;')
+              m.component(RoundButton, {'text': "+"})
             )
           )
         )
@@ -104,6 +103,12 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
           )
         )
       );
+    }
+  };
+
+  var RoundButton = {
+    'view': function(ctrl, args) {
+      return m('div.roundButton#addInstanceButton', args.text);
     }
   };
 
