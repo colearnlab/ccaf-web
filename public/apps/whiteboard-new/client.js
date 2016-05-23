@@ -69,18 +69,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
       action('add-point')
         .onReceive(function(identifier, x, y) {
-          if (curPath[identifier] >= 0 && deviceState.paths[curPath[identifier]])
-            deviceState.paths[curPath[identifier]].sendAction('add-point-2', x, y);
-          return false;
-        });
-
-      action('add-point-2')
-        .onReceive(function(x, y) {
-          if (!isNaN(parseInt(x)) && !isNaN(parseInt(y)))
-            this.push({'x': parseInt(x), 'y': parseInt(y)});
-          else {
-              return false;
-          }
+          if (curPath[identifier] >= 0 && this.paths[curPath[identifier]] && !isNaN(parseInt(x)) && !isNaN(parseInt(y)))
+            this.paths[curPath[identifier]].push({'x': parseInt(x), 'y': parseInt(y)});
         });
 
       action('end-path')
