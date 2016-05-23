@@ -176,6 +176,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         ctx.lineJoin = "round";
 
         path = newPath;
+        var first = true;
         for (var j = oldPaths[i] ? oldPaths[i].length : 1; j < newPaths[i].length; j++) {
           if (!path[j])
             continue;
