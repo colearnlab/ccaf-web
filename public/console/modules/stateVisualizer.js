@@ -85,8 +85,10 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
           id = pair[0];
       });
 
+      var projecting = typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined';
+
       return m('div.instance',
-        args.instance.app,
+        m('div.instance-title', args.instance.title || args.store.apps[args.instance.app].title),
         m('button', {
           'onclick': function() {
             if (typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined')
@@ -94,11 +96,6 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
             args.state.sendAction('delete-app-instance', id);
           }
         }, "Delete"),
-        m('button', {
-          'onclick': function() {
-            args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
-          }
-        }, typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined' ? "Unproject" : "Project"),
         m('ul',
           _.pairs(args.state.userInstanceMapping).filter(function(pair) {
             return pair[1] == id;
@@ -120,6 +117,14 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
               })
             )
           )
+        ),
+        m('div.instance-footer',
+          m('span.circle-button' + (projecting ? '.circle-button-active' : ''), {
+            'onclick': function() {
+              args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
+            }
+          }, "P"),
+          m('span.circle-button', "X")
         )
       );
     }
