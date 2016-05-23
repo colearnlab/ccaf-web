@@ -43,6 +43,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
   });
 
   stm.init(function(store) {
+    store.addObserver(function(){});
     /* --- Definitions dependent on store --- */
 
     /* The updateApp routine has three tasks.
@@ -116,7 +117,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       });
     }
   });
-  
+
   /* --- support functions --- */
 
   /* [g]et [u]RL [p]arameters, or return null if there are none.
