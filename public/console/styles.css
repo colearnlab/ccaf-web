@@ -13,11 +13,11 @@ html, body, .stretch {
   position: absolute;
   top: 0;
   left: 0;
-  height: 70px;
+  height: 50px;
   width: 100%;
   color: white;
   font-size: 20px; /* correct  */
-  line-height: 70px;
+  line-height: 50px;
   background-color: #2d3d50;
   padding-left: 35px;
 }
@@ -30,7 +30,7 @@ html, body, .stretch {
 
 #sidebar {
   position: absolute;
-  top: 70px;
+  top: 50px;
   left: 0;
   margin: 0;
   padding: 0;
@@ -38,11 +38,13 @@ html, body, .stretch {
   height: 100%;
   background-color: rgb(250, 250, 250);
   border-right: 1px solid rgb(210, 210, 225); /* border color */
+  box-shadow: 1px 1px 1px lightgray;
 }
 
 #cards {
+  width: 800px;
   position: absolute;
-  top: 70px;
+  top: 50px;
   left: 0;
   margin: 0;
   padding: 15px 30px 0px 30px;
@@ -66,28 +68,17 @@ html, body, .stretch {
   border-bottom: 1px solid rgb(210, 210, 225); /* border color */
 }
 
-#addInstanceButton {
-  box-shadow: 1px 1px 0px lightgray;
-  background-color: aqua;
-  color: white;
-  font-size: 25px;
-  height: 50px;
-  width: 50px;
-  line-height: 50px;
-  border-radius: 50%;
-  text-align: center;
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
+.student-entry:hover {
+  background-color: pink;
 }
 
 .instance {
   position: relative;
   vertical-align: top;
   display: inline-block;
-  height: 300px;
+  height: 375px;
   width: 275px;
-  margin-top: 15px;
+  margin-top: 5px;
   margin-right: 25px;
   margin-left: 25px;
   margin-bottom: 5px;
@@ -104,19 +95,39 @@ html, body, .stretch {
 }
 
 .instance-title {
-  color: #1180bc;
+  color: white;
+  background-color: #1180bc;
   font-size: 16pt;
-  height: 35px;
-  line-height: 35px;
-  background-color: rgb(250, 250, 250);
+  height: 45px;
+  line-height: 45px;
   border-radius: 11px 2px 0px 0px;
   border-bottom: 2px solid rgb(210, 210, 225);
+}
+
+.instance-student-list {
+  -webkit-column-count: 2;
+  -webkit-column-gap: 0em;
+  -webkit-column-rule: 1px solid rgb(210, 210, 225);
+  margin-top: 15px;
+  list-style-type: none;
+  margin: 0;
+  padding-left: 0;
+  margin-left: -1px;
+}
+
+.instance-student-list li {
+  border-left: 1px solid rgb(210, 210, 225);
+  height: 50px;
+  line-height: 50px;
+  padding-left: 25px;
+  border-bottom: 1px solid rgb(210, 210, 225);
+  background: linear-gradient(to bottom, #ffffff 0%,#F8F8F8 100%);
 }
 
 .instance-footer {
     position: absolute;
     bottom: 0;
-    height: 60px;
+    height:45px;
     width: 100%;
     border-radius: 0px 0px 11px 11px;
     background-color: rgb(250, 250, 250);
@@ -128,8 +139,8 @@ html, body, .stretch {
   padding: 0;
   margin: 0;
   top: 50%;
-  margin-top: 15px;
-  margin-left: 5px;
+  margin-top: 7px;
+  margin-left: 10px;
   display: inline-block;
   height: 30px;
   width: 30px;
@@ -140,6 +151,11 @@ html, body, .stretch {
   line-height: 30px;
   text-align: center;
   box-shadow: 1px 1px 2px lightgray;
+}
+
+.circle-button:hover {
+  color: gray;
+  border-color: gray;
 }
 
 .circle-button-active {

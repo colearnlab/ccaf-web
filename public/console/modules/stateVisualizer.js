@@ -15,7 +15,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
       var userInstanceMapping = args.state.userInstanceMapping;
       return (
         m('div#visualizer',
-          m('p#statusbar', 'History 10th Period'),
+          m('p#statusbar', args.store.classrooms[args.classroom].name),
           m('div#visualizerHolder',
             m('div#sidebar',
               m.component(StudentPalette, args)
@@ -89,34 +89,12 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
 
       return m('div.instance',
         m('div.instance-title', args.instance.title || args.store.apps[args.instance.app].title),
-        m('button', {
-          'onclick': function() {
-            if (typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined')
-              args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
-            args.state.sendAction('delete-app-instance', id);
-          }
-        }, "Delete"),
-        m('ul',
+        m('ul.instance-student-list',
           _.pairs(args.state.userInstanceMapping).filter(function(pair) {
             return pair[1] == id;
           }).map(function(pair) {
-            return m('li', args.store.classrooms[args.classroom].users[pair[0]].name);
-          }),
-          m('li',
-            m('select', {
-              'onchange': function(e) {
-                if (e.target.value === -1)
-                  return;
-                args.state.sendAction('associate-user-to-instance', e.target.value, id);
-                e.target.value = -1;
-              }
-            },
-              m('option', {'value': -1}, '--'),
-              _.values(args.store.classrooms[args.classroom].users).map(function(user) {
-                return m('option', {'value': user.id}, user.name);
-              })
-            )
-          )
+            return [m('li', args.store.classrooms[args.classroom].users[pair[0]].name), m('li', args.store.classrooms[args.classroom].users[pair[0]].name), m('li', args.store.classrooms[args.classroom].users[pair[0]].name), m('li', args.store.classrooms[args.classroom].users[pair[0]].name), m('li', args.store.classrooms[args.classroom].users[pair[0]].name), m('li', args.store.classrooms[args.classroom].users[pair[0]].name), m('li', args.store.classrooms[args.classroom].users[pair[0]].name), m('li', args.store.classrooms[args.classroom].users[pair[0]].name)];
+          })
         ),
         m('div.instance-footer',
           m('span.circle-button' + (projecting ? '.circle-button-active' : ''), {
@@ -124,7 +102,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
               args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
             }
           }, "P"),
-          m('span.circle-button', "X")
+          m('span.circle-button', {
+            'onclick': function() {
+              if (typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined')
+                args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
+              args.state.sendAction('delete-app-instance', id);
+            }
+          }, "X")
         )
       );
     }
