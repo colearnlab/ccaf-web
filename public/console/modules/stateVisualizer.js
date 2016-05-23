@@ -15,15 +15,34 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore'], function(exports
       var userInstanceMapping = args.state.userInstanceMapping;
       return (
         m('div#visualizer',
-          m('div',
-            m('div#cards',
+          m('p#statusbar', 'History 10th Period'),
+          m('div#visualizerHolder',
+            m('div#sidebar',
+              m.component(StudentPalette, args)
+            ),
+            m('div#cards', {
+              'style': 'margin-left: 225px;'
+            },
               _.values(instances).map(function(instance) {
                 return m.component(instanceCard, {'store': args.store, 'state': args.state, 'classroom': args.classroom, 'instance': instance});
-              }),
-              m.component(RoundButton, {'text': "+"})
+              })
             )
           )
         )
+      );
+    }
+  };
+
+  var StudentPalette = {
+    'controller': function(args) {
+
+    },
+    'view': function(ctrl, args) {
+      return m('div#student-palette',
+        m('div#student-header', "Students"),
+        _.values(args.store.classrooms[args.classroom].users).map(function(student) {
+          return m('div.student-entry', student.name);
+        })
       );
     }
   };
