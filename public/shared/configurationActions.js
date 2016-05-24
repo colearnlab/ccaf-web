@@ -34,6 +34,11 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         instances[findNextKey(instances)] = new Instance(app);
       });
 
+    stm.action('set-instance-app')
+      .onReceive(function(app) {
+        this.app = app;
+      });
+
     /* delete-app-instance: delete an instance of an app on the state it is called on.
      */
     stm.action('delete-app-instance')

@@ -13,7 +13,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
       var instances = args.state.instances;
       var userInstanceMapping = args.state.userInstanceMapping;
       return (
-        m('div#visualizer',
+        m('div#visualizer', {
+          'onclick': function(e) {
+            openTrays.forEach(function(openTray) {
+              openTray.showAppTray = false;
+            });
+          }
+        },
           m('p#statusbar', args.store.classrooms[args.classroom].name),
           m('div#visualizerHolder',
             m('div#sidebar',
@@ -24,6 +30,20 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             },
               _.values(instances).map(function(instance) {
                 return m.component(instanceCard, {'store': args.store, 'state': args.state, 'classroom': args.classroom, 'instance': instance});
+              })
+            ),
+            m('div.add-instance-container', {
+              'onclick': function() {
+
+              }
+            },
+              m('img.add-instance-button', {
+                'onclick': function(e) {
+                  args.state.sendAction('create-app-instance');
+                },
+                'width': '64px',
+                'height': '64px',
+                'src': 'console/add-instance.png'
               })
             )
           )
@@ -51,31 +71,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
     }
   };
 
-  var appPalette = {
-    'view': function(ctrl, args) {
-      var apps = args.apps;
-      var state = args.state;
-      return (
-        m('div.col-sm-2.col-md-2#appPalette',
-          _.pairs(apps).map(function(app) {
-            return (
-              m('div.icon',
-                {'onclick': function() {
-                  state.sendAction('create-app-instance', app[0]);
-                }},
-                m('img', {
-                  'src': 'apps/' + app[0] + '/' + app[1].icon
-                }),
-                m('div.appTitle', app[1].title)
-              )
-            );
-          })
-        )
-      );
-    }
-  };
-
+  var openTrays = [];
   var instanceCard = {
+    'controller': function(args) {
+      return {
+        'showAppTray': args.instance.app ? false : true
+      };
+    },
     'view': function(ctrl, args) {
       var id;
       _.pairs(args.state.instances).forEach(function(pair) {
@@ -86,7 +88,29 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
       var projecting = typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined';
 
       return m('div.instance',
-        m('div.instance-title', args.instance.title || args.store.apps[args.instance.app].title),
+        m('div.instance-title',
+          m('img.instance-app-icon', {
+            'height': '35px',
+            'src': args.instance.app ? 'apps/' + args.instance.app + '/' + args.store.apps[args.instance.app].icon : 'console/app-placeholder.png',
+            'onclick': function(e) {
+              if (!ctrl.showAppTray) {
+                openTrays.forEach(function(openTray) {
+                  openTray.showAppTray = false;
+                });
+
+                m.redraw(true);
+                openTrays.push(ctrl);
+              }
+              else
+                openTrays.splice(openTrays.indexOf(ctrl), 1);
+
+              ctrl.showAppTray = !ctrl.showAppTray;
+              e.stopPropagation();
+            }
+          }),
+          (ctrl.showAppTray ? m.component(AppTray, _.extend(args, {avoid: args.instance.app})) : ''),
+          args.instance.title
+        ),
         m('div.instance-student-list', {
           'data-instance': id,
           'config': function(el) {
@@ -105,19 +129,43 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           })
         ),
         m('div.instance-footer',
-          m('span.circle-button' + (projecting ? '.circle-button-active' : ''), {
+          m('span.instance-button.project-button' + (projecting ? '.projecting' : ''), {
             'onclick': function() {
               args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
             }
-          }, "P"),
-          m('span.circle-button', {
+          }, m('img', {'height': '30px', 'width': '30px', 'src': projecting ? 'console/project-on.png' : 'console/project-off.png'})),
+          m('span.instance-button', {
             'onclick': function() {
               if (typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined')
                 args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
               args.state.sendAction('delete-app-instance', id);
             }
-          }, "X")
+          }, m('img', {'height': '30px', 'width': '30px', 'src': 'console/delete.png'}))
         )
+      );
+    }
+  };
+
+  var AppTray = {
+    'view': function(ctrl, args) {
+      return m('div.app-tray.triangle-border.top',
+        _.pairs(args.store.apps)
+          .filter(function(pair) {
+            return pair[0] !== args.avoid;
+          })
+          .map(function(pair) {
+            return m('div.app-selection', {
+              'onclick': function() {
+                args.instance.sendAction('set-instance-app', pair[0]);
+              }
+            },
+              m('img.app-selection-icon', {
+                'height': '20px',
+                'src': 'apps/' + pair[0] + '/'+ pair[1].icon
+              }),
+              pair[1].title
+            );
+        })
       );
     }
   };

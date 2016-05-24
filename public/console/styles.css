@@ -109,6 +109,16 @@ html, body, .stretch {
   border-bottom: 2px solid rgb(210, 210, 225);
 }
 
+.instance-app-icon {
+  -webkit-filter: brightness(0) invert(1);
+  filter: brightness(0) invert(1);
+  margin: 0;
+  padding: 0;
+  position: relative;
+  top: -2px;
+  margin-right: 10px;
+}
+
 .instance-student-list {
   position: relative;
   -webkit-column-gap: 1px;
@@ -133,7 +143,7 @@ html, body, .stretch {
     border-top: 1px solid rgb(210, 210, 225);
 }
 
-.circle-button {
+.instance-button {
   float: right;
   padding: 0;
   margin: 0;
@@ -143,23 +153,62 @@ html, body, .stretch {
   display: inline-block;
   height: 30px;
   width: 30px;
-  border-radius: 50%;
-  color: rgb(190, 190, 190);
+}
+
+.add-instance-container {
+  position: absolute;
+  bottom: 25px;
+  right: 25px;
+}
+
+.app-tray {
+  color: black;
+  z-index: 101;
+  top: 60px;
+  left: -19px;
+  position: absolute;
+  width: 300px;
+  border: 1px solid lightgray;
   background-color: white;
-  border: 1px solid rgb(190, 190, 190);
-  line-height: 30px;
-  text-align: center;
-  box-shadow: 1px 1px 2px lightgray;
+  border-radius: 5px;
+  box-shadow: 0px 0px 75px rgba(0, 0, 0, 0.4);
 }
 
-.circle-button:hover {
-  color: gray;
-  border-color: gray;
+.app-selection {
+  padding: 0;
+  padding-left: 25px;
+  border-bottom: 1px solid rgb(210, 210, 225);
 }
 
-.circle-button-active {
-  color:black;
-  border-color: black;
+.app-selection-icon {
+  margin-right: 10px;
+}
+
+.triangle-border.top:before {
+    top: -20px;
+    bottom: auto;
+    right: auto;
+    left: 40px;
+    border-width: 0 20px 20px;
+}
+
+.triangle-border.top:after {
+    top: -20px;
+    bottom: auto;
+    right: auto;
+    left: 40px;
+    border-width: 0 20px 20px;
+}
+.triangle-border:after {
+    content: "";
+    position: absolute;
+    bottom: -13px;
+    left: 47px;
+    border-width: 13px 13px 0;
+    border-style: solid;
+    border-color: #fff transparent;
+    display: block;
+    width: 0;
 }
 
 /*
