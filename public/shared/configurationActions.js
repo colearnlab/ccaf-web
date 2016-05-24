@@ -28,8 +28,9 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
     stm.action('create-app-instance')
       .onReceive(function(app) {
         var instances = this.instances;
-        var title = "Group " + (Object.keys(instances).length + 1);
-        instances[findNextKey(instances)] = new Instance(app, title);
+        var key = findNextKey(instances);
+        var title = "Group " + (key + 1);
+        instances[key] = new Instance(app, title);
       });
 
     stm.action('set-instance-app')

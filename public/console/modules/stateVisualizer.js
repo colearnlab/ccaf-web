@@ -121,6 +121,9 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             'onclick': function(e) {
               e.stopPropagation();
             },
+            'onkeypress': function(e) {
+              return e.which != 13;
+            },
             'onfocus': function(e) {
               // http://stackoverflow.com/a/3806004
               window.setTimeout(function() {
@@ -269,7 +272,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
     _.values(state.instances).forEach(function(instance) {
       createdInstances.push(instance);
     });
-    
+
     state.addObserver(function(newState) {
       state = newState;
       m.mount(el, m.component(visualizer, {'store': store, 'classroom': classroom, 'state': newState}));
