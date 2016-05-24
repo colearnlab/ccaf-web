@@ -107,15 +107,15 @@ iframe {
   background-color: #eef !important;
 }
 
-#titlebar {
-  margin: 0;
-  font-size: 18px;
-  color: white;
-  padding-left: 1.5em;
-  background-color: gray;
+#statusbar {
   position: absolute;
-  z-index: 100;
-  width: 100vw;
-  border: 1px solid lightgray;
-  border-radius: 5px;
+  top: 0;
+  left: 0;
+  height: 50px;
+  width: 100%;
+  color: white;
+  font-size: 20px; /* correct  */
+  line-height: 50px;
+  background-color: #03354F;
+  padding-left: 25px;
 }

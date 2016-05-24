@@ -17,7 +17,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     deviceState.paths.addObserver(drawPaths);
 
     function initElements() {
-      clientUtil.css('/apps/whiteboard-new/styles.css');
+      clientUtil.css('/apps/whiteboard/styles.css');
 
       canvas = document.createElement('canvas');
       canvas.canvasTop = 0;
@@ -70,7 +70,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       action('add-point')
         .onReceive(function(identifier, x, y) {
           if (curPath[identifier] >= 0 && this.paths[curPath[identifier]] && !isNaN(parseInt(x)) && !isNaN(parseInt(y)))
-            this.paths[curPath[identifier]].push({'x': parseInt(x), 'y': parseInt(y)});
+            this.paths[curPath[identifier]].push({'x': parseInt(x), 'y': parseInt(y) - 50});
         });
 
       action('end-path')
@@ -264,7 +264,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           ctrl.trayOpen = !ctrl.trayOpen;
         }
       },
-        m('img.controlIcon', {'src': '/apps/whiteboard-new/pen.png'}),
+        m('img.controlIcon', {'src': '/apps/whiteboard/pen.png'}),
         m('div.buttonLabel', "Line"),
         m('div.lineTray', {
           'style': 'display: ' + (ctrl.trayOpen ? 'block' : 'none')
@@ -306,7 +306,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           }
         }
       },
-        m('img.controlIcon', {'src': selected ? 'apps/whiteboard-new/eraser-selected.png' : 'apps/whiteboard-new/eraser.png'}),
+        m('img.controlIcon', {'src': selected ? 'apps/whiteboard/eraser-selected.png' : 'apps/whiteboard/eraser.png'}),
         m('span.buttonLabel', {
           'style': 'font-weight: ' + (selected ? 'bold' : 'normal')
         }, "Eraser")
@@ -322,7 +322,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           args.deviceState.sendAction('undo');
         }
       },
-      m('img.controlIcon', {'src': '/apps/whiteboard-new/undo-arrow.png'}),
+      m('img.controlIcon', {'src': '/apps/whiteboard/undo-arrow.png'}),
       m('span.buttonLabel', "Undo")
       );
     }
@@ -354,8 +354,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           }
         }
       },
-      m('img.controlIcon', {'src': '/apps/whiteboard-new/clear-button.png'}),
-      m('span.buttonLabel', !ctrl.confirmState ? "Clear" : "Really clear?")
+      m('img.controlIcon', {'src': '/apps/whiteboard/clear-button.png'}),
+      m('span.buttonLabel', !ctrl.confirmState ? "Clear" : "Sure?")
       );
     }
   };

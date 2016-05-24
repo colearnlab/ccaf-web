@@ -61,9 +61,9 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
 
         // Want the titlebar to have some indication that things are working.
         if (typeof student !== 'undefined')
-          document.getElementById('titlebar').textContent = "Logged in as " + store.classrooms[classroom].users[student].name;
+          document.getElementById('statusbar').textContent = "Logged in as " + store.classrooms[classroom].users[student].name;
         else
-          document.getElementById('titlebar').textContent = "";
+          document.getElementById('statusbar').textContent = "";
 
         return;
       }
@@ -78,7 +78,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       var appName = store.apps[instance.app].title;
 
       // Set the titlebar text to "[apptitle] | [users]", omitting the pipe if no users connected.
-      document.getElementById('titlebar').textContent = appName + (users.length > 0 ? " | " + users.join(", ") : "");
+      document.getElementById('statusbar').textContent = appName + (users.length > 0 ? " | " + users.join(", ") : "");
 
       if (!reloadApp)
         return;

@@ -185,12 +185,12 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
 
   var AppTray = {
     'view': function(ctrl, args) {
+      var filteredApps = _.pairs(args.store.apps)
+        .filter(function(pair) {
+          return pair[0] !== args.avoid;
+        });
       return m('div.app-tray.triangle-border.top',
-        _.pairs(args.store.apps)
-          .filter(function(pair) {
-            return pair[0] !== args.avoid;
-          })
-          .map(function(pair) {
+          filteredApps.map(function(pair) {
             return m('div.app-selection', {
               'onclick': function() {
                 args.instance.sendAction('set-instance-app', pair[0]);
@@ -202,7 +202,8 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               }),
               pair[1].title
             );
-        })
+          }),
+          (filteredApps.length === 0 ? m.trust('&nbsp;&nbsp;No other apps to choose!') : '')
       );
     }
   };
