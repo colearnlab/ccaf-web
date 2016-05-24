@@ -56,7 +56,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       var instance = store.classrooms[classroom].currentState.instances[instanceId];
 
       // Check if the instance has been removed. If so, clear the screen.
-      if (typeof instance === 'undefined') {
+      if (typeof instance === 'undefined' || typeof instance.app === 'undefined') {
         reRoot();
 
         // Want the titlebar to have some indication that things are working.
@@ -111,7 +111,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
         store.classrooms[classroom].currentState.addObserver(function(newStore, oldStore) {
           // We want to reload the app if this is the first time observer is called (data being populated,
           // oldStore will be null) or if the app has changed. Otherwise just update student names.
-          var reloadApp = oldStore === null || newStore.userInstanceMapping[student] != oldStore.userInstanceMapping[student];
+          var reloadApp = oldStore === null || newStore.userInstanceMapping[student] != oldStore.userInstanceMapping[student] ||
+            (typeof newStore.userInstanceMapping[student] !== 'undefined' && newStore.instances[newStore.userInstanceMapping[student]].app !== oldStore.instances[newStore.userInstanceMapping[student]].app);
           updateApp(newStore.userInstanceMapping[student], classroom, student, reloadApp);
         });
       });

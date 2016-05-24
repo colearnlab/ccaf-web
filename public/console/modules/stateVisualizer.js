@@ -5,7 +5,7 @@
 module = null;
 
 define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], function(exports, m, _, interact) {
-  var state;
+  var state, isEditing;
 
   var visualizer = {
     'view': function(ctrl, args) {
@@ -25,11 +25,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         },
           m('p#statusbar', args.store.classrooms[args.classroom].name),
           m('div#visualizerHolder',
-            m('div#sidebar',
+            m('div#sidebar', {
+              'style': (!isEditing ? 'display:none':'')
+            },
               m.component(StudentPalette, args)
             ),
             m('div#cards', {
-              'style': 'margin-left: 225px;'
+              'style': (!isEditing ? '' : 'margin-left: 225px;')
             },
               _.values(instances).map(function(instance) {
                 return m.component(instanceCard, {'store': args.store, 'state': args.state, 'classroom': args.classroom, 'instance': instance});
@@ -37,8 +39,9 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             ),
             m('div.add-instance-container',
               m('img.add-instance-button', {
+                'style': (!isEditing ? 'display:none;':''),
                 'onclick': function(e) {
-                  args.state.sendAction('create-app-instance');
+                  args.state.sendAction('create-app-instance', null);
                   e.stopPropagation();
                 },
                 'width': '64px',
@@ -100,6 +103,9 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             'height': '35px',
             'src': args.instance.app ? 'apps/' + args.instance.app + '/' + args.store.apps[args.instance.app].icon : 'console/app-placeholder.png',
             'onclick': function(e) {
+              if (!isEditing)
+                return;
+
               if (!ctrl.showAppTray) {
                 openTrays.forEach(function(openTray) {
                   openTray.showAppTray = false;
@@ -117,7 +123,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           }),
           (ctrl.showAppTray ? m.component(AppTray, _.extend(args, {avoid: args.instance.app})) : ''),
           m('div.instance-title-editable', {
-            'contenteditable': true,
+            'contenteditable': isEditing,
             'onclick': function(e) {
               e.stopPropagation();
             },
@@ -172,6 +178,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             }
           }, m('img', {'height': '30px', 'width': '30px', 'src': projecting ? 'console/project-on.png' : 'console/project-off.png'})),
           m('span.instance-button', {
+            'style': (!isEditing ? 'display:none;' : ''),
             'onclick': function() {
               if (typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined')
                 args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
@@ -203,72 +210,28 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               pair[1].title
             );
           }),
-          (filteredApps.length === 0 ? m.trust('&nbsp;&nbsp;No other apps to choose!') : '')
+          m('div.app-selection', {
+            'onclick': function() {
+              args.instance.sendAction('set-instance-app', null);
+            },
+            'style': args.avoid ? '' : 'display: none'
+          },
+            m('img.app-selection-icon', {
+              'height': '30px',
+              'src': 'console/app-placeholder.png'
+            }),
+            "Clear selected app"
+          )
       );
     }
   };
 
   var savedParent;
-  interact('.student-entry')
-    .draggable({
-      'onstart': function(event) {
-        var target = event.target;
-        savedParent = target.parentElement;
-        document.body.appendChild(target);
-        target.style.top = (event.pageY - 25) + 'px';
-        target.style.left = (event.pageX - 112) + 'px';
-        target.style.position = 'absolute';
-      },
-      'onmove': function(event) {
-        var target = event.target,
-          x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
-          y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-
-          target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
-          target.style.width = '225px';
-          target.setAttribute('data-x', x);
-          target.setAttribute('data-y', y);
-      },
-      'onend': function(event) {
-        var target = event.target;
-
-        savedParent.appendChild(target);
-
-        if (target.getAttribute('data-instance') === null) {
-          state.sendAction('associate-user-to-instance', target.getAttribute('data-student'), null);
-        }
-
-        target.style.transform = '';
-        target.style.position = '';
-        target.style.width = '';
-        target.setAttribute('data-x', null);
-        target.setAttribute('data-y', null);
-      }
-    });
-
-  interact('.instance-student-list')
-    .dropzone({
-      'accept': '.student-entry',
-      'ondrop': function(event) {
-        var student = event.relatedTarget.getAttribute('data-student');
-        var instance = event.target.getAttribute('data-instance');
-        if (event.target.childElementCount < 8)
-          state.sendAction('associate-user-to-instance', student, instance);
-        event.target.classList.remove('drop-active');
-      },
-      'ondragenter': function(event) {
-        var instance = event.target.getAttribute('data-instance');
-        event.relatedTarget.setAttribute('data-instance', instance);
-        event.target.classList.add('drop-active');
-      },
-      'ondragleave': function(event) {
-        event.relatedTarget.removeAttribute('data-instance');
-        event.target.classList.remove('drop-active');
-      }
-    });
+  var interactable;
 
 
-  exports.display = function(el, store, classroom, _state, isLive) {
+  exports.display = function(el, store, classroom, _state, _isEditing) {
+    isEditing = _isEditing;
     state = _state;
     _.values(state.instances).forEach(function(instance) {
       createdInstances.push(instance);
@@ -276,7 +239,69 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
 
     state.addObserver(function(newState) {
       state = newState;
-      m.mount(el, m.component(visualizer, {'store': store, 'classroom': classroom, 'state': newState}));
+      m.mount(el, m.component(visualizer, {'store': store, 'classroom': classroom, 'state': newState, 'isEditing': isEditing}));
     });
+
+    if (isEditing) {
+      interactable = interact('.student-entry')
+        .draggable({
+          'onstart': function(event) {
+            var target = event.target;
+            savedParent = target.parentElement;
+            document.body.appendChild(target);
+            target.style.top = (event.pageY - 25) + 'px';
+            target.style.left = (event.pageX - 112) + 'px';
+            target.style.position = 'absolute';
+          },
+          'onmove': function(event) {
+            var target = event.target,
+              x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx,
+              y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+
+              target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+              target.style.width = '225px';
+              target.setAttribute('data-x', x);
+              target.setAttribute('data-y', y);
+          },
+          'onend': function(event) {
+            var target = event.target;
+
+            savedParent.appendChild(target);
+
+            if (target.getAttribute('data-instance') === null) {
+              state.sendAction('associate-user-to-instance', target.getAttribute('data-student'), null);
+            }
+
+            target.style.transform = '';
+            target.style.position = '';
+            target.style.width = '';
+            target.setAttribute('data-x', null);
+            target.setAttribute('data-y', null);
+          }
+        });
+
+      interact('.instance-student-list')
+        .dropzone({
+          'accept': '.student-entry',
+          'ondrop': function(event) {
+            var student = event.relatedTarget.getAttribute('data-student');
+            var instance = event.target.getAttribute('data-instance');
+            if (event.target.childElementCount < 8)
+              state.sendAction('associate-user-to-instance', student, instance);
+            event.target.classList.remove('drop-active');
+          },
+          'ondragenter': function(event) {
+            var instance = event.target.getAttribute('data-instance');
+            event.relatedTarget.setAttribute('data-instance', instance);
+            event.target.classList.add('drop-active');
+          },
+          'ondragleave': function(event) {
+            event.relatedTarget.removeAttribute('data-instance');
+            event.target.classList.remove('drop-active');
+          }
+        });
+    }
+    else if (interactable)
+      interactable.unset();
   };
 });

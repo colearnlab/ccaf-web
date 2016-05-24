@@ -41,8 +41,38 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'm
           'student': false,
           'store': store
         }, function(classroom) {
-          stateVisualizer.display(root, store, classroom, store.classrooms[classroom].currentState);
+          var isEditing = true;
+          m.mount(document.getElementById('edit-toggle-holder'), m.component(EditToggle, {'root': root, 'store': store, 'classroom': classroom, 'currentState': store.classrooms[classroom].currentState}));
+          stateVisualizer.display(root, store, classroom, store.classrooms[classroom].currentState, false);
       });
     }
   });
+
+  var EditToggle = {
+    'controller': function(args) {
+      return {
+        'isEditing': false
+      };
+    },
+    'view': function(ctrl, args) {
+      return m('div.edit-toggle',
+        m('div.edit-toggle-edit' + (ctrl.isEditing ? '.edit-toggle-active' : ''), {
+          'onclick': function(e) {
+            if (!ctrl.isEditing) {
+              ctrl.isEditing = true;
+              stateVisualizer.display(args.root, args.store, args.classroom, args.currentState, true);
+            }
+          }
+        }, "Edit"),
+        m('div.edit-toggle-live' + (!ctrl.isEditing ? '.edit-toggle-active' : ''), {
+          'onclick': function(e) {
+            if (ctrl.isEditing) {
+              ctrl.isEditing = false;
+              stateVisualizer.display(args.root, args.store, args.classroom, args.currentState, false);
+            }
+          }
+        }, "Live")
+      );
+    }
+  };
 });
