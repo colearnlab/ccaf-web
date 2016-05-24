@@ -29,6 +29,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'm
     // load actions from shared source and initialize
     configurationActions.load(stm);
     store.sendAction('init');
+    store.addObserver(function(){});
 
     if (parseInt(store.config.passcode) >= 0)
       pinLock.lock(store.config.passcode, root, start);
@@ -40,7 +41,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'm
           'student': false,
           'store': store
         }, function(classroom) {
-          store.addObserver(function(){});
           stateVisualizer.display(root, store, classroom, store.classrooms[classroom].currentState);
       });
     }

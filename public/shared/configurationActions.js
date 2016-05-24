@@ -53,7 +53,10 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
     // NOTE: Will need to account for multiple users logged into the same device.
     stm.action('associate-user-to-instance')
       .onReceive(function(user, instance) {
-          this.userInstanceMapping[user] = instance;
+          if (instance === null)
+            delete this.userInstanceMapping[user];
+          else
+            this.userInstanceMapping[user] = instance;
       });
 
     /* toggle-projection: operates on the classroom level. Adds a projection of a

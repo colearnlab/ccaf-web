@@ -2,6 +2,7 @@ html, body, .stretch {
   height: 100%;
   overflow: hidden;
   font-family: 'Raleway', sans-serif;
+  -webkit-user-select: none;
 }
 
 #visualizer {
@@ -19,7 +20,7 @@ html, body, .stretch {
   font-size: 20px; /* correct  */
   line-height: 50px;
   background-color: #2d3d50;
-  padding-left: 35px;
+  padding-left: 25px;
 }
 
 #visualizerHolder {
@@ -42,7 +43,6 @@ html, body, .stretch {
 }
 
 #cards {
-  width: 800px;
   position: absolute;
   top: 50px;
   left: 0;
@@ -50,33 +50,42 @@ html, body, .stretch {
   padding: 15px 30px 0px 30px;
 }
 
-#student-palette div {
-  padding-left: 35px;
-}
 
 #student-header {
-  height: 80px;
-  line-height: 80px;
-  font-size: 20px;
+  padding-left: 25px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 16px;
   border-bottom: 2px solid rgb(210, 210, 225); /* border color */
   font-weight: bold;
 }
 
-.student-entry {
-  height: 50px;
-  line-height: 50px;
-  border-bottom: 1px solid rgb(210, 210, 225); /* border color */
+#student-list {
+  margin: 0;
+  padding-left: 0;
 }
 
-.student-entry:hover {
-  background-color: pink;
+.drop-active {
+  background-color: darkgray;
 }
+
+.student-entry {
+  z-index: 100;
+  margin-right: -1px;
+  border-right: 1px solid rgb(210, 210, 225);
+  height: 50px;
+  line-height: 50px;
+  padding-left: 25px;
+  border-bottom: 1px solid rgb(210, 210, 225);
+  background: linear-gradient(to bottom, #ffffff 0%,#F8F8F8 100%);
+}
+
 
 .instance {
   position: relative;
   vertical-align: top;
   display: inline-block;
-  height: 375px;
+  height: 300px;
   width: 275px;
   margin-top: 5px;
   margin-right: 25px;
@@ -88,13 +97,9 @@ html, body, .stretch {
   box-shadow: 1px 1px 2px lightgray;
 }
 
-.instance div {
+.instance-title {
   padding-left: 25px;
   padding-right: 25px;
-  margin: 0;
-}
-
-.instance-title {
   color: white;
   background-color: #1180bc;
   font-size: 16pt;
@@ -105,26 +110,20 @@ html, body, .stretch {
 }
 
 .instance-student-list {
-  -webkit-column-count: 2;
-  -webkit-column-gap: 0em;
+  position: relative;
+  -webkit-column-gap: 1px;
   -webkit-column-rule: 1px solid rgb(210, 210, 225);
-  margin-top: 15px;
-  list-style-type: none;
+  column-gap: 1px;
+  column-rule: 1px solid rgb(210, 210, 225);
   margin: 0;
-  padding-left: 0;
-  margin-left: -1px;
-}
-
-.instance-student-list li {
-  border-left: 1px solid rgb(210, 210, 225);
-  height: 50px;
-  line-height: 50px;
-  padding-left: 25px;
-  border-bottom: 1px solid rgb(210, 210, 225);
-  background: linear-gradient(to bottom, #ffffff 0%,#F8F8F8 100%);
+  padding: 0;
+  margin-left: 1px;
+  height: 207px;
 }
 
 .instance-footer {
+    padding-left: 25px;
+    padding-right: 25px;
     position: absolute;
     bottom: 0;
     height:45px;
