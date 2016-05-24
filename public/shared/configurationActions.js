@@ -13,9 +13,6 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         for (var classroom in this.classrooms) {
           classroom = this.classrooms[classroom];
 
-          if (typeof classroom.id === 'undefined')
-            delete this.classrooms[c];
-
           classroom.users = classroom.users || {};
           classroom.userStatus = classroom.userStatus || {};
           classroom.currentActivity = classroom.currentActivity || null;
@@ -31,12 +28,19 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
     stm.action('create-app-instance')
       .onReceive(function(app) {
         var instances = this.instances;
-        instances[findNextKey(instances)] = new Instance(app);
+        var title = "Group " + (Object.keys(instances).length + 1);
+        instances[findNextKey(instances)] = new Instance(app, title);
       });
 
     stm.action('set-instance-app')
       .onReceive(function(app) {
         this.app = app;
+      });
+
+
+    stm.action('set-instance-title')
+      .onReceive(function(title) {
+        this.title = title;
       });
 
     /* delete-app-instance: delete an instance of an app on the state it is called on.

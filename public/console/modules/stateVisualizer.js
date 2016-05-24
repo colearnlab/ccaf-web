@@ -18,6 +18,9 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             openTrays.forEach(function(openTray) {
               openTray.showAppTray = false;
             });
+
+            var sel = window.getSelection();
+            sel.removeAllRanges();
           }
         },
           m('p#statusbar', args.store.classrooms[args.classroom].name),
@@ -32,14 +35,11 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
                 return m.component(instanceCard, {'store': args.store, 'state': args.state, 'classroom': args.classroom, 'instance': instance});
               })
             ),
-            m('div.add-instance-container', {
-              'onclick': function() {
-
-              }
-            },
+            m('div.add-instance-container',
               m('img.add-instance-button', {
                 'onclick': function(e) {
                   args.state.sendAction('create-app-instance');
+                  e.stopPropagation();
                 },
                 'width': '64px',
                 'height': '64px',
@@ -72,10 +72,11 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
   };
 
   var openTrays = [];
+  var createdInstances = [];
   var instanceCard = {
     'controller': function(args) {
       return {
-        'showAppTray': args.instance.app ? false : true
+        'showAppTray': (!args.instance.app && createdInstances.indexOf(args.instance) < 0) ? true : false
       };
     },
     'view': function(ctrl, args) {
@@ -86,6 +87,12 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
       });
 
       var projecting = typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined';
+
+      if (ctrl.showAppTray && openTrays.indexOf(ctrl) < 0)
+        openTrays.push(ctrl);
+
+      if (createdInstances.indexOf(args.instance) < 0)
+        createdInstances.push(args.instance);
 
       return m('div.instance',
         m('div.instance-title',
@@ -109,7 +116,34 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             }
           }),
           (ctrl.showAppTray ? m.component(AppTray, _.extend(args, {avoid: args.instance.app})) : ''),
-          args.instance.title
+          m('div.instance-title-editable', {
+            'contenteditable': true,
+            'onclick': function(e) {
+              e.stopPropagation();
+            },
+            'onfocus': function(e) {
+              // http://stackoverflow.com/a/3806004
+              window.setTimeout(function() {
+                  var sel, range;
+                  if (window.getSelection && document.createRange) {
+                      range = document.createRange();
+                      range.selectNodeContents(e.target);
+                      sel = window.getSelection();
+                      sel.removeAllRanges();
+                      sel.addRange(range);
+                  } else if (document.body.createTextRange) {
+                      range = document.body.createTextRange();
+                      range.moveToElementText(e.target);
+                      range.select();
+                  }
+              }, 1);
+            },
+            'oninput': function(e) {
+              args.instance.sendAction('set-instance-title', e.target.textContent);
+               m.redraw.strategy("none");
+            }
+          },
+          args.instance.title || m.trust("Tap to enter title"))
         ),
         m('div.instance-student-list', {
           'data-instance': id,
@@ -160,7 +194,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               }
             },
               m('img.app-selection-icon', {
-                'height': '20px',
+                'height': '30px',
                 'src': 'apps/' + pair[0] + '/'+ pair[1].icon
               }),
               pair[1].title
@@ -232,6 +266,10 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
 
   exports.display = function(el, store, classroom, _state, isLive) {
     state = _state;
+    _.values(state.instances).forEach(function(instance) {
+      createdInstances.push(instance);
+    });
+    
     state.addObserver(function(newState) {
       state = newState;
       m.mount(el, m.component(visualizer, {'store': store, 'classroom': classroom, 'state': newState}));
