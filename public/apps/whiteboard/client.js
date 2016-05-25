@@ -3,6 +3,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
   var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
   exports.load = function(el, action, store, params) {
     var deviceState, canvas, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 10};
+    var hCanvas, hCtx;
     var curPath = {}, lastPath = [];
     var cursor;
 
@@ -15,7 +16,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     deviceState.paths.addObserver(drawPaths);
     deviceState.cursors.addObserver(function(cursors) {
       canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]);
-      canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
+      hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
       m.redraw(true);
     });
 
@@ -24,6 +25,12 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
       canvas = document.createElement('canvas');
       el.appendChild(canvas);
+      canvas.style.opacity = '0.9';
+
+      hCanvas = document.createElement('canvas');
+      hCanvas.style['pointer-events'] = 'none';
+      hCanvas.style.opacity = '0.5';
+      el.appendChild(hCanvas);
 
       store.sendAction('wb-init');
       deviceState = store;
@@ -34,10 +41,11 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
 
     function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = canvasHeight;
-      canvas.style.height = canvasHeight + 'px';
+      hCanvas.width = canvas.width = window.innerWidth;
+      hCanvas.height = canvas.height = canvasHeight;
+      hCanvas.style.height = canvas.style.height = canvasHeight + 'px';
       ctx = canvas.getContext('2d');
+      hCtx = hCanvas.getContext('2d');
     }
 
     function createActions() {
@@ -60,18 +68,19 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
       action('create-path')
         .onReceive(function(identifier) {
+          console.log(currentTool);
           if (typeof curPath[identifier] === 'undefined') {
-            this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth}];
+            this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
             lastPath.push(curPath[identifier] = this.paths.length - 1);
           } else if (curPath[identifier] >= 0) {
             return false;
           } else {
             curPath[identifier] *= -1;
             if (!this.paths[curPath[identifier]]) {
-              this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth}];
+              this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
               lastPath.push(curPath[identifier] = this.paths.length - 1);
             } else {
-              this.paths[curPath[identifier]][0] = {'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth};
+              this.paths[curPath[identifier]][0] = {'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight};
               lastPath.push(curPath[identifier]);
             }
           }
@@ -180,30 +189,39 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         if (!newPath || newPath.length === 0)
           return;
 
-        ctx.strokeStyle = newPath[0].strokeStyle;
-        ctx.lineWidth = newPath[0].lineWidth;
-        ctx.lineJoin = "round";
+        var curCtx;
+
+        if (newPath[0].highlight)
+          curCtx = hCtx;
+        else
+          curCtx = ctx;
+
+        curCtx.strokeStyle = newPath[0].strokeStyle;
+        curCtx.lineWidth = newPath[0].lineWidth;
+        curCtx.lineJoin = "round";
+
 
         path = newPath;
-        var first = true;
+
+        curCtx.beginPath();
         for (var j = oldPaths[i] ? oldPaths[i].length : 1; j < newPaths[i].length; j++) {
           if (!path[j])
             continue;
-          ctx.beginPath();
           if (path[j - 1])
-            ctx.moveTo(path[j - 1].x, path[j - 1].y);
+            curCtx.moveTo(path[j - 1].x, path[j - 1].y);
           else
-            ctx.moveTo(path[j].x - 1, path[j].y);
+            curCtx.moveTo(path[j].x - 1, path[j].y);
 
-          ctx.lineTo(path[j].x, path[j].y);
-          ctx.closePath();
-          ctx.stroke();
+          curCtx.lineTo(path[j].x, path[j].y);
+          curCtx.closePath();
+          curCtx.stroke();
         }
       });
     }
 
     function clearScreen() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hCtx.clearRect(0, 0, canvas.width, canvas.height);
     }
   };
 
@@ -215,7 +233,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       return m('div#controls',
         m.component(ColorSelect, args),
         m.component(LineSelect, args),
-        m.component(EraseButton, args),
+        m.component(ToolSelect, args),
         m('div.controlComponent', m.trust('&nbsp;')),
         m.component(UndoButton, args),
         m.component(ClearButton, args),
@@ -243,7 +261,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         },
           m('div.spacer'),
           colors.map(function(color) {
-            if (color !== args.pen.strokeStyle)
+            if (color !== args.pen.strokeStyle && color !== saved)
               return [
                 m.component(ColorIndicator, {'pen': args.pen, 'color': color}),
                 m('div.spacer')
@@ -261,6 +279,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       return m('div.colorIndicator', {
         'style': 'background-color: ' + args.color,
         'onclick': function(e) {
+          saved = undefined;
           args.pen.strokeStyle = args.color;
         }
       }, m.trust('&nbsp;'));
@@ -310,25 +329,87 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
   };
 
+  var tools = {'pen':0, 'highlight':1, 'pointer':2, 'eraser':3};
+  var currentTool = tools.pen;
   var saved;
-  var EraseButton = {
+  var ToolSelect = {
+    'controller': function(args) {
+      return {
+        'trayOpen': false
+      };
+    },
     'view': function(ctrl, args) {
-      var selected = args.pen.strokeStyle === '#ffffff';
+      var icon;
+      var label;
+      switch(currentTool) {
+        case tools.pen:
+          icon = 'apps/whiteboard/pen.png';
+          label = "Pen";
+          break;
+        case tools.highlight:
+          icon = 'apps/whiteboard/highlight.png';
+          label = "Highlight";
+          break;
+        case tools.pointer:
+          icon = 'apps/whiteboard/pointer.png';
+          label = "Pointer";
+          break;
+        case tools.eraser:
+          icon = 'apps/whiteboard/eraser.png';
+          label = "Eraser";
+          break;
+      }
       return m('div.controlComponent', {
         'onclick': function(e) {
-          if (selected) {
-            args.pen.strokeStyle = saved;
-            saved = null;
-          } else {
-            saved = args.pen.strokeStyle;
-            args.pen.strokeStyle = '#ffffff';
-          }
+          ctrl.trayOpen = !ctrl.trayOpen;
         }
       },
-        m('img.controlIcon', {'src': selected ? 'apps/whiteboard/eraser-selected.png' : 'apps/whiteboard/eraser.png'}),
-        m('span.buttonLabel', {
-          'style': 'font-weight: ' + (selected ? 'bold' : 'normal')
-        }, "Eraser")
+        m('img.controlIcon', {'src': icon}),
+        m('div.buttonLabel', label),
+        m('div', {
+          'style': 'display: ' + (ctrl.trayOpen ? 'block' : 'none')
+        },
+          m('div', {
+            'onclick': function() {
+              currentTool = tools.pen;
+              if (saved) {
+                args.pen.strokeStyle = saved;
+                saved = void 0;
+              }
+            }
+          },
+            m('img.icon-select', {'src': 'apps/whiteboard/pen.png'}),
+            m('div.buttonLabel', {'style': 'color: black;'}, "Pen")
+          ),
+          m('div', {
+            'onclick': function() {
+              currentTool = tools.highlight;
+              if (saved) {
+                args.pen.strokeStyle = saved;
+                saved = void 0;
+              }
+            }
+          },
+            m('img.icon-select', {'src': 'apps/whiteboard/highlight.png'}),
+            m('div.buttonLabel', {'style': 'color: black;'}, "Highlight")
+          ),
+          m('div', {
+            'onclick': function() {
+              currentTool = tools.highlight;
+              if (saved) {
+                args.pen.strokeStyle = saved;
+                saved = void 0;
+              }
+            }
+          },
+            m('img.icon-select', {'src': 'apps/whiteboard/pointer.png'}),
+            m('div.buttonLabel', {'style': 'color: black;'}, "Pointer")
+          ),
+          m('div',
+            m('img.icon-select', {'src': 'apps/whiteboard/eraser.png'}),
+            m('div.buttonLabel', {'style': 'color: black;'}, "Eraser")
+          )
+        )
       );
     }
   };

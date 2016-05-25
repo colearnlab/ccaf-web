@@ -64,6 +64,11 @@ canvas {
   height: 20px;
 }
 
+.icon-select {
+  height: 20px;
+  margin-top: 10px;
+}
+
 #slidercontainer {
   margin: 0;
   padding-left: 5px;
