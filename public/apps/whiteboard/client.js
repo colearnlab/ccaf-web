@@ -4,27 +4,32 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
   exports.load = function(el, action, store, params) {
     var deviceState, canvas, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 10};
     var curPath = {}, lastPath = [];
+    var cursor;
 
     createActions();
-    store.sendAction('wb-init');
-    deviceState = store.deviceState[params.device];
-
     initElements();
     initListeners();
     resizeCanvas();
     clearScreen();
 
     deviceState.paths.addObserver(drawPaths);
+    deviceState.cursors.addObserver(function(cursors) {
+      canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]);
+      canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
+      m.redraw(true);
+    });
 
     function initElements() {
       clientUtil.css('/apps/whiteboard/styles.css');
 
       canvas = document.createElement('canvas');
-      canvas.canvasTop = 0;
       el.appendChild(canvas);
 
+      store.sendAction('wb-init');
+      deviceState = store;
+
       var controls = document.createElement('div');
-      m.mount(controls, m.component(Controls, {'pen': pen, 'deviceState': deviceState, 'canvas': canvas}));
+      m.mount(controls, m.component(Controls, {'pen': pen, 'deviceState': deviceState, 'canvas': canvas, 'cursor': params.mode === 'student' ? params.student : -1}));
       el.appendChild(controls);
     }
 
@@ -38,10 +43,19 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     function createActions() {
       action('wb-init')
         .onReceive(function() {
-          if (typeof this.deviceState === 'undefined')
-            this.deviceState = {};
-          if (typeof this.deviceState[params.device] === 'undefined')
-            this.deviceState[params.device] = {'paths': []};
+          if (typeof this.paths === 'undefined')
+            this.paths = [];
+          if (typeof this.cursors === 'undefined')
+            this.cursors = {};
+          if (params.mode === 'student' && typeof this.cursors[params.student] === 'undefined') {
+            cursor = params.student;
+            this.cursors[cursor] = canvasHeight;
+            canvas.canvasTop = (canvasHeight - this.cursors[cursor]);
+          } else if (params.mode === 'projector' && typeof this.cursors[-1] === 'undefined') {
+            cursor = -1;
+            this.cursors[cursor] = canvasHeight;
+            canvas.canvasTop = (canvasHeight - window.innerHeight - this.cursors[cursor]);
+          }
         });
 
       action('create-path')
@@ -99,6 +113,11 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           curPath = {};
           lastPath = [];
           this.paths = [];
+        });
+
+      action('update-cursor')
+        .onReceive(function(cursor, value) {
+          this[cursor] = value;
         });
     }
 
@@ -200,7 +219,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         m('div.controlComponent', m.trust('&nbsp;')),
         m.component(UndoButton, args),
         m.component(ClearButton, args),
-        m.component(Slider)
+        m.component(Slider, args)
       );
     }
   };
@@ -264,7 +283,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           ctrl.trayOpen = !ctrl.trayOpen;
         }
       },
-        m('img.controlIcon', {'src': '/apps/whiteboard/pen.png'}),
+        m.component(LineIndicator, {color: 'white', pen: args.pen, width: args.pen.lineWidth, margin: 10.5 - (args.pen.lineWidth/2)}),
         m('div.buttonLabel', "Line"),
         m('div.lineTray', {
           'style': 'display: ' + (ctrl.trayOpen ? 'block' : 'none')
@@ -286,7 +305,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         'onclick': function(e) {
           args.pen.lineWidth = args.width;
         },
-        'style': 'height: ' + args.width + 'px; margin-top: ' + margin + 'px; margin-bottom: ' + margin + 'px'
+        'style': 'height: ' + args.width + 'px; margin-top: ' + margin + 'px; margin-bottom: ' + margin + 'px; background-color: ' + (args.color ? args.color : 'black')
       }, m.trust('&nbsp;'));
     }
   };
@@ -360,6 +379,19 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
   };
 
+  function colorHash(num) {
+    var r = 37, g = 137, b = 237;
+    if (num != -1) {
+      for (var i = 0; i < num; i++) {
+        r = (r * g + b) % 255;
+        b = (b * g + r) % 255;
+        g = (g * r + b) % 255;
+      }
+    }
+
+    return 'rgba(' + [r,g,b,0.9].join(',') + ')';
+  }
+
   var Slider = {
     'controller': function(args) {
       return {
@@ -368,118 +400,30 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     },
     'view': function(ctrl, args) {
       var canvas = document.getElementsByTagName('canvas')[0];
+      var myCursor;
+      var cursors = _.pairs(args.deviceState.cursors).map(function(pair, i) {
+        var left = (pair[1] - 1500) * (80.1/(5000-1500)) + 5;
+        if (pair[0] === args.cursor)
+          myCursor = i;
+
+        return m('span.cursor' + (pair[0] == args.cursor ? '.my-cursor' : ''), {
+          'style': 'margin-left: calc(' + left + 'vh - 36px); margin-top: ' + 'px; background-color: ' + colorHash(pair[0])
+        }, m.trust('&nbsp;'));
+      });
+
+      cursors.push(cursors.splice(myCursor, 1)[0]);
+
       return m('#slidercontainer', [
+        cursors,
         m('input#slider[type=range]', {
-          min: 0,
-          max: canvasHeight - window.innerHeight,
-          value: ctrl.sliderValue(),
-          config: function(el) {
-            el.addEventListener('input', function(e) {
-              ctrl.sliderValue(e.target.value);
-              canvas.canvasTop = (canvasHeight - window.innerHeight - e.target.value);
-              canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
-            });
+          min: 1500,
+          max: canvasHeight,
+          value: args.deviceState.cursors[args.cursor],
+          'oninput': function(e) {
+            args.deviceState.cursors.sendAction('update-cursor', args.cursor, e.target.value);
           }
-        })
+        }),
       ]);
     }
   };
-
-  /*
-  var Controls = {
-    'controller': function() {
-      return {
-        'colors': ['red', 'green', 'blue', 'black'],
-        'sliderValue': m.prop(canvasHeight)
-      };
-    },
-    'view': function(ctrl, args) {
-      var pen = args.pen;
-      var deviceState = args.deviceState;
-      var canvas = args.canvas;
-      return (
-        m('div#controls.form-inline', [
-          m('#slidercontainer', [
-            m('input#slider[type=range]', {
-              min: 0,
-              max: canvasHeight - window.innerHeight,
-              value: ctrl.sliderValue(),
-              config: function(el) {
-                el.addEventListener('input', function(e) {
-                  ctrl.sliderValue(e.target.value);
-                  canvas.canvasTop = (canvasHeight - window.innerHeight - e.target.value);
-                  canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
-                });
-              }
-            })
-          ]),
-          m('button.btn.btn-default.btn-lg', {
-            'onclick': function(e) {
-              deviceState.sendAction('clear-screen');
-            }
-          }, ['Clear']),
-          m('span.spacer1', [m.trust('&nbsp;')]),
-          m('button.btn.btn-default.btn-lg', {
-            'onclick': function(e) {
-              deviceState.sendAction('undo');
-            }
-          }, ['Undo']),
-          m('span.spacer1', [m.trust('&nbsp;')]),
-          m('span.input-group', [
-            m('input[type=range].form-control.input-lg', {
-              'value': pen.lineWidth,
-              'min': 5,
-              'max': 32,
-              'step': 1,
-              'oninput': function(e) {
-                pen.lineWidth = e.target.value;
-              }
-            }),
-            m('span.input-group-addon', [
-              m('span', {
-                'style': 'background-color:' + pen.strokeStyle + '; ' +
-                         'padding: 0; ' +
-                         'margin-left: ' + (25 - pen.lineWidth)/2 + 'px; ' +
-                         'margin-right: ' + (25 - pen.lineWidth)/2 + 'px; ' +
-                         'line-height: ' + pen.lineWidth + 'px; ' +
-                         'display: inline-block; ' +
-                         'width: ' + pen.lineWidth + 'px; ' +
-                         'height: ' + pen.lineWidth + 'px; ' +
-                         'border-radius: 50%'
-              }, [m.trust('&nbsp;')])
-            ])
-          ]),
-          m('span.spacer1', [m.trust('&nbsp;')]),
-          m('span.brush-holder',
-            ctrl.colors.map(function(color) {
-              return (
-                m('span.brush', {
-                  'style': 'background-color: ' + color + '; ',
-                  'onclick': function(e) {
-                    pen.strokeStyle = color;
-                  }
-                }, [
-                  m('img[src=/apps/whiteboard/splatter.gif]', {
-                    'height': '50px',
-                    'width': '50px'
-                  })
-                ])
-              );
-            }),
-            m('span.brush', {
-              'onclick': function(e) {
-                pen.strokeStyle = 'white';
-              }
-            }, [
-              m('img[src=/apps/whiteboard/eraser.png]', {
-                'height': '50px',
-                'width': '50px'
-              })
-            ])
-          )
-        ])
-      );
-    }
-  };
-  */
 });

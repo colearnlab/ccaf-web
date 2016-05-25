@@ -118,4 +118,5 @@ iframe {
   line-height: 50px;
   background-color: #03354F;
   padding-left: 25px;
+  z-index: 1;
 }

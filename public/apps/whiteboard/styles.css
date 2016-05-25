@@ -98,8 +98,21 @@ canvas {
   cursor: pointer;
   -webkit-appearance: none;
   margin-top: -14px;
-  opacity: 0.75;
+  opacity: 0;
 }
 #slider:focus::-webkit-slider-runnable-track {
   background: #367ebd;
+}
+.cursor {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  position: absolute;
+  top: 4px;
+  left: 0%;
+  opacity: 0.5;
+}
+
+.my-cursor {
+  border: 2px dashed white;
 }

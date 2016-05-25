@@ -86,9 +86,15 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       // Otherwise, we need to load the app. To do this, we import it using RequireJS and
       // call the 'load' function specified by the app interface.
       requirejs(['/apps/' + instance.app + '/' + store.apps[instance.app].client], function(appModule) {
-        // Posssible params for the future are the name of the classroom, user, other connected users, etc.
-        // For now, these are not implemented but we leave a placeholder.
-        var params = {};
+        var mode;
+        if (typeof classroom !== 'undefined' && typeof student !== 'undefined')
+          mode = 'student';
+        else
+          mode = 'projector';
+        var params = {
+          'mode': mode,
+          'student': student
+        };
 
         // The load function takes a root element, an action creator, the root store and the future paramters object.
         appModule.load(reRoot(), stm.action, instance.root, params);
