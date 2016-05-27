@@ -564,7 +564,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       },
         _.pairs(args.pointers).map(function(pair) {
           return m('div.pointer', {
-            'style': 'top: ' + (pair[1].y-50) + 'px; left: ' + pair[1].x + 'px; background-color: ' + colorHash(pair[0])
+            'style': 'top: ' + (pair[1].y-50) + 'px; left: ' + pair[1].x + 'px; background-color: ' + colorHash(pair[0]) + '; opacity: ' + (pair[1].x < 0 ? '0;' : '1;')
           });
         })
       );
