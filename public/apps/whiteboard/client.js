@@ -16,7 +16,14 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     deviceState.paths.addObserver(drawPaths);
     deviceState.cursors.addObserver(function(cursors) {
       canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]);
-      hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
+      document.getElementById('pointers').style.transform = hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
+      m.redraw(true);
+    });
+
+    deviceState.pointers.addObserver(function(pointers, oldPointers) {
+      if (oldPointers === null)
+        m.mount(document.getElementById('pointers'), m.component(Pointers, {pointers: pointers, cursor: cursor}));
+      m.render(document.getElementById('pointers'), m.component(Pointers, {'pointers': pointers, cursor: cursor}));
       m.redraw(true);
     });
 
@@ -31,6 +38,10 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       hCanvas.style['pointer-events'] = 'none';
       hCanvas.style.opacity = '0.5';
       el.appendChild(hCanvas);
+
+      var pointers = document.createElement('div');
+      pointers.id = 'pointers';
+      el.appendChild(pointers);
 
       store.sendAction('wb-init');
       deviceState = store;
@@ -55,20 +66,23 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
             this.paths = [];
           if (typeof this.cursors === 'undefined')
             this.cursors = {};
-          if (params.mode === 'student' && typeof this.cursors[params.student] === 'undefined') {
-            cursor = params.student;
+          if (typeof this.pointers === 'undefined')
+            this.pointers = {};
+
+          cursor = params.mode === 'student' ? params.student : -1;
+
+          if (typeof this.cursors[cursor] === 'undefined') {
             this.cursors[cursor] = canvasHeight;
-            canvas.canvasTop = (canvasHeight - this.cursors[cursor]);
-          } else if (params.mode === 'projector' && typeof this.cursors[-1] === 'undefined') {
-            cursor = -1;
-            this.cursors[cursor] = canvasHeight;
-            canvas.canvasTop = (canvasHeight - window.innerHeight - this.cursors[cursor]);
+          }
+          canvas.canvasTop = (canvasHeight - this.cursors[cursor]);
+
+          if (typeof this.pointers[cursor] === 'undefined') {
+            this.pointers[cursor] = {x:-1, y:-1};
           }
         });
 
       action('create-path')
         .onReceive(function(identifier) {
-          console.log(currentTool);
           if (typeof curPath[identifier] === 'undefined') {
             this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
             lastPath.push(curPath[identifier] = this.paths.length - 1);
@@ -127,6 +141,12 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       action('update-cursor')
         .onReceive(function(cursor, value) {
           this[cursor] = value;
+        });
+
+      action('update-pointer')
+        .onReceive(function(x, y) {
+          this.x = x;
+          this.y = y + canvas.canvasTop;
         });
     }
 
@@ -376,6 +396,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
                 args.pen.strokeStyle = saved;
                 saved = void 0;
               }
+              document.getElementById('pointers').style['pointer-events'] = 'none';
             }
           },
             m('img.icon-select', {'src': 'apps/whiteboard/pen.png'}),
@@ -388,6 +409,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
                 args.pen.strokeStyle = saved;
                 saved = void 0;
               }
+              document.getElementById('pointers').style['pointer-events'] = 'none';
             }
           },
             m('img.icon-select', {'src': 'apps/whiteboard/highlight.png'}),
@@ -395,11 +417,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           ),
           m('div', {
             'onclick': function() {
-              currentTool = tools.highlight;
-              if (saved) {
-                args.pen.strokeStyle = saved;
-                saved = void 0;
-              }
+              currentTool = tools.pointer;
+              document.getElementById('pointers').style['pointer-events'] = 'all';
             }
           },
             m('img.icon-select', {'src': 'apps/whiteboard/pointer.png'}),
@@ -505,6 +524,50 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           }
         }),
       ]);
+    }
+  };
+
+  var Pointers = {
+    'controller': function(args) {
+
+    },
+    'view': function(ctrl, args) {
+      return m('div', {
+        'style': 'height: 100%',
+        'ontouchstart': function(e) {
+          if (e.changedTouches[0].identifier === 0)
+            args.pointers[args.cursor].sendAction('update-pointer', e.changedTouches[0].pageX, e.changedTouches[0].pageY);
+        },
+        'ontouchmove': function(e) {
+          for (var i = 0; i < e.changedTouches.length; i++)
+            if (e.changedTouches[i].identifier === 0)
+              args.pointers[args.cursor].sendAction('update-pointer', e.changedTouches[i].pageX, e.changedTouches[i].pageY);
+
+            return e.preventDefault(), false;
+        },
+        'ontouchend': function(e) {
+          for (var i = 0; i < e.changedTouches.length; i++)
+            if (e.changedTouches[i].identifier === 0)
+              args.pointers[args.cursor].sendAction('update-pointer', -1, -1);
+
+        },
+        'onmousedown': function(e) {
+          args.pointers[args.cursor].sendAction('update-pointer', e.pageX, e.pageY);
+        },
+        'onmouseup': function(e) {
+          args.pointers[args.cursor].sendAction('update-pointer', -1, -1);
+        },
+        'onmousemove': function(e) {
+          if (e.buttons > 0)
+            args.pointers[args.cursor].sendAction('update-pointer', e.pageX, e.pageY);
+        }
+      },
+        _.pairs(args.pointers).map(function(pair) {
+          return m('div.pointer', {
+            'style': 'top: ' + (pair[1].y-50) + 'px; left: ' + pair[1].x + 'px; background-color: ' + colorHash(pair[0])
+          });
+        })
+      );
     }
   };
 });
