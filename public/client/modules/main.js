@@ -32,12 +32,12 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
   autoconnect.monitor(stm.ws);
 
   // Prevent multitouch zoom in Google Chrome.
-  document.body.addEventListener('mousewheel', function(e) {
+  document.addEventListener('mousewheel', function(e) {
     return e.preventDefault(), false;
   });
 
   // Prevent back/forward gestures in Google Chrome.
-  document.body.addEventListener('touchmove', function(e) {
+  document.addEventListener('touchmove', function(e) {
     if (e.target.tagName !== 'INPUT')
       return e.preventDefault(), false;
   });
