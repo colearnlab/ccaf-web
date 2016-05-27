@@ -56,7 +56,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       var instance = store.classrooms[classroom].currentState.instances[instanceId];
 
       // Check if the instance has been removed. If so, clear the screen.
-      if (typeof instance === 'undefined' || typeof instance.app === 'undefined') {
+      if (typeof instance === 'undefined' || typeof instance.app === 'undefined' || instance.app === null) {
         reRoot();
 
         // Want the titlebar to have some indication that things are working.

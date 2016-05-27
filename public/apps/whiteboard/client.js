@@ -424,7 +424,13 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
             m('img.icon-select', {'src': 'apps/whiteboard/pointer.png'}),
             m('div.buttonLabel', {'style': 'color: black;'}, "Pointer")
           ),
-          m('div',
+          m('div', {
+            'onclick': function(e) {
+              currentTool = tools.eraser;
+              saved = args.pen.strokeStyle;
+              args.pen.strokeStyle = '#ffffff';
+            }
+          },
             m('img.icon-select', {'src': 'apps/whiteboard/eraser.png'}),
             m('div.buttonLabel', {'style': 'color: black;'}, "Eraser")
           )
