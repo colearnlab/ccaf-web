@@ -22,7 +22,7 @@
 // Ensures that RequireJS plays nicely with electron-browser.
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', './cornerMenu'], function(exports, checkerboard, m, autoconnect, login, cornerMenu) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'configurationActions'], function(exports, checkerboard, m, autoconnect, login, configurationActions) {
   /* jshint ignore:start */
   var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
   /* jshint ignore:end */
@@ -42,6 +42,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       return e.preventDefault(), false;
   });
 
+  var instance;
   var StatusBar = {
     'controller': function(args) {
       return {
@@ -87,29 +88,33 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     },
     'view': function(ctrl, args) {
       return m('div#menu-tray' + (!args.trayOpen ? '.hidden' : ''),
-        m('div.menu-tray-block',
+        m('div.menu-tray-block', {
+          'onclick': function(e) {
+            instance.sendAction('set-instance-playback-mode', !instance.playback);
+          }
+        },
           m('img.menu-tray-block-icon', {
             'src': 'media/user.png'
           }),
-          m('div.menu-tray-block-caption', "Playback")
+          m('div.menu-tray-block-caption', (instance.playback ? "Live" : "Playback"))
         ),
         m('div.menu-tray-block',
           m('img.menu-tray-block-icon', {
             'src': 'media/user.png'
           }),
-          m('div.menu-tray-block-caption', "Playback")
+          m('div.menu-tray-block-caption', "")
         ),
         m('div.menu-tray-block',
           m('img.menu-tray-block-icon', {
             'src': 'media/user.png'
           }),
-          m('div.menu-tray-block-caption', "Playback")
+          m('div.menu-tray-block-caption', "")
         ),
         m('div.menu-tray-block',
           m('img.menu-tray-block-icon', {
             'src': 'media/user.png'
           }),
-          m('div.menu-tray-block-caption', "Playback")
+          m('div.menu-tray-block-caption', "")
         )
       );
     }
@@ -131,6 +136,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
 
   stm.init(function(store) {
     store.addObserver(function(){});
+    configurationActions.load(stm);
     /* --- Definitions dependent on store --- */
 
     /* The updateApp routine has three tasks.
@@ -138,9 +144,9 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
      * 2) Update the list of students assigned to this instance, for the titlebar.
      * 3) Check if thet app has been loaded. If not, load the app via RequireJS.
      */
-    var loadedApp;
+    var playback = false;
     function updateApp(instanceId, classroom, student, reloadApp) {
-      var instance = store.classrooms[classroom].currentState.instances[instanceId];
+      instance = store.classrooms[classroom].currentState.instances[instanceId];
 
       // Check if the instance has been removed. If so, clear the screen.
       if (typeof instance === 'undefined' || typeof instance.app === 'undefined' || instance.app === null) {
@@ -166,6 +172,49 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
 
       // Set the titlebar text to "[apptitle] | [users]", omitting the pipe if no users connected.
       setStatus(appName + (users.length > 0 ? " | " + users.join(", ") : ""));
+
+      // Playback mode has just been enabled.
+      if (instance.playback && !playback) {
+        var xhttp = new XMLHttpRequest();
+
+        // Get initial and log files.
+        xhttp.open("GET", "logs/latest.initial", false);
+        xhttp.send();
+        var initial = JSON.parse(xhttp.responseText);
+
+        xhttp.open("GET", "logs/latest", false);
+        xhttp.send();
+        var log = JSON.parse("[" + xhttp.responseText.split("\n").slice(0, -1) + "]");
+
+        var pwss = new WebSocketShell();
+        var pstm = new checkerboard.STM(pwss);
+
+        pwss.sendFrame('set-state', {data: initial});
+
+        pstm.init(function(store) {
+          var pinstance = store.classrooms[classroom].currentState.instances[instanceId];
+          requirejs(['/apps/' + pinstance.app + '/' + store.apps[pinstance.app].client], function(appModule) {
+            var mode;
+            if (typeof classroom !== 'undefined' && typeof student !== 'undefined')
+              mode = 'student';
+            else
+              mode = 'projector';
+            var params = {
+              'mode': mode,
+              'student': student
+            };
+
+            appModule.load(reRoot(), pstm.action, pinstance.root, params);
+            window.advance = function() {
+              pwss.sendFrame('update-state', {deltas: log.shift()});
+            };
+          });
+        });
+
+        playback = true;
+
+        return;
+      }
 
       if (!reloadApp)
         return;
@@ -203,7 +252,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       login.display(reRoot(), {'student': true, 'store': store}, function (classroom, student) {
         store.classrooms[classroom].currentState.addObserver(function(newStore, oldStore) {
           // We want to reload the app if this is the first time observer is called (data being populated,
-          // oldStore will be null) or if the app has changed. Otherwise just update student names.
+          // oldStore will be null) or if the app has changed. Otherwise just update student names or flip into or
+          // out of playback mode.
           var reloadApp = oldStore === null || newStore.userInstanceMapping[student] != oldStore.userInstanceMapping[student] ||
             (typeof newStore.userInstanceMapping[student] !== 'undefined' && newStore.instances[newStore.userInstanceMapping[student]].app !== oldStore.instances[newStore.userInstanceMapping[student]].app);
           updateApp(newStore.userInstanceMapping[student], classroom, student, reloadApp);
@@ -238,4 +288,23 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     document.body.appendChild(el);
     return el;
   }
+
+  /* --- playback helpers --- */
+
+  /* WebSocketShell: a dummy WebSocket object that we can trigger arbitrary messages */
+  function WebSocketShell () {
+    this.messageHandlers = [];
+  }
+
+  WebSocketShell.prototype = Object.create(WebSocket.prototype);
+  WebSocketShell.prototype.addEventListener = function(channel, callback) {
+    if (channel === 'message')
+      this.messageHandlers.push(callback);
+  };
+  WebSocketShell.prototype.send = function() {  /*wss.messageHandlers[0](makeFrame('set-state', {data:{}}));*/ };
+  WebSocketShell.prototype.sendFrame = function(channel, message) {
+    this.messageHandlers.forEach(function(handler) {
+      handler({data: JSON.stringify({channel: channel, message: message})});
+    });
+  };
 });
