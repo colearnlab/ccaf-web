@@ -175,6 +175,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
 
       // Playback mode has just been enabled.
       if (instance.playback && !playback) {
+        var slider = document.createElement('input');
+        slider.type = 'range';
+        slider.id = 'playback-slider';
+
         var xhttp = new XMLHttpRequest();
 
         // Get initial and log files.
@@ -185,6 +189,31 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         xhttp.open("GET", "logs/latest", false);
         xhttp.send();
         var log = JSON.parse("[" + xhttp.responseText.split("\n").slice(0, -1) + "]");
+
+        var start = log[0].ts;
+        var curTime = slider.value = slider.min = 0, curIndex = 0;
+        slider.max = log[log.length - 1].ts - start;
+
+        slider.oninput = function(e) {
+          if (curTime < parseInt(e.target.value)) {
+            curTime = parseInt(e.target.value);
+            for (var i = curIndex; log[i].ts - start < curTime; i++)
+              pwss.sendFrame('update-state', {deltas: log[i].deltas});
+            curIndex = i;
+          }
+        };
+
+        slider.onchange = function(e) {
+          if (curTime > parseInt(e.target.value)) {
+            curTime = parseInt(e.target.value);
+            pwss.sendFrame('set-state', {data: initial});
+            for (var i = 0; log[i].ts - start < curTime; i++)
+              pwss.sendFrame('update-state', {deltas: log[i].deltas});
+            curIndex = i;
+          }
+        }
+
+        document.body.appendChild(slider);
 
         var pwss = new WebSocketShell();
         var pstm = new checkerboard.STM(pwss);
@@ -206,7 +235,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
 
             appModule.load(reRoot(), pstm.action, pinstance.root, params);
             window.advance = function() {
-              pwss.sendFrame('update-state', {deltas: log.shift()});
+              pwss.sendFrame('update-state', {deltas: log.shift().deltas});
             };
           });
         });

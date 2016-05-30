@@ -161,3 +161,12 @@ iframe {
   width: 125px;
   text-align: center;
 }
+
+#playback-slider {
+  position: absolute;
+  width: 80%;
+  bottom: 15px;
+  margin: 10%;
+  margin-bottom: 0px;
+  z-index: 1001;
+}
