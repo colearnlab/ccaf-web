@@ -42,6 +42,85 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       return e.preventDefault(), false;
   });
 
+  var StatusBar = {
+    'controller': function(args) {
+      return {
+        'trayOpen': false,
+        'addedClickListener': args.addedClickListener || false
+      };
+    },
+    'view': function(ctrl, args) {
+      return m('div', {
+        'onclick': function(e) {
+          ctrl.trayOpen = false;
+        }
+      },
+        m('span.glyphicon glyphicon-th-large#menu-icon' + (!args.statusText || args.statusText === "" ? '.hidden' : ''), {
+          'onclick': function(e) {
+
+            ctrl.trayOpen = !ctrl.trayOpen;
+            if (ctrl.trayOpen)
+              return e.stopPropagation(), false;
+          },
+          'config': function() {
+            if (ctrl.addedClickListener)
+              return;
+
+            ctrl.addedClickListener = true;
+            console.log('adding click listener');
+            document.addEventListener('click', function(e) {
+              ctrl.trayOpen = false;
+              m.redraw(true);
+            });
+          }
+        }),
+        m.component(MenuTray, ctrl),
+        m.trust('&nbsp;&nbsp;'),
+        m('span', args.statusText || "")
+      );
+    }
+  };
+
+  var MenuTray = {
+    'controller': function(args) {
+
+    },
+    'view': function(ctrl, args) {
+      return m('div#menu-tray' + (!args.trayOpen ? '.hidden' : ''),
+        m('div.menu-tray-block',
+          m('img.menu-tray-block-icon', {
+            'src': 'media/user.png'
+          }),
+          m('div.menu-tray-block-caption', "Playback")
+        ),
+        m('div.menu-tray-block',
+          m('img.menu-tray-block-icon', {
+            'src': 'media/user.png'
+          }),
+          m('div.menu-tray-block-caption', "Playback")
+        ),
+        m('div.menu-tray-block',
+          m('img.menu-tray-block-icon', {
+            'src': 'media/user.png'
+          }),
+          m('div.menu-tray-block-caption', "Playback")
+        ),
+        m('div.menu-tray-block',
+          m('img.menu-tray-block-icon', {
+            'src': 'media/user.png'
+          }),
+          m('div.menu-tray-block-caption', "Playback")
+        )
+      );
+    }
+  };
+
+  m.mount(document.getElementById('statusbar'), m.component(StatusBar, {}));
+
+  function setStatus(text) {
+    m.mount(document.getElementById('statusbar'), m.component(StatusBar, {'statusText': text, 'addedClickListener': true}));
+  }
+
   stm.init(function(store) {
     store.addObserver(function(){});
     /* --- Definitions dependent on store --- */
@@ -61,9 +140,9 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
 
         // Want the titlebar to have some indication that things are working.
         if (typeof student !== 'undefined')
-          document.getElementById('statusbar').textContent = "Logged in as " + store.classrooms[classroom].users[student].name;
+          setStatus("Logged in as " + store.classrooms[classroom].users[student].name);
         else
-          document.getElementById('statusbar').textContent = "";
+          setStatus(null);
 
         return;
       }
@@ -78,7 +157,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
       var appName = store.apps[instance.app].title;
 
       // Set the titlebar text to "[apptitle] | [users]", omitting the pipe if no users connected.
-      document.getElementById('statusbar').textContent = appName + (users.length > 0 ? " | " + users.join(", ") : "");
+      setStatus(appName + (users.length > 0 ? " | " + users.join(", ") : ""));
 
       if (!reloadApp)
         return;

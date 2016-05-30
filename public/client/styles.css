@@ -120,3 +120,44 @@ iframe {
   padding-left: 25px;
   z-index: 1;
 }
+
+#menu-icon {
+  position: relative;
+  top: 3px;
+}
+
+#menu-tray {
+  position: absolute;
+  padding: 0px;
+  width: 300px;
+  height: 300px;
+  background-color: white;
+  border-radius: 11px;
+  border-bottom: 1px solid rgba(210,210,225,1);
+  box-shadow: 0px 0px 75px rgba(0, 0, 0, 0.4);
+  margin-top: -8px;
+  color: rgba(0,0,0,0.8);
+  column-count: 2;
+}
+
+.menu-tray-block {
+  vertical-align: top;
+  margin-top: 15px;
+  margin-left: 15px;
+  display: inline-block;
+  height: 125px;
+  width: 125px;
+}
+
+.menu-tray-block-icon {
+  position: relative;
+  left: 33px;
+  top: 15px;
+}
+
+.menu-tray-block-caption {
+  position: relative;
+  top: 10px;
+  width: 125px;
+  text-align: center;
+}
