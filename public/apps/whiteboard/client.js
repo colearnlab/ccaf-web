@@ -261,7 +261,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       );
     }
   };
-
+  
+  var saved;
   var ColorSelect = {
     'controller': function(args) {
       return {
@@ -351,7 +352,6 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
   var tools = {'pen':0, 'highlight':1, 'pointer':2, 'eraser':3};
   var currentTool = tools.pen;
-  var saved;
   var ToolSelect = {
     'controller': function(args) {
       return {
@@ -429,6 +429,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
               currentTool = tools.eraser;
               saved = args.pen.strokeStyle;
               args.pen.strokeStyle = '#ffffff';
+
+              document.getElementById('pointers').style['pointer-events'] = 'none';
             }
           },
             m('img.icon-select', {'src': 'apps/whiteboard/eraser.png'}),

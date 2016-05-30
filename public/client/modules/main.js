@@ -115,10 +115,18 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', '.
     }
   };
 
-  m.mount(document.getElementById('statusbar'), m.component(StatusBar, {}));
+
 
   function setStatus(text) {
-    m.mount(document.getElementById('statusbar'), m.component(StatusBar, {'statusText': text, 'addedClickListener': true}));
+    if (!this.args) {
+      this.args = {'statusText': text};
+      m.mount(document.getElementById('statusbar'), m.component(StatusBar, this.args));
+    }
+    else {
+      this.args.statusText = text;
+      this.args.addedClickListener = true;
+      m.redraw(true);
+    }
   }
 
   stm.init(function(store) {
