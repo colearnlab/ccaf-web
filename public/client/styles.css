@@ -170,3 +170,15 @@ iframe {
   margin-bottom: 0px;
   z-index: 1001;
 }
+
+#shield {
+  position: absolute;
+  top: 50px;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+}

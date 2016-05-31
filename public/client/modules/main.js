@@ -211,7 +211,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
               pwss.sendFrame('update-state', {deltas: log[i].deltas});
             curIndex = i;
           }
-        }
+        };
 
         document.body.appendChild(slider);
 
@@ -234,6 +234,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
             };
 
             appModule.load(reRoot(), pstm.action, pinstance.root, params);
+            document.getElementById('root').style['pointer-events'] = 'none'
             window.advance = function() {
               pwss.sendFrame('update-state', {deltas: log.shift().deltas});
             };
@@ -243,6 +244,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         playback = true;
 
         return;
+      } else if (!instance.playback && playback) {
+        // Playback has been disabled.
+        if (instance.app)
+          reloadApp = true;
+
+        document.body.removeChild(document.getElementById('playback-slider'));
+        playback = false;
       }
 
       if (!reloadApp)
