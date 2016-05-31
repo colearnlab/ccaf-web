@@ -58,7 +58,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       },
         m('span.glyphicon glyphicon-th-large#menu-icon' + (!args.statusText || args.statusText === "" ? '.hidden' : ''), {
           'onclick': function(e) {
-
             ctrl.trayOpen = !ctrl.trayOpen;
             if (ctrl.trayOpen)
               return e.stopPropagation(), false;
@@ -68,10 +67,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
               return;
 
             ctrl.addedClickListener = true;
-            console.log('adding click listener');
             document.addEventListener('click', function(e) {
-              ctrl.trayOpen = false;
-              m.redraw(true);
+              if (ctrl.trayOpen) {
+                ctrl.trayOpen = false;
+                m.redraw(true);
+              }
             });
           }
         }),
@@ -123,6 +123,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
 
 
   function setStatus(text) {
+    console.log('setStatus');
     if (!this.args) {
       this.args = {'statusText': text};
       m.mount(document.getElementById('statusbar'), m.component(StatusBar, this.args));
@@ -163,6 +164,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       }
 
       if (reloadUsers || reloadApp) {
+        console.log(reloadUsers,reloadApp);
         // Collect all the names of users who are assigned to the current instance, and push them to the array.
         var users = _.pairs(store.classrooms[classroom].currentState.userInstanceMapping)
           .filter(function(pair) {
@@ -267,7 +269,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
           var copy = JSON.parse(JSON.stringify(pstore));
           for (i = curIndex - 1; log[i].ts - start > curTime; i--) {
             for (var j = log[i].deltas.length - 1; j >= 0; j--) {
-              diffpatch.patch(util.getByPath(copy, log[i].deltas[j].path), reverse(log[i].deltas[j].delta));
+              diffpatch.patch(util.getByPath(copy, log[i].deltas[j].path), diffpatch.reverse(log[i].deltas[j].delta));
             }
             curIndex = i;
           }
@@ -316,9 +318,21 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
           // We want to reload the app if this is the first time observer is called (data being populated,
           // oldStore will be null) or if the app has changed. Otherwise just update student names or flip into or
           // out of playback mode.
+
           var reloadApp = oldStore === null || newStore.userInstanceMapping[student] != oldStore.userInstanceMapping[student] ||
             (typeof newStore.userInstanceMapping[student] !== 'undefined' && newStore.instances[newStore.userInstanceMapping[student]].app !== oldStore.instances[newStore.userInstanceMapping[student]].app);
-          updateApp(newStore.userInstanceMapping[student], classroom, student, reloadApp, _.isEqual(newStore.userInstanceMapping, (oldStore || {}).userInstanceMapping));
+          updateApp(newStore.userInstanceMapping[student], classroom, student, reloadApp, false);
+        });
+
+        store.classrooms[classroom].currentState.userInstanceMapping.addObserver(function(newUserInstanceMapping, oldUserInstanceMapping) {
+          var reloadUsers = false;
+          if (oldUserInstanceMapping) {
+            for (var p in newUserInstanceMapping)
+              if (newUserInstanceMapping[p] != oldUserInstanceMapping[p])
+                reloadUsers = true;
+          }
+          if (reloadUsers)
+            updateApp(newUserInstanceMapping[student], classroom, student, false, true);
         });
       });
     }
@@ -369,55 +383,4 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       handler({data: JSON.stringify({channel: channel, message: message})});
     });
   };
-
-  function reverse(delta) {
-    //debugger;
-    var toReturn = {};
-    for (var prop in delta) {
-      if (!delta.hasOwnProperty(prop))
-        continue;
-      if (!(delta[prop] instanceof Array))
-        toReturn[prop] = reverse(delta[prop]);
-      else {
-        toReturn[prop] = [];
-        switch(delta[prop][0]) {
-          case 0: // set
-            toReturn[prop][0] = 2; // delete
-            if (delta[prop][1] == 2) // set undefined
-              toReturn[prop][1] = 1;
-            else {
-              toReturn[prop][1] = 0;
-              toReturn[prop][2] = null;
-              toReturn[prop][3] = delta[prop][2];
-            }
-            break;
-          case 1:
-            toReturn[prop][0] = 1;
-            if (delta[prop][1] === 0) {
-              toReturn[prop][1] = 0;
-              toReturn[prop][2] = delta[prop][3];
-              toReturn[prop][3] = delta[prop][2];
-            } else if (delta[prop][1] === 1) {
-              toReturn[prop][1] = 2;
-              toReturn[prop][2] = null
-              toReturn[prop][3] = delta[prop][2];
-            } else {
-              toReturn[prop][1] = 1;
-              toReturn[prop][2] = delta[prop][3];
-            }
-            break;
-          case 2:
-            toReturn[prop][0] = 0;
-            if (delta[prop][1] === 0) {
-              toReturn[prop][1] = 0;
-              toReturn[prop][2] = delta[prop][3];
-            } else {
-              toReturn[prop][1] = 2;
-            }
-            break;
-        }
-      }
-    }
-    return toReturn;
-  }
 });
