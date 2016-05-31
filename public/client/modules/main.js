@@ -145,6 +145,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
      * 3) Check if thet app has been loaded. If not, load the app via RequireJS.
      */
     var playback = false;
+    var i, initial, log, curTime, start, curIndex, pstore, pwss, pstm, slider;
     function updateApp(instanceId, classroom, student, reloadApp, reloadUsers) {
       instance = store.classrooms[classroom].currentState.instances[instanceId];
 
@@ -177,7 +178,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
 
       // Playback mode has just been enabled.
       if (instance.playback && !playback) {
-        var slider = document.createElement('input');
+        slider = document.createElement('input');
         slider.type = 'range';
         slider.id = 'playback-slider';
 
@@ -186,52 +187,28 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         // Get initial and log files.
         xhttp.open("GET", "logs/latest.initial", false);
         xhttp.send();
-        var initial = JSON.parse(xhttp.responseText);
+        initial = JSON.parse(xhttp.responseText);
 
         xhttp.open("GET", "logs/latest", false);
         xhttp.send();
-        var log = JSON.parse("[" + xhttp.responseText.split("\n").slice(0, -1) + "]");
+        log = JSON.parse("[" + xhttp.responseText.split("\n").slice(0, -1) + "]");
 
-        var start = log[0].ts;
-        var curTime = slider.value = slider.min = 0, curIndex = 0;
+        start = log[0].ts;
+        slider.min = 0;
         slider.max = log[log.length - 1].ts - start;
 
-        var pstore;
+        curTime = slider.value = instance.playbackTime || slider.min;
+        curIndex = 0;
+
+
         slider.oninput = function(e) {
-          if (curTime < parseInt(e.target.value)) {
-            console.log("starting at " + curIndex);
-            curTime = parseInt(e.target.value);
-            for (var i = curIndex; log[i].ts - start < curTime; i++) {
-              pwss.sendFrame('update-state', {deltas: log[i].deltas});
-            }
-            curIndex = i;
-            console.log("now at " + curIndex);
-          } else if (curTime > parseInt(e.target.value)) {
-            var diffpatch = pstm.lib.diffpatch;
-            var util = pstm.lib.util;
-
-            console.log("starting at " + curIndex);
-            curTime = parseInt(e.target.value);
-
-            var copy = JSON.parse(JSON.stringify(pstore));
-            for (var i = curIndex - 1; log[i].ts - start > curTime; i--) {
-              for (var j = log[i].deltas.length - 1; j >= 0; j--) {
-                console.log(diffpatch.patch(util.getByPath(copy, log[i].deltas[j].path), reverse(log[i].deltas[j].delta)));
-              }
-              curIndex = i;
-            }
-
-            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(pstore, initial), path:''}]});
-            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(initial, copy), path:''}]});
-
-            console.log("now at " + curIndex);
-          }
+          instance.sendAction('set-instance-playback-time', parseInt(e.target.value));
         };
 
         document.body.appendChild(slider);
 
-        var pwss = new WebSocketShell();
-        var pstm = new checkerboard.STM(pwss);
+        pwss = new WebSocketShell();
+        pstm = new checkerboard.STM(pwss);
 
         pwss.sendFrame('set-state', {data: initial});
 
@@ -251,9 +228,12 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
 
             appModule.load(reRoot(), pstm.action, pinstance.root, params);
             document.getElementById('root').style['pointer-events'] = 'none';
-            window.advance = function() {
-              pwss.sendFrame('update-state', {deltas: log.shift().deltas});
-            };
+            for (i = 0; (log[i] ? log[i].ts : +Infinity) - start <= curTime; i++) {
+              if (!log[i])
+                continue;
+              pwss.sendFrame('update-state', {deltas: log[i].deltas});
+            }
+            curIndex = i;
           });
         });
 
@@ -267,6 +247,35 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
 
         document.body.removeChild(document.getElementById('playback-slider'));
         playback = false;
+      }
+
+      if (instance.playback) {
+        if (curTime < parseInt(instance.playbackTime)) {
+          curTime = parseInt(instance.playbackTime);
+          for (i = curIndex; (log[i] ? log[i].ts : +Infinity) - start <= curTime; i++) {
+            if (!log[i])
+              continue;
+            pwss.sendFrame('update-state', {deltas: log[i].deltas});
+          }
+          curIndex = i;
+        } else if (curTime > parseInt(instance.playbackTime)) {
+          var diffpatch = pstm.lib.diffpatch;
+          var util = pstm.lib.util;
+
+          curTime = parseInt(instance.playbackTime);
+
+          var copy = JSON.parse(JSON.stringify(pstore));
+          for (i = curIndex - 1; log[i].ts - start > curTime; i--) {
+            for (var j = log[i].deltas.length - 1; j >= 0; j--) {
+              diffpatch.patch(util.getByPath(copy, log[i].deltas[j].path), reverse(log[i].deltas[j].delta));
+            }
+            curIndex = i;
+          }
+
+          pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(pstore, initial), path:''}]});
+          pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(initial, copy), path:''}]});
+        }
+        slider.value = instance.playbackTime;
       }
 
       if (!reloadApp)

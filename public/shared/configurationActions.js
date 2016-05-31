@@ -49,6 +49,11 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         this.playback = mode;
       });
 
+    stm.action('set-instance-playback-time')
+      .onReceive(function(playbackTime) {
+        this.playbackTime = playbackTime;
+      });
+
     /* delete-app-instance: delete an instance of an app on the state it is called on.
      */
     stm.action('delete-app-instance')

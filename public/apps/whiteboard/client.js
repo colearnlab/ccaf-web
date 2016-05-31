@@ -202,7 +202,6 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
 
     function drawPaths(newPaths, oldPaths) {
-      console.log(oldPaths, newPaths);
       var path;
       oldPaths = oldPaths || [];
 
