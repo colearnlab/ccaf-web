@@ -56,7 +56,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
           ctrl.trayOpen = false;
         }
       },
-        m('span.glyphicon glyphicon-th-large#menu-icon' + (!args.statusText || args.statusText === "" ? '.hidden' : ''), {
+        m('span.glyphicon glyphicon-th-large#menu-icon' + (!instance || !args.statusText || args.statusText === "" ? '.hidden' : ''), {
           'onclick': function(e) {
             ctrl.trayOpen = !ctrl.trayOpen;
             if (ctrl.trayOpen)
@@ -96,7 +96,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
           m('img.menu-tray-block-icon', {
             'src': 'media/user.png'
           }),
-          m('div.menu-tray-block-caption', (instance.playback ? "Live" : "Playback"))
+          m('div.menu-tray-block-caption', (instance && instance.playback ? "Live" : "Playback"))
         ),
         m('div.menu-tray-block',
           m('img.menu-tray-block-icon', {

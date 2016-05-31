@@ -58,8 +58,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
 
     function resizeCanvas() {
-      hCanvas.width = canvas.width = window.innerWidth;
-      hCanvas.height = canvas.height = canvasHeight;
+      hCanvas.width = canvas.width = '1280';
+      hCanvas.height = canvas.height = canvasHeight * 1280 / window.innerWidth;
       hCanvas.style.height = canvas.style.height = canvasHeight + 'px';
       ctx = canvas.getContext('2d');
       hCtx = hCanvas.getContext('2d');
@@ -159,13 +159,13 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     function initListeners() {
       canvas.addEventListener('mousedown', function(e) {
         deviceState.sendAction('create-path', 0);
-
-        deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop);
-        deviceState.sendAction('add-point', 0, e.pageX + 1, e.pageY + canvas.canvasTop + 1);
+        console.log(canvas.canvasTop);
+        deviceState.sendAction('add-point', 0, e.clientX * 1280 / window.innerWidth, (e.clientY + canvas.canvasTop) * canvas.height / 5000);
+        deviceState.sendAction('add-point', 0, e.clientX * 1280 / window.innerWidth, (e.clientY + canvas.canvasTop) * canvas.height / 5000 + 1);
       });
 
       canvas.addEventListener('mousemove', function(e) {
-        deviceState.sendAction('add-point', 0, e.pageX, e.pageY + canvas.canvasTop);
+        deviceState.sendAction('add-point', 0, e.clientX * 1280 / window.innerWidth, (e.clientY + canvas.canvasTop) * canvas.height / 5000);
       });
 
       canvas.addEventListener('mouseup', function(e) {
@@ -181,13 +181,14 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         for (var i = 0; i < e.changedTouches.length; i++) {
           touch = e.changedTouches[i];
           deviceState.sendAction('create-path', touch.identifier + 1);
-          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].pageX, e.changedTouches[i].pageY + canvas.canvasTop);
+          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / 5000);
+          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / 5000 + 1);
         }
       });
 
       canvas.addEventListener('touchmove', function(e) {
         for (var i = 0; i < e.changedTouches.length; i++)
-          deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, e.changedTouches[i].pageX, e.changedTouches[i].pageY + canvas.canvasTop);
+        deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / 5000);
       });
 
       canvas.addEventListener('touchend', function(e) {
