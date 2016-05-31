@@ -145,7 +145,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
      * 3) Check if thet app has been loaded. If not, load the app via RequireJS.
      */
     var playback = false;
-    function updateApp(instanceId, classroom, student, reloadApp) {
+    function updateApp(instanceId, classroom, student, reloadApp, reloadUsers) {
       instance = store.classrooms[classroom].currentState.instances[instanceId];
 
       // Check if the instance has been removed. If so, clear the screen.
@@ -161,17 +161,19 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         return;
       }
 
-      // Collect all the names of users who are assigned to the current instance, and push them to the array.
-      var users = _.pairs(store.classrooms[classroom].currentState.userInstanceMapping)
-        .filter(function(pair) {
-          return pair[1] == instanceId;
-        }).map(function(pair) {
-          return store.classrooms[classroom].users[pair[0]].name;
-        });
-      var appName = store.apps[instance.app].title;
+      if (reloadUsers || reloadApp) {
+        // Collect all the names of users who are assigned to the current instance, and push them to the array.
+        var users = _.pairs(store.classrooms[classroom].currentState.userInstanceMapping)
+          .filter(function(pair) {
+            return pair[1] == instanceId;
+          }).map(function(pair) {
+            return store.classrooms[classroom].users[pair[0]].name;
+          });
+        var appName = store.apps[instance.app].title;
 
-      // Set the titlebar text to "[apptitle] | [users]", omitting the pipe if no users connected.
-      setStatus(appName + (users.length > 0 ? " | " + users.join(", ") : ""));
+        // Set the titlebar text to "[apptitle] | [users]", omitting the pipe if no users connected.
+        setStatus(appName + (users.length > 0 ? " | " + users.join(", ") : ""));
+      }
 
       // Playback mode has just been enabled.
       if (instance.playback && !playback) {
@@ -194,22 +196,35 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         var curTime = slider.value = slider.min = 0, curIndex = 0;
         slider.max = log[log.length - 1].ts - start;
 
+        var pstore;
         slider.oninput = function(e) {
           if (curTime < parseInt(e.target.value)) {
+            console.log("starting at " + curIndex);
             curTime = parseInt(e.target.value);
-            for (var i = curIndex; log[i].ts - start < curTime; i++)
+            for (var i = curIndex; log[i].ts - start < curTime; i++) {
               pwss.sendFrame('update-state', {deltas: log[i].deltas});
+            }
             curIndex = i;
-          }
-        };
+            console.log("now at " + curIndex);
+          } else if (curTime > parseInt(e.target.value)) {
+            var diffpatch = pstm.lib.diffpatch;
+            var util = pstm.lib.util;
 
-        slider.onchange = function(e) {
-          if (curTime > parseInt(e.target.value)) {
+            console.log("starting at " + curIndex);
             curTime = parseInt(e.target.value);
-            pwss.sendFrame('set-state', {data: initial});
-            for (var i = 0; log[i].ts - start < curTime; i++)
-              pwss.sendFrame('update-state', {deltas: log[i].deltas});
-            curIndex = i;
+
+            var copy = JSON.parse(JSON.stringify(pstore));
+            for (var i = curIndex - 1; log[i].ts - start > curTime; i--) {
+              for (var j = log[i].deltas.length - 1; j >= 0; j--) {
+                console.log(diffpatch.patch(util.getByPath(copy, log[i].deltas[j].path), reverse(log[i].deltas[j].delta)));
+              }
+              curIndex = i;
+            }
+
+            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(pstore, initial), path:''}]});
+            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(initial, copy), path:''}]});
+
+            console.log("now at " + curIndex);
           }
         };
 
@@ -221,6 +236,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         pwss.sendFrame('set-state', {data: initial});
 
         pstm.init(function(store) {
+          pstore = store;
           var pinstance = store.classrooms[classroom].currentState.instances[instanceId];
           requirejs(['/apps/' + pinstance.app + '/' + store.apps[pinstance.app].client], function(appModule) {
             var mode;
@@ -234,7 +250,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
             };
 
             appModule.load(reRoot(), pstm.action, pinstance.root, params);
-            document.getElementById('root').style['pointer-events'] = 'none'
+            document.getElementById('root').style['pointer-events'] = 'none';
             window.advance = function() {
               pwss.sendFrame('update-state', {deltas: log.shift().deltas});
             };
@@ -293,7 +309,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
           // out of playback mode.
           var reloadApp = oldStore === null || newStore.userInstanceMapping[student] != oldStore.userInstanceMapping[student] ||
             (typeof newStore.userInstanceMapping[student] !== 'undefined' && newStore.instances[newStore.userInstanceMapping[student]].app !== oldStore.instances[newStore.userInstanceMapping[student]].app);
-          updateApp(newStore.userInstanceMapping[student], classroom, student, reloadApp);
+          updateApp(newStore.userInstanceMapping[student], classroom, student, reloadApp, _.isEqual(newStore.userInstanceMapping, (oldStore || {}).userInstanceMapping));
         });
       });
     }
@@ -344,4 +360,55 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       handler({data: JSON.stringify({channel: channel, message: message})});
     });
   };
+
+  function reverse(delta) {
+    //debugger;
+    var toReturn = {};
+    for (var prop in delta) {
+      if (!delta.hasOwnProperty(prop))
+        continue;
+      if (!(delta[prop] instanceof Array))
+        toReturn[prop] = reverse(delta[prop]);
+      else {
+        toReturn[prop] = [];
+        switch(delta[prop][0]) {
+          case 0: // set
+            toReturn[prop][0] = 2; // delete
+            if (delta[prop][1] == 2) // set undefined
+              toReturn[prop][1] = 1;
+            else {
+              toReturn[prop][1] = 0;
+              toReturn[prop][2] = null;
+              toReturn[prop][3] = delta[prop][2];
+            }
+            break;
+          case 1:
+            toReturn[prop][0] = 1;
+            if (delta[prop][1] === 0) {
+              toReturn[prop][1] = 0;
+              toReturn[prop][2] = delta[prop][3];
+              toReturn[prop][3] = delta[prop][2];
+            } else if (delta[prop][1] === 1) {
+              toReturn[prop][1] = 2;
+              toReturn[prop][2] = null
+              toReturn[prop][3] = delta[prop][2];
+            } else {
+              toReturn[prop][1] = 1;
+              toReturn[prop][2] = delta[prop][3];
+            }
+            break;
+          case 2:
+            toReturn[prop][0] = 0;
+            if (delta[prop][1] === 0) {
+              toReturn[prop][1] = 0;
+              toReturn[prop][2] = delta[prop][3];
+            } else {
+              toReturn[prop][1] = 2;
+            }
+            break;
+        }
+      }
+    }
+    return toReturn;
+  }
 });

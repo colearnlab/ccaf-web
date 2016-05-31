@@ -14,15 +14,21 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     clearScreen();
 
     deviceState.paths.addObserver(drawPaths);
-    deviceState.cursors.addObserver(function(cursors) {
+    deviceState.cursors.addObserver(function(cursors, oldCursors) {
       canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]);
       document.getElementById('pointers').style.transform = hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
+
+      if (_.isEqual(cursors, oldCursors))
+        return;
       m.redraw(true);
     });
 
     deviceState.pointers.addObserver(function(pointers, oldPointers) {
       if (oldPointers === null)
         m.mount(document.getElementById('pointers'), m.component(Pointers, {pointers: pointers, cursor: cursor}));
+
+      if (_.isEqual(pointers, oldPointers))
+        return;
       m.render(document.getElementById('pointers'), m.component(Pointers, {'pointers': pointers, cursor: cursor}));
       m.redraw(true);
     });
@@ -196,6 +202,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
 
     function drawPaths(newPaths, oldPaths) {
+      console.log(oldPaths, newPaths);
       var path;
       oldPaths = oldPaths || [];
 
@@ -261,7 +268,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       );
     }
   };
-  
+
   var saved;
   var ColorSelect = {
     'controller': function(args) {
