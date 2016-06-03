@@ -12,7 +12,7 @@
  *    Used when instances are loaded via iframe to be shown as projector panels.
  *    Loads the specified instance. If the instance is deleted, it shows a blank screen.
  *    However, as projections are also removed when instances are removed, this is
- *    a fallback and shouldn't ever be seen by the end-user.
+ *    a fallback and shouldn't ever be seen by the end-user. 
  */
 
 /* jshint ignore:start */
