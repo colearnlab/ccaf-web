@@ -23,9 +23,7 @@
 module = null;
 
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'configurationActions'], function(exports, checkerboard, m, autoconnect, login, configurationActions) {
-  /* jshint ignore:start */
   var wsAddress = 'ws://' + window.location.host;
-  /* jshint ignore:end */
   var stm = new checkerboard.STM(wsAddress);
 
   // autoconnect will detect a WebSocket disconnect, show a modal and try to reconnect.
