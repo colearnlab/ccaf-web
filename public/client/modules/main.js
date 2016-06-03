@@ -22,7 +22,7 @@
 // Ensures that RequireJS plays nicely with electron-browser.
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'configurationActions'], function(exports, checkerboard, m, autoconnect, login, configurationActions) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'configurationActions', 'clientUtil'], function(exports, checkerboard, m, autoconnect, login, configurationActions, clientUtil) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
 
@@ -300,6 +300,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     }
 
     /* --- Start of code run on initialization --- */
+    var gup = clientUtil.gup;
 
     // The client can be logged in via URL parameters or via user GUI. The gup
     // function [g]ets [u]RL [p]arameters or returns null if they don't exist.
@@ -311,7 +312,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
       });
     }
     else {
-      login.display(reRoot(), {'student': true, 'store': store}, function (classroom, student) {
+      login.display(reRoot(), {'type': 'student', 'store': store}, function (classroom, student) {
         store.classrooms[classroom].currentState.addObserver(function(newStore, oldStore) {
           // We want to reload the app if this is the first time observer is called (data being populated,
           // oldStore will be null) or if the app has changed. Otherwise just update student names or flip into or
@@ -337,18 +338,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
   });
 
   /* --- support functions --- */
-
-  /* [g]et [u]RL [p]arameters, or return null if there are none.
-   * http://stackoverflow.com/a/979997
-   */
-  function gup( name, url ) {
-    if (!url) url = location.href;
-    name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
-    var regexS = "[\\?&]"+name+"=([^&#]*)";
-    var regex = new RegExp( regexS );
-    var results = regex.exec( url );
-    return results === null ? null : results[1];
-  }
 
   /* The reRoot function prunes the root element which all applications attach
    * themselves to.

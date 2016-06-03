@@ -5,7 +5,7 @@
 define('clientUtil', ['exports'], function(exports) {
   /* Load a CSS file at the specified URL. If persist is true, then
    * the CSS file will not be unloaded between app changes. */
-   
+
   exports.css = function(url, persist) {
     // Look through existing loaded CSS files to see if this URL has already been loaded.
     // If so, do nothing and return.
@@ -25,5 +25,18 @@ define('clientUtil', ['exports'], function(exports) {
 
     // Add the CSS file to the head.
     document.head.appendChild(link);
+  };
+
+
+  /* [g]et [u]RL [p]arameters, or return null if there are none.
+   * http://stackoverflow.com/a/979997
+   */
+  exports.gup = function( name, url ) {
+    if (!url) url = location.href;
+    name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+    var regexS = "[\\?&]"+name+"=([^&#]*)";
+    var regex = new RegExp( regexS );
+    var results = regex.exec( url );
+    return results === null ? null : results[1];
   };
 });

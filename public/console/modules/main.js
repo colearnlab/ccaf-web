@@ -4,7 +4,7 @@
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'modal', 'configurationActions', './stateVisualizer', 'pinLock'], function(exports, checkerboard, m, autoconnect, login, modal, configurationActions, stateVisualizer, pinLock) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'modal', 'configurationActions', './stateVisualizer'], function(exports, checkerboard, m, autoconnect, login, modal, configurationActions, stateVisualizer) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
 
@@ -28,21 +28,14 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'm
     store.sendAction('init');
     store.addObserver(function(){});
 
-    if (parseInt(store.config.passcode) >= 0)
-      pinLock.lock(store.config.passcode, root, start);
-    else
-      start();
-
-    function start() {
-      login.display(root, {
-          'student': false,
-          'store': store
-        }, function(classroom) {
-          var isEditing = true;
-          m.mount(document.getElementById('edit-toggle-holder'), m.component(EditToggle, {'root': root, 'store': store, 'classroom': classroom, 'currentState': store.classrooms[classroom].currentState}));
-          stateVisualizer.display(root, store, classroom, store.classrooms[classroom].currentState, false);
-      });
-    }
+    login.display(root, {
+        'type': 'google',
+        'ws': stm.ws
+      }, function(classroom) {
+        var isEditing = true;
+        m.mount(document.getElementById('edit-toggle-holder'), m.component(EditToggle, {'root': root, 'store': store, 'classroom': classroom, 'currentState': store.classrooms[classroom].currentState}));
+        stateVisualizer.display(root, store, classroom, store.classrooms[classroom].currentState, false);
+    });
   });
 
   var EditToggle = {

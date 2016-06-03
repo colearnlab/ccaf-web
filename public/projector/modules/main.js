@@ -13,7 +13,7 @@ module = null;
 
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'cookies', 'modal', 'configurationActions', 'interact'], function(exports, checkerboard, m, autoconnect, login, cookies, modal, configurationActions, interact) {
   /* jshint ignore:start */
-  var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
+  var wsAddress = 'wss://' + window.location.hostname;
   /* jshint ignore:end */
   var stm = new checkerboard.STM(wsAddress);
 
@@ -38,7 +38,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     store.addObserver(function(){});
 
     var root = document.getElementById('root');
-    login.display(root, {'student': false, 'store': store}, function(classroom) {
+    login.display(root, {'type': 'classroom', 'store': store}, function(classroom) {
       m.mount(root, m.component(panelComponent, {'classroom': classroom, 'classroomName': store.classrooms[classroom].name, 'panels': store.classrooms[classroom].projections}));
       store.classrooms[classroom].projections.addObserver(function(classroom, oldClassroom) {
         m.redraw(true);
