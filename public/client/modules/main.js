@@ -12,7 +12,7 @@
  *    Used when instances are loaded via iframe to be shown as projector panels.
  *    Loads the specified instance. If the instance is deleted, it shows a blank screen.
  *    However, as projections are also removed when instances are removed, this is
- *    a fallback and shouldn't ever be seen by the end-user. 
+ *    a fallback and shouldn't ever be seen by the end-user.
  */
 
 /* jshint ignore:start */
@@ -23,7 +23,7 @@
 module = null;
 
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'configurationActions'], function(exports, checkerboard, m, autoconnect, login, configurationActions) {
-  var wsAddress = 'ws://' + window.location.host;
+  var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
 
   // autoconnect will detect a WebSocket disconnect, show a modal and try to reconnect.

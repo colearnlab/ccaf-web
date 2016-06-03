@@ -5,7 +5,7 @@
 module = null;
 
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'modal', 'configurationActions', './stateVisualizer', 'pinLock'], function(exports, checkerboard, m, autoconnect, login, modal, configurationActions, stateVisualizer, pinLock) {
-  var wsAddress = 'ws://' + window.location.host;
+  var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
 
   autoconnect.monitor(stm.ws);

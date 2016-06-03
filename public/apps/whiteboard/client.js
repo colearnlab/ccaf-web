@@ -230,10 +230,12 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
         path = newPath;
 
-        curCtx.beginPath();
         for (var j = oldPaths[i] ? oldPaths[i].length : 1; j < newPaths[i].length; j++) {
           if (!path[j])
             continue;
+
+          curCtx.beginPath();
+
           if (path[j - 1])
             curCtx.moveTo(path[j - 1].x, path[j - 1].y);
           else

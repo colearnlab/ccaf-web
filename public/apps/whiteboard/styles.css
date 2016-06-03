@@ -1,3 +1,7 @@
+* {
+  cursor: none;
+}
+
 html, body {
   background-color: #ffffff !important;
   overflow: hidden;
@@ -132,8 +136,8 @@ canvas {
 
 .pointer {
   position: absolute;
-  height: 10px;
-  width: 10px;
+  height: 15px;
+  width: 15px;
   border-radius: 50%;
   background-color: red;
   box-shadow: 0px 0px 10px white;
