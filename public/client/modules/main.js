@@ -24,7 +24,7 @@ module = null;
 
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'configurationActions'], function(exports, checkerboard, m, autoconnect, login, configurationActions) {
   /* jshint ignore:start */
-  var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
+  var wsAddress = 'ws://' + window.location.host;
   /* jshint ignore:end */
   var stm = new checkerboard.STM(wsAddress);
 
