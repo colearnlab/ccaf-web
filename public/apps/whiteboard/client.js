@@ -15,7 +15,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
     deviceState.paths.addObserver(drawPaths);
     deviceState.cursors.addObserver(function(cursors, oldCursors) {
-      canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]);
+      canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]) * window.innerWidth/1280;
       document.getElementById('pointers').style.transform = hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
 
       if (_.isEqual(cursors, oldCursors))
@@ -497,7 +497,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
   };
 
   function colorHash(num) {
-    var r = 37, g = 137, b = 237;
+    var r = 37, g = 569, b = 997;
     if (num != -1) {
       for (var i = 0; i < num; i++) {
         r = (r * g + b) % 255;
