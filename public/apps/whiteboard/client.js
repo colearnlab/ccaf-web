@@ -92,6 +92,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           if (typeof curPath[identifier] === 'undefined') {
             this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
             lastPath.push(curPath[identifier] = this.paths.length - 1);
+            return 'paths.' + curPath[identifier];
           } else if (curPath[identifier] >= 0) {
             return false;
           } else {
@@ -102,7 +103,9 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
             } else {
               this.paths[curPath[identifier]][0] = {'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight};
               lastPath.push(curPath[identifier]);
+              return 'paths.' + curPath[identifier] + '.0';
             }
+            return 'paths.' + curPath[identifier];
           }
         }).onRevert(function(identifier) {
           console.log("reverted");
@@ -112,8 +115,11 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
       action('add-point')
         .onReceive(function(identifier, x, y) {
-          if (curPath[identifier] >= 0 && this.paths[curPath[identifier]] && !isNaN(parseInt(x)) && !isNaN(parseInt(y)))
+          if (curPath[identifier] >= 0 && this.paths[curPath[identifier]] && !isNaN(parseInt(x)) && !isNaN(parseInt(y))) {
             this.paths[curPath[identifier]].push({'x': parseInt(x), 'y': parseInt(y) - 50});
+            return 'paths.' + curPath[identifier] + '.' + (this.paths[curPath[identifier]].length - 1);
+          }
+          return false;
         });
 
       action('end-path')
@@ -121,6 +127,8 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           if (curPath[identifier] >= 0) {
             this.paths[this.paths.length] = [];
             curPath[identifier] = -(this.paths.length - 1);
+
+            return 'paths.' + (this.paths.length - 1);
           } else {
             return false;
           }
@@ -161,7 +169,6 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         deviceState.sendAction('create-path', 0);
         console.log(canvas.canvasTop);
         deviceState.sendAction('add-point', 0, e.clientX * 1280 / window.innerWidth, (e.clientY + canvas.canvasTop) * canvas.height / 5000);
-        deviceState.sendAction('add-point', 0, e.clientX * 1280 / window.innerWidth, (e.clientY + canvas.canvasTop) * canvas.height / 5000 + 1);
       });
 
       canvas.addEventListener('mousemove', function(e) {
@@ -182,7 +189,6 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           touch = e.changedTouches[i];
           deviceState.sendAction('create-path', touch.identifier + 1);
           deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / 5000);
-          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / 5000 + 1);
         }
       });
 
@@ -223,20 +229,22 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         else
           curCtx = ctx;
 
-        curCtx.strokeStyle = newPath[0].strokeStyle;
+        curCtx.shadowColor = curCtx.strokeStyle = newPath[0].strokeStyle;
         curCtx.lineWidth = newPath[0].lineWidth;
-        curCtx.lineJoin = "round";
+        curCtx.lineCa = curCtx.lineJoin = "round";
+        curCtx.shadowBlur = 1;
 
 
         path = newPath;
 
-        for (var j = oldPaths[i] ? oldPaths[i].length : 1; j < newPaths[i].length; j++) {
+        var j = oldPaths[i] ? oldPaths[i].length : 1;
+        for (; j < newPaths[i].length; j++) {
           if (!path[j])
             continue;
 
           curCtx.beginPath();
 
-          if (path[j - 1])
+          if (path[j-1] && path[j - 1].x)
             curCtx.moveTo(path[j - 1].x, path[j - 1].y);
           else
             curCtx.moveTo(path[j].x - 1, path[j].y);
