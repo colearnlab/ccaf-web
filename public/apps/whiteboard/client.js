@@ -211,7 +211,6 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     function drawPaths(newPaths, oldPaths) {
       var path;
       oldPaths = oldPaths || [];
-
       if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length) {
         oldPaths = [];
         curPath = {};
@@ -219,7 +218,14 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       }
 
       newPaths.forEach(function(newPath, i) {
-        if (!newPath || newPath.length === 0)
+        // NOTE: currently there is a bug in playback due to the behavior of the
+        // diff/patch system. For some reason, when a point is added it creates a patch
+        // that is "modified undefined" instead of creating a new object. Thus, when
+        // the patch is reversed, instead of clearing that entry in the array completely
+        // it still exists but is set to null. The check for newPath[0] to actually
+        // exist as well as filtering empty entries in the old array below (filter(Boolean))
+        // are temporary fixes to this problem.
+        if (!newPath || newPath.length === 0 || !newPath[0])
           return;
 
         var curCtx;
@@ -231,13 +237,13 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
 
         curCtx.shadowColor = curCtx.strokeStyle = newPath[0].strokeStyle;
         curCtx.lineWidth = newPath[0].lineWidth;
-        curCtx.lineCa = curCtx.lineJoin = "round";
+        curCtx.lineCap = curCtx.lineJoin = "round";
         curCtx.shadowBlur = 1;
 
 
         path = newPath;
 
-        var j = oldPaths[i] ? oldPaths[i].length : 1;
+        var j = oldPaths[i] ? oldPaths[i].filter(Boolean).length : 1;
         for (; j < newPaths[i].length; j++) {
           if (!path[j])
             continue;

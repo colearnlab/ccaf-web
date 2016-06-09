@@ -253,8 +253,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         if (curTime < parseInt(instance.playbackTime)) {
           curTime = parseInt(instance.playbackTime);
           for (i = curIndex; (log[i] ? log[i].ts : +Infinity) - start <= curTime; i++) {
-            if (!log[i])
-              continue;
             pwss.sendFrame('update-state', {deltas: log[i].deltas});
           }
           curIndex = i;
@@ -264,16 +262,19 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
 
           curTime = parseInt(instance.playbackTime);
 
+          var patchCount = 0;
           var copy = JSON.parse(JSON.stringify(pstore));
           for (i = curIndex - 1; log[i].ts - start > curTime; i--) {
             for (var j = log[i].deltas.length - 1; j >= 0; j--) {
+              patchCount++;
               diffpatch.patch(util.getByPath(copy, log[i].deltas[j].path), diffpatch.reverse(log[i].deltas[j].delta));
             }
             curIndex = i;
           }
-
-          pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(pstore, initial), path:''}]});
-          pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(initial, copy), path:''}]});
+          if (patchCount > 0) {
+            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(pstore, initial), path:''}]});
+            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(initial, copy), path:''}]});
+          }
         }
         slider.value = instance.playbackTime;
       }
