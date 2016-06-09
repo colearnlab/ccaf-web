@@ -267,13 +267,12 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
           for (i = curIndex - 1; log[i].ts - start > curTime; i--) {
             for (var j = log[i].deltas.length - 1; j >= 0; j--) {
               patchCount++;
-              diffpatch.patch(util.getByPath(copy, log[i].deltas[j].path), diffpatch.reverse(log[i].deltas[j].delta));
+              pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.reverse(log[i].deltas[j].delta), path:log[i].deltas[j].path}]});
             }
             curIndex = i;
           }
           if (patchCount > 0) {
-            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(pstore, initial), path:''}]});
-            pwss.sendFrame('update-state', {deltas: [{delta:diffpatch.diff(initial, copy), path:''}]});
+            
           }
         }
         slider.value = instance.playbackTime;

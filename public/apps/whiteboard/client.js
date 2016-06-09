@@ -211,7 +211,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     function drawPaths(newPaths, oldPaths) {
       var path;
       oldPaths = oldPaths || [];
-      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length) {
+      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].filter(Boolean).length > newPaths[i].filter(Boolean).length; })) {
         oldPaths = [];
         curPath = {};
         clearScreen();
