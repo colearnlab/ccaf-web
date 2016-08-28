@@ -5,23 +5,17 @@
 // prevent collisions in electron.
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', 'autoconnect'], function(exports, checkerboard, m, _, pinLock, autoconnect) {	 
-  var wsAddress = 'ws://' + window.location.hostname + ':' + {{ws}};
+define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', 'autoconnect', 'configurationActions'], function(exports, checkerboard, m, _, pinLock, autoconnect, configurationActions) {
+  var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
-  
+
   // autoconnect displays a modal and reconnects when the connection is dropped.
   autoconnect.monitor(stm.ws);
-  
+
   stm.init(function(store) {
     // the init function ensures that the store is properly formed and is not missing anything.
-    stm.action('init')
-      .onReceive(function() {
-        this.classrooms = this.classrooms || {};
-        for (c in this.classrooms) {
-          this.classrooms[c].users = this.classrooms[c].users || {};
-        }
-      });
-      
+    configurationActions.load(stm);
+
       stm.action('setPasscode')
         .onReceive(function(passcode) {
           if (!isNaN(passcode) && isFinite(passcode))
@@ -29,42 +23,42 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
           else
             this.passcode = null;
         });
-        
+
       stm.action('setProperty')
         .onReceive(function(prop, val) {
           this[prop] = val;
         });
-        
+
       stm.action('deleteProperty')
         .onReceive(function(prop) {
           delete this[prop];
         });
-    
+
     store.sendAction('init');
-        
+
     m.redraw.strategy('all');
     var observer = function(newValue, oldValue) {
       m.redraw(true);
     };
-    
+
     var el = document.getElementById('root');
     var callback = function() {
       m.mount(el, m.component(component, store));
     }
-    
+
     if (store.config.passcode !== "" || store.config.passcode)
       pinLock.lock(store.config.passcode, el, callback);
     else
       callback();
-      
+
     store.addObserver(observer);
   });
-  
+
   var component = {
     'controller': function(args) {
       return {
         'cur': m.prop("Server"),
-        'tabs': ["Server", "Security", "Students", "Networking"]
+        'tabs': ["Server", "Security", "Networking"]
       };
     },
     'view': function(ctrl, store) {
@@ -78,7 +72,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
                   m('a', {
                     'onclick': ctrl.cur.bind(null, text)
                   }, text)
-                ); 
+                );
               })
             )
           ),
@@ -89,11 +83,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
       );
     }
   };
-  
+
   var tmpConfig;
   var ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
   var portRegex = /^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/;
-  function getPanel(tab, store) {   
+  function getPanel(tab, store) {
     if (tab === "Server")
       return m('div',
         m('.alert.alert-danger', "If the server is stopped, you will have to restart it from the physical device location."),
@@ -112,7 +106,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
           }
         }, 'Stop')
       );
-  
+
     if (tab === 'Security')
       return m('.form-inline',
         m('.form-group',
@@ -137,62 +131,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
           }, "Save")
         )
       );
-    
-    if (tab === 'Students')
-      return m('.row',
-        m('.alert.alert-info', "Tap a classroom to view its students. Double-click or tap an entry to edit or delete it."),
-        m('.col-xs-6.col-sm-6.col-md-6', {'style': 'padding: 0'},
-          m('.panel.panel-default', {'style': 'border-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0'},
-            m('.panel-heading',
-              m.trust("Classrooms&nbsp;"),
-              m('button.btn.btn-default.btn-xs', {
-                'onclick': function() {
-                  var id = 0;
-                  if (_.keys(store.classrooms).length > 0)
-                    id = Math.max.apply(null, _.keys(store.classrooms).map(function(val) { return val.toString() })) + 1;
-                  store.classrooms.sendAction('setProperty', id, {'users': {}, 'configuration': {'apps': {}, 'users': {}}, 'name': 'New classroom'});
-                  m.redraw(true);
-                }
-              }, "+")),
-            m('.panel-body', {'style': 'padding: 0; height: 60vh; overflow: auto'}, 
-              m('table.table.table-hover',
-                m('tbody',
-                  _.pairs(store.classrooms).map(function(kvPair) {
-                    return m.component(classroomRow, _.extend(kvPair[1], {'id': kvPair[0], 'del': function() { store.classrooms.sendAction('deleteProperty', kvPair[0])} }));
-                  })
-                )
-              )
-            )
-          )
-        ),
-        m('.col-xs-6.col-sm-6.col-md-6', {'style': 'padding: 0'},
-          m('.panel.panel-default', {'style': 'border-top-left-radius: 0; border-bottom-left-radius: 0'},
-            m('.panel-heading', 
-              m.trust("Students&nbsp;"),
-              m('button.btn.btn-default.btn-xs', {
-                'style': (activeClassroom >= 0 ? '' : 'visibility: hidden'),
-                'onclick': function() {
-                  var id = 0;
-                  if (_.keys(store.classrooms[activeClassroom].users).length > 0)
-                    id = Math.max.apply(null, _.keys(store.classrooms[activeClassroom].users).map(function(val) { return val.toString() })) + 1;
-                  store.classrooms[activeClassroom].users.sendAction('setProperty', id, {'name': 'New student'});
-                  m.redraw(true);
-                }
-              }, "+")
-            ),
-            m('.panel-body', {'style': 'padding: 0; height: 60vh;  overflow: auto'}, 
-              m('table.table.table-hover',
-                m('tbody',
-                  _.pairs((store.classrooms[activeClassroom] || {}).users).map(function(kvPair) {
-                    return m.component(studentRow, _.extend(kvPair[1], {'id': kvPair[0], 'del': function() { store.classrooms[activeClassroom].users.sendAction('deleteProperty', kvPair[0]); } }));
-                  })
-                )
-              )
-            )
-          )
-        )
-      );
-     
+
     if (tab === "Networking")
       return !tmpConfig || !tmpConfig.ports ? tmpConfig = _.mapObject(store.config, _.clone) : 0, m('div',
         m('.alert.alert-danger', "Warning: improperly changing these values may render the server inaccessible."),
@@ -248,102 +187,4 @@ define('main', ['exports', 'checkerboard', 'mithril', 'underscore', 'pinLock', '
         )
       );
   }
-  
-  var activeClassroom;
-  var classroomRow = {
-    'controller': function(args) {
-      return {
-        'active': m.prop(false),
-        'edit': m.prop(false)
-      };
-    },
-    'view': function(ctrl, args) {
-      return m('tr' + (activeClassroom === args.id ? '.info' : ''), m('td.hover-activate', {
-        'config': function(el) {
-          el.active = ctrl.active;
-        },
-        'onclick': function(e) {
-          if (!ctrl.active()) {
-            var others = e.target.parentNode.parentNode.children;
-            for (var i = 0; i < others.length; i++) {
-              others[i].children[0].classList.remove('info');
-              if (others[i].children[0].active) others[i].children[0].active(false);
-            }
-            e.target.classList.add('info');
-            ctrl.active(true);
-            activeClassroom = args.id;
-          }
-        },
-        'ondblclick': function(e) {
-          ctrl.edit(true);
-          m.redraw(true);
-        }
-      }, !ctrl.edit() ? [args.name, m('span.glyphicon.glyphicon-remove.hover-hide.pull-right', {
-        'onclick': function(e) {
-          activeClassroom = undefined;
-          args.del();
-          m.redraw(true);
-        }
-        })] :
-        m('input.form-control.input-sm', {
-          'value': args.name,
-          'config': function(el) {
-            el.focus();
-          },
-          'oninput': function(e) {
-            args.sendAction('setProperty', 'name', e.target.value);
-          },
-          'onblur': function(e) {
-            ctrl.edit(false);
-            m.redraw(true);
-          },
-          'onkeydown': function(e) {
-            if (e.keyCode === 13) {
-              ctrl.edit(false);
-              m.redraw(true);
-            }
-          }
-        })
-      ));
-    }
-  };
-  
-  var studentRow = {
-    'controller': function(args) {
-      return {
-        'edit': m.prop(false)
-      };
-    },
-    'view': function(ctrl, args) {
-      return m('tr', m('td.hover-activate', {
-        'ondblclick': function(e) {
-          ctrl.edit(true);
-        }
-      }, !ctrl.edit() ? [args.name, m('span.glyphicon.glyphicon-remove.hover-hide.pull-right', {
-        'onclick': function(e) {
-          args.del();
-        }
-      })] :
-        m('input.form-control.input-sm', {
-          'value': args.name,
-          'config': function(el) {
-            el.focus();
-          },
-          'oninput': function(e) {
-            args.sendAction('setProperty', 'name', e.target.value);
-          },
-          'onblur': function(e) {
-            ctrl.edit(false);
-            m.redraw(true);
-          },
-          'onkeydown': function(e) {
-            if (e.keyCode === 13) {
-              ctrl.edit(false);
-              m.redraw(true);
-            }
-          }
-        })
-      ));
-    }
-  };
 });

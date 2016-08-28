@@ -8,6 +8,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
      */
     stm.action('init')
       .onReceive(function() {
+        this.teachers = this.teachers || {};
         this.classrooms = this.classrooms || {};
 
         for (var classroom in this.classrooms) {
@@ -20,6 +21,14 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
           classroom.activities = classroom.activities || {};
           classroom.projections = classroom.projections || {};
         }
+      });
+
+    stm.action('add-teacher')
+      .onReceive(function(name, email) {
+        this.teachers[findNextKey(this.teachers)] = {
+          'name': name,
+          'email': email
+        };
       });
 
     /* create-app-instance: create an instance of an app on the state it is called on.
