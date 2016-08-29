@@ -5,7 +5,7 @@
 define('clientUtil', ['exports'], function(exports) {
   /* Load a CSS file at the specified URL. If persist is true, then
    * the CSS file will not be unloaded between app changes. */
-   
+
   exports.css = function(url, persist) {
     // Look through existing loaded CSS files to see if this URL has already been loaded.
     // If so, do nothing and return.
@@ -26,4 +26,17 @@ define('clientUtil', ['exports'], function(exports) {
     // Add the CSS file to the head.
     document.head.appendChild(link);
   };
+
+  // http://www.netlobo.com/url_query_string_javascript.html
+  exports.gup = function ( name )
+  {
+    name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+    var regexS = "[\\?&]"+name+"=([^&#]*)";
+    var regex = new RegExp( regexS );
+    var results = regex.exec( window.location.href );
+    if( results == null )
+      return "";
+    else
+      return results[1];
+  }
 });

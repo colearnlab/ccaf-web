@@ -4,7 +4,7 @@
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'modal', 'configurationActions', './stateVisualizer', 'pinLock'], function(exports, checkerboard, m, autoconnect, login, modal, configurationActions, stateVisualizer, pinLock) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'configurationActions', './stateVisualizer', 'clientUtil', 'underscore'], function(exports, checkerboard, m, autoconnect, modal, configurationActions, stateVisualizer, clientUtil, _) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
 
@@ -28,48 +28,38 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'm
     store.sendAction('init');
     store.addObserver(function(){});
 
-    if (parseInt(store.config.passcode) >= 0)
-      pinLock.lock(store.config.passcode, root, start);
-    else
-      start();
+    var email = clientUtil.gup('email');
+    if (email === "")
+      location.href = "/";
 
-    function start() {
-      login.display(root, {
-          'student': false,
-          'store': store
-        }, function(classroom) {
-          var isEditing = true;
-          m.mount(document.getElementById('edit-toggle-holder'), m.component(EditToggle, {'root': root, 'store': store, 'classroom': classroom, 'currentState': store.classrooms[classroom].currentState}));
-          stateVisualizer.display(root, store, classroom, store.classrooms[classroom].currentState, false);
-      });
+    function getTeacher() {
+      for (var id in store.teachers) {
+        if (email === store.teachers[id].email)
+          return id;
+      }
     }
+
+    var user = getTeacher();
+    if (typeof user === 'undefined')
+      store.sendAction('add-teacher', "New teacher", email);
+    user = getTeacher();
+
+    store.teachers[user].addObserver(function(newStore, oldStore) {
+      console.log(newStore);
+      if (oldStore === null)
+        m.mount(root, m.component(Menu, {'teacher': newStore, 'user': user}));
+      else
+        m.render(root, m.component(Menu, {'teacher': newStore, 'user': user}));
+    });
   });
 
-  var EditToggle = {
+  var Menu = {
     'controller': function(args) {
-      return {
-        'isEditing': false
-      };
+
     },
     'view': function(ctrl, args) {
-      return m('div.edit-toggle',
-        m('div.edit-toggle-edit' + (ctrl.isEditing ? '.edit-toggle-active' : ''), {
-          'onclick': function(e) {
-            if (!ctrl.isEditing) {
-              ctrl.isEditing = true;
-              stateVisualizer.display(args.root, args.store, args.classroom, args.currentState, true);
-            }
-          }
-        }, "Edit"),
-        m('div.edit-toggle-live' + (!ctrl.isEditing ? '.edit-toggle-active' : ''), {
-          'onclick': function(e) {
-            if (ctrl.isEditing) {
-              ctrl.isEditing = false;
-              stateVisualizer.display(args.root, args.store, args.classroom, args.currentState, false);
-            }
-          }
-        }, "Live")
-      );
+      return m('div', "Hi ", args.teacher.name, "!");
     }
-  };
+  }
+
 });

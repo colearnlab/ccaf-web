@@ -39,7 +39,7 @@
         'view': function(_, args) {
           var handler = {
             'onclick': function(e) {
-              console.log(args.ctrl.type = e.target.innerText);
+              args.ctrl.type = e.target.innerText;
             }
           };
 
@@ -62,7 +62,7 @@
             'placeholder': "email address",
             'onkeypress': function(e) {
               if (e.keyCode === 13)
-                alert("Hi " + e.target.value);
+                  location.href = (args.ctrl === "Student" ? 'client' : 'console') + "?email=" + e.target.value;
             }
           });
         }
