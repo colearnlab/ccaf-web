@@ -5,6 +5,26 @@ html, body, .stretch {
   -webkit-user-select: none;
 }
 
+#create-class-modal {
+  margin-top: 25vh;
+}
+
+.menu-body-holder {
+  padding: 0;
+  height: 200px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.menu-body-holder > .list-group {
+  margin-bottom: 0;
+}
+
+.menu-body-holder > .list-group > div {
+  border-left: 0;
+  border-right: 0;
+}
+
 #visualizer {
   margin-top: 2em;
   color: #313e54;

@@ -9,18 +9,30 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
     stm.action('init')
       .onReceive(function() {
         this.teachers = this.teachers || {};
-        this.classrooms = this.classrooms || {};
 
-        for (var classroom in this.classrooms) {
-          classroom = this.classrooms[classroom];
+        // moved
+        this.classrooms = null;
 
-          classroom.users = classroom.users || {};
-          classroom.userStatus = classroom.userStatus || {};
-          classroom.currentActivity = classroom.currentActivity || null;
-          classroom.currentState = classroom.currentState || {instances:{}, userInstanceMapping:{}};
-          classroom.activities = classroom.activities || {};
-          classroom.projections = classroom.projections || {};
+        for (var teacher in this.teachers) {
+          teacher = this.teachers[teacher];
+
+          teacher.currentActivity = typeof teacher.currentActivity === 'undefined' ? null : teacher.currentActivity;
+
+          teacher.activities = teacher.activities || {};
+          for (var activity in teacher.activities) {
+            activity = teacher.activities[activity];
+          }
+
+          teacher.classrooms = teacher.classrooms || {};
+          for (var classroom in teacher.classrooms) {
+            classroom = teacher.classrooms[classroom];
+
+            classroom.users = classroom.users || {};
+            classroom.groups = classroom.groups || {};
+            classroom.userGroupMapping = classroom.userGroupMapping || {};
+          }
         }
+
       });
 
     stm.action('add-teacher')
