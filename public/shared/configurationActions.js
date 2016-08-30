@@ -39,7 +39,16 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       .onReceive(function(name, email) {
         this.teachers[findNextKey(this.teachers)] = {
           'name': name,
-          'email': email
+          'email': email,
+          'classrooms': {}
+        };
+      });
+
+    stm.action('add-classroom-to-teacher')
+      .onReceive(function(name, initialStudents) {
+        this.classrooms[findNextKey(this.classrooms)] = {
+          'name': name,
+          'students': initialStudents
         };
       });
 
