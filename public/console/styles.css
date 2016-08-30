@@ -5,7 +5,7 @@ html, body, .stretch {
   -webkit-user-select: none;
 }
 
-#create-class-modal {
+.modal {
   margin-top: 25vh;
 }
 

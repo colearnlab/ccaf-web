@@ -52,6 +52,10 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         };
       });
 
+    stm.action('delete-classroom-from-teacher')
+      .onReceive(function(id) {
+        delete this.classrooms[id];
+      });
     /* create-app-instance: create an instance of an app on the state it is called on.
      * This can be the live state, or a state being preconfigured in the editor.
      */

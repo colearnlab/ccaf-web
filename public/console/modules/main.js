@@ -54,14 +54,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     });
   });
 
+  var classToDelete;
   var Menu = {
-    'controller': function(args) {
-
-    },
     'view': function(ctrl, args) {
       return m('div',
         m('.row',
           m.component(CreateClassModal, args),
+          m.component(DeleteClassModal, args),
           m('.col-md-8.col-md-offset-2',
             m('.panel.panel-default.menu-holder',
               m('.panel-heading',
@@ -78,12 +77,49 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                   _.pairs(args.teacher.classrooms).map(function(pairs) {
                     var classroom = pairs[1];
                     return m('.list-group-item',
-                      m('h5.list-group-item-heading', classroom.name)
+                      m('h5.list-group-item-heading',
+                        classroom.name,
+                        m('span.glyphicon.glyphicon-remove.pull-right', {
+                          'style': 'color: gray',
+                          'onclick': function() {
+                            $('#delete-class-modal').modal('show');
+                            classToDelete = pairs[0];
+                          }
+                        })
+                      )
                     );
                   })
                 )
               )
             )
+          )
+        )
+      );
+    }
+  };
+
+  var DeleteClassModal = {
+    'view': function(ctrl, args) {
+      return m('.modal.fade#delete-class-modal',
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Delete class?")
+          ),
+          m('.modal-body',
+            "Are you sure you want to delete this class? This cannot be undone."
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              'data-dismiss': 'modal'
+            }, "Take me back"),
+            m('button.btn.btn-danger', {
+              'data-dismiss': 'modal',
+              'onclick': function() {
+
+                args.teacher.sendAction('delete-classroom-from-teacher', classToDelete);
+                classToDelete = void 0;
+              }
+            }, "Delete!")
           )
         )
       );
