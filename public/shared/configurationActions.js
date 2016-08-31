@@ -29,7 +29,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
 
             classroom.users = classroom.users || {};
             classroom.groups = classroom.groups || {};
-            classroom.userGroupMapping = classroom.userGroupMapping || {};
+            classroom.studentGroupMapping = classroom.studentGroupMapping || {};
           }
         }
 
@@ -73,19 +73,20 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         };
       });
 
-    stm.action('set-group-title')
-      .onReceive(function(title) {
-        this.title = title;
+    stm.action('set-group-name')
+      .onReceive(function(name) {
+        this.name = name;
       });
 
     /* delete-app-instance: delete an instance of an app on the state it is called on.
      */
     stm.action('delete-group-from-classroom')
       .onReceive(function(group) {
+
         // First, find all users associated to that instance and clear that association.
-        for (var user in this.userGroupMapping)
-          if (this.userGroupMapping[user] == group)
-            delete this.userGroupMapping[user];
+        for (var user in this.studentGroupMapping)
+          if (this.studentGroupMapping[user] == group)
+            delete this.studentGroupMapping[user];
 
         // Remove the instance from the instance object.
         delete this.groups[group];
@@ -95,12 +96,12 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
      * is called on.
      */
     // NOTE: Will need to account for multiple users logged into the same device.
-    stm.action('associate-user-to-instance')
-      .onReceive(function(user, instance) {
-          if (instance === null)
-            delete this.userInstanceMapping[user];
+    stm.action('associate-student-to-group')
+      .onReceive(function(student, group) {
+          if (group === null)
+            delete this.studentGroupMapping[student];
           else
-            this.userInstanceMapping[user] = instance;
+            this.studentGroupMapping[student] = group;
       });
 
     /* toggle-projection: operates on the classroom level. Adds a projection of a

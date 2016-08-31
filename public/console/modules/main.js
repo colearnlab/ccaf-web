@@ -194,7 +194,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                 ctrl.students.split(/(,|\s)/).filter(function(email) {
                   return email.length > 1;
                 }).forEach(function(email, i) {
-                  initialStudents[i] = {'email': email};
+                  initialStudents[i] = {id: i, 'email': email};
                 });
                 console.log(initialStudents);
                 args.teacher.sendAction('add-classroom-to-teacher', ctrl.name, initialStudents);
