@@ -69,77 +69,124 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     }
   };
 
-  var classToDelete;
+  var classToDelete, activityToDelete;
   var Menu = {
     'view': function(ctrl, args) {
       return m('div',
         m('.row',
           m.component(CreateClassModal, args),
+          m.component(CreateActivityModal, args),
           m.component(DeleteClassModal, args),
-          m('.col-md-8.col-md-offset-2',
-            m('.panel.panel-default.menu-holder',
-              m('.panel-heading',
-                m('.panel-title', "Classes",
-                  m('span.glyphicon.glyphicon-plus.pull-right', {
-                    'onclick': function() {
-                      $('#create-class-modal').modal('show');
-                    }
-                  })
-                )
-              ),
-              m('.panel-body.menu-body-holder',
-                m('.list-group',
-                  _.pairs(args.teacher.classrooms).map(function(pairs) {
-                    var classroom = pairs[1];
-                    return m('.list-group-item',
-                      m('h5.list-group-item-heading', {
-                          'onclick': function(e) {
-                            args.rootControl.component = 'visualizer';
-                            args.rootControl.state = pairs[0];
-                          }
-                        },
-                        classroom.name,
-                        m('span.glyphicon.glyphicon-remove.pull-right', {
-                          'style': 'color: gray',
-                          'onclick': function(e) {
-                            $('#delete-class-modal').modal('show');
-                            classToDelete = pairs[0];
-                            e.stopPropagation();
-                          }
-                        })
-                      )
-                    );
-                  })
-                )
-              )
-            )
+          m.component(DeleteActivityModal, args),
+          m('.col-md-6.col-md-offset-3',
+            m.component(ClassroomsMenu, args),
+            m.component(ActivitiesMenu, args)
           )
         )
       );
     }
   };
 
-  var DeleteClassModal = {
+  var ClassroomsMenu = {
     'view': function(ctrl, args) {
-      return m('.modal.fade#delete-class-modal',
-        m('.modal-content.col-md-6.col-md-offset-3',
-          m('.modal-header',
-            m('h4.modal-title', "Delete class?")
-          ),
-          m('.modal-body',
-            "Are you sure you want to delete this class? This cannot be undone."
-          ),
-          m('.modal-footer',
-            m('button.btn.btn-default', {
-              'data-dismiss': 'modal'
-            }, "Take me back"),
-            m('button.btn.btn-danger', {
-              'data-dismiss': 'modal',
+      return m('.panel.panel-default.menu-holder',
+        m('.panel-heading',
+          m('.panel-title', "Classes",
+            m('span.glyphicon.glyphicon-plus.pull-right', {
               'onclick': function() {
-                args.teacher.sendAction('delete-classroom-from-teacher', classToDelete);
-                classToDelete = void 0;
+                $('#create-class-modal').modal('show');
               }
-            }, "Delete!")
+            })
+          )
+        ),
+        m('.panel-body.menu-body-holder',
+          m('.list-group',
+            _.pairs(args.teacher.classrooms).map(function(pairs) {
+              var classroom = pairs[1];
+              return m('.list-group-item',
+                m('h5.list-group-item-heading', {
+                    'onclick': function(e) {
+                      args.rootControl.component = 'visualizer';
+                      args.rootControl.state = pairs[0];
+                    }
+                  },
+                  classroom.name,
+                  m('span.glyphicon.glyphicon-remove.pull-right', {
+                    'style': 'color: gray',
+                    'onclick': function(e) {
+                      $('#delete-class-modal').modal('show');
+                      classToDelete = pairs[0];
+                      e.stopPropagation();
+                    }
+                  })
+                )
+              );
+            })
+          ),
+          m('div.call-to-action', {
+              'style': _.keys(args.teacher.classrooms).length > 0 ? 'display: none' : ''
+            },
+            "You have no classes! ",
+            m('span', {
+              'style': 'text-decoration: underline',
+              'onclick': function(e) {
+                $('#create-class-modal').modal('show');
+              }
+            }, "Click here"),
+            " to add one."
+          )
+        )
+      );
+    }
+  };
+
+  var ActivitiesMenu = {
+    'view': function(ctrl, args) {
+      return m('.panel.panel-default.menu-holder',
+        m('.panel-heading',
+          m('.panel-title', "Activities",
+            m('span.glyphicon.glyphicon-plus.pull-right', {
+              'onclick': function() {
+                $('#create-activity-modal').modal('show');
+              }
+            })
+          )
+        ),
+        m('.panel-body.menu-body-holder',
+          m('.list-group',
+            _.pairs(args.teacher.activities).map(function(pairs) {
+              var activity = pairs[1];
+              return m('.list-group-item',
+                m('h5.list-group-item-heading', {
+                    'onclick': function(e) {
+                      args.rootControl.component = 'activity-editor';
+                      args.rootControl.state = pairs[0];
+                    }
+                  },
+                  activity.name,
+                  m('span.glyphicon.glyphicon-remove.pull-right', {
+                    'style': 'color: gray',
+                    'onclick': function(e) {
+                      $('#delete-activity-modal').modal('show');
+                      activityToDelete = pairs[0];
+                      e.stopPropagation();
+                    }
+                  })
+                )
+              );
+            })
+          ),
+          m('div.call-to-action', {
+              'style': _.keys(args.teacher.activities).length > 0 ? 'display: none' : 'padding: 0 1em 0 1em'
+            },
+            "You have no activities", (_.keys(args.teacher.classrooms).length > 0 ? "! " : ", either! "),
+            m('span', {
+              'style': 'text-decoration: underline',
+              'onclick': function(e) {
+                $('#create-activity-modal').modal('show');
+              }
+            }, "Click here"),
+            " to create an activity."
           )
         )
       );
@@ -157,7 +204,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
       return m('.modal.fade#create-class-modal',
         m('.modal-content.col-md-6.col-md-offset-3',
           m('.modal-header',
-            m('h4.modal-title', "Create new class")
+            m('h4.modal-title', "Add a class")
           ),
           m('.modal-body',
             m('div.form-horizontal',
@@ -204,6 +251,103 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
         )
       );
     }
-  }
+  };
+
+  var CreateActivityModal = {
+    'controller': function(args) {
+      return {
+        'name': ''
+      }
+    },
+    'view': function(ctrl, args) {
+      return m('.modal.fade#create-activity-modal',
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Create an activity")
+          ),
+          m('.modal-body',
+            m('div.form-horizontal',
+              m('.form-group',
+                m('label', "What shall it be called?"),
+                m('input.form-control', {
+                  'value': ctrl.name,
+                  'placeholder': 'Ex. Week 7 discussion problems',
+                  'oninput': function(e) {
+                    ctrl.name = e.target.value;
+                  }
+                })
+              )
+            )
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              'data-dismiss': 'modal'
+            }, "Close"),
+            m('button.btn.btn-primary', {
+              'data-dismiss': 'modal',
+              'disabled': ctrl.name.length < 1,
+              'onclick': function(e) {
+                args.teacher.sendAction('add-activity-to-teacher', ctrl.name);
+              }
+            }, "Save")
+          )
+        )
+      );
+    }
+  };
+
+  var DeleteClassModal = {
+    'view': function(ctrl, args) {
+      return m('.modal.fade#delete-class-modal',
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Delete class?")
+          ),
+          m('.modal-body',
+            "Are you sure you want to delete this class? This cannot be undone."
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              'data-dismiss': 'modal'
+            }, "Take me back"),
+            m('button.btn.btn-danger', {
+              'data-dismiss': 'modal',
+              'onclick': function() {
+                args.teacher.sendAction('delete-classroom-from-teacher', classToDelete);
+                classToDelete = void 0;
+              }
+            }, "Delete!")
+          )
+        )
+      );
+    }
+  };
+
+  var DeleteActivityModal = {
+    'view': function(ctrl, args) {
+      return m('.modal.fade#delete-activity-modal',
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Delete activity?")
+          ),
+          m('.modal-body',
+            "Are you sure you want to delete this activity? This cannot be undone."
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              'data-dismiss': 'modal'
+            }, "Take me back"),
+            m('button.btn.btn-danger', {
+              'data-dismiss': 'modal',
+              'onclick': function() {
+                args.teacher.sendAction('delete-activity-from-teacher', activityToDelete);
+                classToDelete = void 0;
+              }
+            }, "Delete!")
+          )
+        )
+      );
+    }
+  };
 
 });

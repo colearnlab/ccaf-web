@@ -80,7 +80,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         m('div#student-header',
           "Students",
           m('span.glyphicon.glyphicon-plus', {
-            'style': !(mode === 'edit') ? 'display:none' : 'color:white; right: 10px; top:22px; position: absolute',
+            'style': !(mode === 'edit') ? 'display:none' : 'right: 10px; top:22px; position: absolute',
             'onclick': function(e) {
               $('#add-students-modal').modal('show');
               modal = true;
@@ -257,7 +257,6 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           m('.modal-body',
             m('div.form-horizontal',
               m('.form-group',
-                m('label',   "Students"),
                 m('p', "Enter a list of email addresses, separated by commas, spaces or newlines."),
                 m('textarea.form-control', {
                   'oninput': function(e) {

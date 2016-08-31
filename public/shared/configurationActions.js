@@ -113,51 +113,38 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
             this.studentGroupMapping[student] = group;
       });
 
-    /* toggle-projection: operates on the classroom level. Adds a projection of a
-     * LIVE instance to the list of projections.
-     */
-    stm.action('toggle-projection')
-      .onReceive(function(instance) {
-        var projections = this.projections;
+  stm.action('add-activity-to-teacher')
+    .onReceive(function(name) {
+      this.activities = this.activities || {};
+      var key = findNextKey(this.activities);
+      this.activities[key] = {
+        'id': key,
+        'name': name,
+        'phases': {}
+      };
+    });
 
-        // First, look to see if a projection of this instance already exists.
-        // If so, delete it and return.
-        for (var projection in projections)
-          if (projections[projection].instanceId == instance) {
-            delete projections[projection];
-            return true;
-          }
+  stm.action('delete-activity-from-teacher')
+    .onReceive(function(id) {
+      delete this.activities[id];
+    });
 
-        // Otherwise, create a new projection of that instance.
-        projections[findNextKey(projections)] = new Projection(instance);
+  stm.action('add-phase-to-activity')
+    .onReceive(function(app) {
+      var key = findNextKey(this.phases);
+      this.phases[key] = {
+        'id': key,
+        'app': app,
+        'initialState': {}
+      };
+    });
 
-      });
-
-    /* update-projection: update the coordinates, etc. of the projection action
-     * is called on.
-     */
-    stm.action('update-projection')
-      .onReceive(function(x, y, a, s, z) {
-        this.x = ifExistsElse(x, this.x);
-        this.y = ifExistsElse(y, this.y);
-        this.a = ifExistsElse(a, this.a);
-        this.s = ifExistsElse(s, this.s);
-        this.z = ifExistsElse(z, this.z);
-      });
+  stm.action('remove-phase-from-activity')
+    .onReceive(function(id) {
+      delete this.phases[id];
+    });
   };
-
   /* --- support functions --- */
-
-  /* Prototype for the Projection object.
-   */
-  function Projection(instanceId) {
-    this.x = 0;
-    this.y = 0;
-    this.a = 0;
-    this.s = 0.5;
-    this.z = 0;
-    this.instanceId = instanceId;
-  };
 
   /* Returns an unused index that is one greater than the greatest existing index in
    * an object.
@@ -168,15 +155,5 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       id = Math.max.apply(null, _.keys(obj).map(function(val) { return val.toString(); })) + 1;
 
     return id;
-  }
-
-  /* if tryFirst is defined, return that. Otherwise, return the default value.
-   * Used for conditional setting for parameters.
-   */
-  function ifExistsElse(tryFirst, fallback) {
-    if (typeof tryFirst !== 'undefined')
-      return tryFirst;
-
-    return fallback;
   }
 });

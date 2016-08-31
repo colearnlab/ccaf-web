@@ -3,15 +3,37 @@ html, body, .stretch {
   overflow: hidden;
   font-family: 'Raleway', sans-serif;
   -webkit-user-select: none;
+  background-color: #E2E4E7;
+}
+
+.menu-holder > .panel-heading {
+  background-color: #44968C !important;
+  font-weight: bold !important;
+}
+
+.menu-holder > .panel-body {
+  background-color: rgb(250, 250, 250);
 }
 
 .modal {
   margin-top: 25vh;
 }
 
+.call-to-action {
+  text-align: center;
+  position: relative;
+  top: 45%;
+  transform: translateY(-50%);
+  font-size: 20px;
+}
+
+.menu-holder {
+  margin-top: 5vh;
+}
+
 .menu-body-holder {
   padding: 0;
-  height: 200px;
+  height: 20vh;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -29,13 +51,6 @@ html, body, .stretch {
   margin-top: 2em;
   color: #313e54;
   height: 100vh;
-  opacity: 1;
-  transition: opacity 0.25s;
-}
-
-.fade {
-  opacity: 0;
-  transition: opacity 0.25s;
 }
 
 #statusbar {
