@@ -37,7 +37,9 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
 
     stm.action('add-teacher')
       .onReceive(function(name, email) {
-        this.teachers[findNextKey(this.teachers)] = {
+        var key = findNextKey(this.teachers);
+        this.teachers[key] = {
+          'id': key,
           'name': name,
           'email': email,
           'classrooms': {}
@@ -46,9 +48,13 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
 
     stm.action('add-classroom-to-teacher')
       .onReceive(function(name, initialStudents) {
-        this.classrooms[findNextKey(this.classrooms)] = {
+        var key = findNextKey(this.classrooms);
+        this.classrooms[key] = {
+          'id': key,
           'name': name,
-          'students': initialStudents
+          'students': initialStudents,
+          'groups': {},
+          'studentGroupMapping': {}
         };
       });
 
@@ -56,49 +62,33 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       .onReceive(function(id) {
         delete this.classrooms[id];
       });
-    /* create-app-instance: create an instance of an app on the state it is called on.
-     * This can be the live state, or a state being preconfigured in the editor.
-     */
-    stm.action('create-app-instance')
+
+    stm.action('create-group-in-classroom')
       .onReceive(function(app) {
-        var instances = this.instances;
-        var key = findNextKey(instances);
-        var title = "Group " + (key + 1);
-        instances[key] = new Instance(app, title);
+        var key = findNextKey(this.groups);
+        var name = "Group " + (key + 1);
+        this.groups[key] = {
+          'id': key,
+          'name': name
+        };
       });
 
-    stm.action('set-instance-app')
-      .onReceive(function(app) {
-        this.app = app;
-      });
-
-
-    stm.action('set-instance-title')
+    stm.action('set-group-title')
       .onReceive(function(title) {
         this.title = title;
       });
 
-    stm.action('set-instance-playback-mode')
-      .onReceive(function(mode) {
-        this.playback = mode;
-      });
-
-    stm.action('set-instance-playback-time')
-      .onReceive(function(playbackTime) {
-        this.playbackTime = playbackTime;
-      });
-
     /* delete-app-instance: delete an instance of an app on the state it is called on.
      */
-    stm.action('delete-app-instance')
-      .onReceive(function(instance) {
+    stm.action('delete-group-from-classroom')
+      .onReceive(function(group) {
         // First, find all users associated to that instance and clear that association.
-        for (var user in this.userInstanceMapping)
-          if (this.userInstanceMapping[user] == instance)
-            delete this.userInstanceMapping[user];
+        for (var user in this.userGroupMapping)
+          if (this.userGroupMapping[user] == group)
+            delete this.userGroupMapping[user];
 
         // Remove the instance from the instance object.
-        delete this.instances[instance];
+        delete this.groups[group];
       });
 
     /* associate-user-to-instance: associates a user to an instance on the state it
@@ -157,16 +147,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
     this.s = 0.5;
     this.z = 0;
     this.instanceId = instanceId;
-  }
-
-  /* Prototype for the Instance object.
-   */
-  function Instance(app, title, config) {
-    this.app = app;
-    this.title = title;
-    this.root = {};
-    this.config = config || {};
-  }
+  };
 
   /* Returns an unused index that is one greater than the greatest existing index in
    * an object.

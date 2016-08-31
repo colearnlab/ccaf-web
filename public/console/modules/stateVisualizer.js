@@ -6,24 +6,32 @@ module = null;
 
 define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], function(exports, m, _, interact) {
   var state, isEditing;
+  var savedParent;
+  var interactable;
 
-  var visualizer = {
+  var Visualizer = {
     'view': function(ctrl, args) {
-      var apps = args.store.apps;
-      var instances = args.state.instances;
-      var userInstanceMapping = args.state.userInstanceMapping;
+      isEditing = true;
+
+      var students = args.classroom.students;
+      var groups = args.classroom.groups;
+      var userGroupMapping = args.classroom.userGroupMapping;
       return (
         m('div#visualizer', {
           'onclick': function(e) {
-            openTrays.forEach(function(openTray) {
-              openTray.showAppTray = false;
-            });
-
             var sel = window.getSelection();
             sel.removeAllRanges();
           }
         },
-          m('p#statusbar', args.store.classrooms[args.classroom].name),
+          m('p#statusbar',
+            m('span.glyphicon.glyphicon-circle-arrow-left', {
+              'onclick': function(e) {
+                args.rootControl.component = 'menu';
+              }
+            }),
+            m.trust("&nbsp;"),
+            args.classroom.name
+          ),
           m('div#visualizerHolder',
             m('div#sidebar', {
               'style': (!isEditing ? 'display:none':'')
@@ -33,15 +41,21 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             m('div#cards', {
               'style': (!isEditing ? '' : 'margin-left: 225px;')
             },
-              _.values(instances).map(function(instance) {
-                return m.component(instanceCard, {'store': args.store, 'state': args.state, 'classroom': args.classroom, 'instance': instance});
+              _.pairs(groups).map(function(pair) {
+                var group = pair[1];
+                var usersInGroup = [];
+                for (user in userGroupMapping)
+                  if (userGroupMapping[user] == pair[0])
+                    usersInGroup.push(users[user]);
+
+                return m.component(GroupCard, {'students': students, 'group': group, 'usersInGroup': usersInGroup});
               })
             ),
             m('div.add-instance-container',
               m('img.add-instance-button', {
                 'style': (!isEditing ? 'display:none;':''),
                 'onclick': function(e) {
-                  args.state.sendAction('create-app-instance', null);
+                  args.classroom.sendAction('create-group-in-classroom', null);
                   e.stopPropagation();
                 },
                 'width': '64px',
@@ -60,68 +74,28 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
       return m('div#student-palette',
         m('div#student-header', "Students"),
         m('div#student-list',
-          _.pairs(args.store.classrooms[args.classroom].users)
-            .filter(function(pair) {
-              return typeof args.state.userInstanceMapping[pair[0]] === 'undefined';
+          _.values(args.classroom.students)
+            .filter(function(student) {
+              return typeof args.classroom.studentGroupMapping[student.id] === 'undefined';
             })
-            .map(function(pair) {
+            .map(function(student) {
               return m('div.student-entry', {
-                'data-student': pair[0]
-              }, pair[1].name);
+                'data-student': student.id
+              }, student.name || student.email);
             })
         )
       );
     }
   };
 
-  var openTrays = [];
-  var createdInstances = [];
-  var instanceCard = {
-    'controller': function(args) {
-      return {
-        'showAppTray': (!args.instance.app && createdInstances.indexOf(args.instance) < 0) ? true : false
-      };
-    },
+  var GroupCard = {
     'view': function(ctrl, args) {
-      var id;
-      _.pairs(args.state.instances).forEach(function(pair) {
-        if (pair[1] === args.instance)
-          id = pair[0];
-      });
+      var id
 
-      var projecting = typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined';
-
-      if (ctrl.showAppTray && openTrays.indexOf(ctrl) < 0)
-        openTrays.push(ctrl);
-
-      if (createdInstances.indexOf(args.instance) < 0)
-        createdInstances.push(args.instance);
+      var projecting = false;//typeof _.findKey(args.store.classrooms[args.classroom].projections, function(p) {return p.instanceId == id; } ) !== 'undefined';
 
       return m('div.instance',
         m('div.instance-title',
-          m('img.instance-app-icon', {
-            'height': '35px',
-            'src': args.instance.app ? 'apps/' + args.instance.app + '/' + args.store.apps[args.instance.app].icon : 'console/app-placeholder.png',
-            'onclick': function(e) {
-              if (!isEditing)
-                return;
-
-              if (!ctrl.showAppTray) {
-                openTrays.forEach(function(openTray) {
-                  openTray.showAppTray = false;
-                });
-
-                m.redraw(true);
-                openTrays.push(ctrl);
-              }
-              else
-                openTrays.splice(openTrays.indexOf(ctrl), 1);
-
-              ctrl.showAppTray = !ctrl.showAppTray;
-              e.stopPropagation();
-            }
-          }),
-          (ctrl.showAppTray ? m.component(AppTray, _.extend(args, {avoid: args.instance.app})) : ''),
           m('div.instance-title-editable', {
             'contenteditable': isEditing,
             'onclick': function(e) {
@@ -148,11 +122,11 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               }, 1);
             },
             'oninput': function(e) {
-              args.instance.sendAction('set-instance-title', e.target.textContent);
+              args.group.sendAction('set-group-name', e.target.textContent);
                m.redraw.strategy("none");
             }
           },
-          args.instance.title || m.trust("Tap to enter title"))
+          args.group.name || m.trust("Tap to enter title"))
         ),
         m('div.instance-student-list', {
           'data-instance': id,
@@ -163,12 +137,12 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               el.style['column-count'] = el.style['-webkit-column-count'] = 1;
           }
         },
-          _.pairs(args.state.userInstanceMapping).filter(function(pair) {
+          _.pairs(args.userGroupMapping).filter(function(pair) {
             return pair[1] == id;
           }).map(function(pair) {
             return m('div.student-entry', {
               'data-student': pair[0]
-            }, args.store.classrooms[args.classroom].users[pair[0]].name);
+            }, args.students[pair[0]].name || args.students[pair[0]].email);
           })
         ),
         m('div.instance-footer',
@@ -226,9 +200,9 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
     }
   };
 
-  var savedParent;
-  var interactable;
+  exports.Visualizer = Visualizer;
 
+/*
 
   exports.display = function(el, store, classroom, _state, _isEditing) {
     isEditing = _isEditing;
@@ -304,4 +278,6 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
     else if (interactable)
       interactable.unset();
   };
+
+  */
 });

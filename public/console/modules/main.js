@@ -46,13 +46,28 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
 
     store.teachers[user].addObserver(function(newStore, oldStore) {
       if (oldStore === null)
-        m.mount(root, m.component(Menu, {'teacher': newStore, 'user': user}));
+        m.mount(root, m.component(Main, {'teacher': newStore, 'user': user}));
       else
-        m.render(root, m.component(Menu, {'teacher': newStore, 'user': user}));
+        m.render(root, m.component(Main, {'teacher': newStore, 'user': user}));
 
       m.redraw(true);
     });
   });
+
+  var Main = {
+    'controller': function(args) {
+      return {
+        'component': 'menu',
+        'state': void 0
+      }
+    },
+    'view': function(ctrl, args) {
+      if (ctrl.component === 'menu')
+        return m.component(Menu, _.extend(args, {'rootControl': ctrl}));
+      if (ctrl.component === 'visualizer')
+        return m.component(stateVisualizer.Visualizer, {'classroom': args.teacher.classrooms[ctrl.state], 'rootControl': ctrl})
+    }
+  };
 
   var classToDelete;
   var Menu = {
@@ -77,13 +92,19 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                   _.pairs(args.teacher.classrooms).map(function(pairs) {
                     var classroom = pairs[1];
                     return m('.list-group-item',
-                      m('h5.list-group-item-heading',
+                      m('h5.list-group-item-heading', {
+                          'onclick': function(e) {
+                            args.rootControl.component = 'visualizer';
+                            args.rootControl.state = pairs[0];
+                          }
+                        },
                         classroom.name,
                         m('span.glyphicon.glyphicon-remove.pull-right', {
                           'style': 'color: gray',
-                          'onclick': function() {
+                          'onclick': function(e) {
                             $('#delete-class-modal').modal('show');
                             classToDelete = pairs[0];
+                            e.stopPropagation();
                           }
                         })
                       )
@@ -115,7 +136,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
             m('button.btn.btn-danger', {
               'data-dismiss': 'modal',
               'onclick': function() {
-
                 args.teacher.sendAction('delete-classroom-from-teacher', classToDelete);
                 classToDelete = void 0;
               }
@@ -170,7 +190,14 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
               'data-dismiss': 'modal',
               'disabled': ctrl.name.length < 1,
               'onclick': function(e) {
-                args.teacher.sendAction('add-classroom-to-teacher', ctrl.name, []);
+                var initialStudents = {};
+                ctrl.students.split(/(,|\s)/).filter(function(email) {
+                  return email.length > 1;
+                }).forEach(function(email, i) {
+                  initialStudents[i] = {'email': email};
+                });
+                console.log(initialStudents);
+                args.teacher.sendAction('add-classroom-to-teacher', ctrl.name, initialStudents);
               }
             }, "Save")
           )
