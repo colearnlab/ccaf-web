@@ -29,6 +29,13 @@ html, body, .stretch {
   margin-top: 2em;
   color: #313e54;
   height: 100vh;
+  opacity: 1;
+  transition: opacity 0.25s;
+}
+
+.fade {
+  opacity: 0;
+  transition: opacity 0.25s;
 }
 
 #statusbar {

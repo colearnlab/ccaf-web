@@ -92,6 +92,15 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         delete this.groups[group];
       });
 
+    stm.action('add-student-to-classroom')
+      .onReceive(function(email) {
+        var key = findNextKey(this.students);
+        this.students[key] = {
+          'id': 'key',
+          'email': email
+        };
+      });
+
     /* associate-user-to-instance: associates a user to an instance on the state it
      * is called on.
      */

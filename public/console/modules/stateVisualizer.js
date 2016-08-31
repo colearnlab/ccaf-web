@@ -6,6 +6,7 @@ module = null;
 
 define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], function(exports, m, _, interact) {
   var classroom, mode;
+  var modal = false;
   var savedParent;
   var interactable;
 
@@ -20,10 +21,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
       return (
         m('div#visualizer', {
           'onclick': function(e) {
-            var sel = window.getSelection();
-            sel.removeAllRanges();
+            if (!modal) {
+              var sel = window.getSelection();
+              sel.removeAllRanges();
+            }
           }
         },
+          m.component(AddStudentsModal),
           m('p#statusbar',
             m('span.glyphicon.glyphicon-circle-arrow-left', {
               'onclick': function(e) {
@@ -73,7 +77,16 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
   var StudentPalette = {
     'view': function(ctrl, args) {
       return m('div#student-palette',
-        m('div#student-header', "Students"),
+        m('div#student-header',
+          "Students",
+          m('span.glyphicon.glyphicon-plus', {
+            'style': !(mode === 'edit') ? 'display:none' : 'color:white; right: 10px; top:22px; position: absolute',
+            'onclick': function(e) {
+              $('#add-students-modal').modal('show');
+              modal = true;
+            }
+          })
+        ),
         m('div#student-list',
           _.values(args.classroom.students)
             .filter(function(student) {
@@ -229,23 +242,55 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         }
       });
 
-/*
+  var AddStudentsModal = {
+    'controller': function(args) {
+      return {
+        'students': ''
+      }
+    },
+    'view': function(ctrl, args) {
+      return m('.modal.fade#add-students-modal',
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Add students")
+          ),
+          m('.modal-body',
+            m('div.form-horizontal',
+              m('.form-group',
+                m('label',   "Students"),
+                m('p', "Enter a list of email addresses, separated by commas, spaces or newlines."),
+                m('textarea.form-control', {
+                  'oninput': function(e) {
+                    ctrl.students = e.target.value;
+                  }
+                }, ctrl.students)
+              )
+            )
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              'data-dismiss': 'modal',
+              'onclick': function() {
+                modal = false;
+              }
+            }, "Close"),
+            m('button.btn.btn-primary', {
+              'data-dismiss': 'modal',
+              'disabled': ctrl.students.length < 1,
+              'onclick': function(e) {
+                ctrl.students.split(/(,|\s)/).filter(function(email) {
+                  return email.length > 1;
+                }).forEach(function(email) {
+                  classroom.sendAction('add-student-to-classroom', email)
+                });
 
-  exports.display = function(el, store, classroom, _state, _isEditing) {
-    isEditing = _isEditing;
-    state = _state;
-    _.values(state.instances).forEach(function(instance) {
-      createdInstances.push(instance);
-    });
-
-    state.addObserver(function(newState) {
-      state = newState;
-      m.mount(el, m.component(visualizer, {'store': store, 'classroom': classroom, 'state': newState, 'isEditing': isEditing}));
-    });
-
-
-
-  };
-
-  */
+                modal = false;
+                m.redraw(true);
+              }
+            }, "Save")
+          )
+        )
+      );
+    }
+  }
 });
