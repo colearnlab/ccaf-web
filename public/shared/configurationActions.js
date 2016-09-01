@@ -96,7 +96,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       .onReceive(function(email) {
         var key = findNextKey(this.students);
         this.students[key] = {
-          'id': 'key',
+          'id': key,
           'email': email
         };
       });
@@ -134,6 +134,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       var key = findNextKey(this.phases);
       this.phases[key] = {
         'id': key,
+        'order': _.keys(this.phases).length + 1,
         'app': app,
         'initialState': {}
       };

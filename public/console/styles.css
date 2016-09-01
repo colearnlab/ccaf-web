@@ -19,6 +19,45 @@ html, body, .stretch {
   margin-top: 25vh;
 }
 
+.phase {
+  width: 250px;
+  height: 175px;
+  border: 2px solid gray;
+  border-radius: 5px;
+  float: left;
+  margin-left: 75px;
+  margin-bottom: 35px;
+  position: relative;
+}
+
+.phase-arrow {
+  font-size: 32px;
+  position: absolute;
+  left: -56px;
+  top: 65px;
+}
+
+.phase:first-child > .phase-arrow {
+  display: none;
+}
+
+.phase:first-child {
+  margin-left: 0px !important;
+  margin-left: 75px;
+}
+
+.add-phase-button {
+  float: left;
+}
+
+.add-phase-symbol {
+  position: relative;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+}
+
 .call-to-action {
   text-align: center;
   position: relative;

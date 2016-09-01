@@ -4,7 +4,7 @@
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'configurationActions', './stateVisualizer', 'clientUtil', 'underscore'], function(exports, checkerboard, m, autoconnect, modal, configurationActions, stateVisualizer, clientUtil, _) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'configurationActions', './stateVisualizer', 'clientUtil', 'underscore', './activityEditor'], function(exports, checkerboard, m, autoconnect, modal, configurationActions, stateVisualizer, clientUtil, _, activityEditor) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
 
@@ -65,7 +65,9 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
       if (ctrl.component === 'menu')
         return m.component(Menu, _.extend(args, {'rootControl': ctrl}));
       if (ctrl.component === 'visualizer')
-        return m.component(stateVisualizer.Visualizer, {'classroom': args.teacher.classrooms[ctrl.state], 'rootControl': ctrl})
+        return m.component(stateVisualizer.Visualizer, {'classroom': args.teacher.classrooms[ctrl.state], 'rootControl': ctrl});
+      if (ctrl.component === 'activity-editor')
+        return m.component(activityEditor.ActivityEditor, {'activity': args.teacher.activities[ctrl.state], 'rootControl': ctrl});
     }
   };
 
@@ -215,6 +217,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                   'placeholder': 'Ex. TAM 210 ADB',
                   'oninput': function(e) {
                     ctrl.name = e.target.value;
+                  },
+                  'onkeypress': function(e) {
+                    if (e.keyCode == 13 && ctrl.name.length > 1)
+                      $('#submit-new-class').click();
                   }
                 })
               ),
@@ -233,7 +239,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
             m('button.btn.btn-default', {
               'data-dismiss': 'modal'
             }, "Close"),
-            m('button.btn.btn-primary', {
+            m('button.btn.btn-primary#submit-new-class', {
               'data-dismiss': 'modal',
               'disabled': ctrl.name.length < 1,
               'onclick': function(e) {
@@ -274,6 +280,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                   'placeholder': 'Ex. Week 7 discussion problems',
                   'oninput': function(e) {
                     ctrl.name = e.target.value;
+                  },
+                  'onkeypress': function(e) {
+                    if (e.keyCode == 13 && ctrl.name.length > 1)
+                      $('#submit-create-activity').click();
                   }
                 })
               )
@@ -283,7 +293,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
             m('button.btn.btn-default', {
               'data-dismiss': 'modal'
             }, "Close"),
-            m('button.btn.btn-primary', {
+            m('button.btn.btn-primary#submit-create-activity', {
               'data-dismiss': 'modal',
               'disabled': ctrl.name.length < 1,
               'onclick': function(e) {
