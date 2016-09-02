@@ -1,12 +1,10 @@
-  /* jshint ignore:start */
+/* jshint ignore:start */
 {{> rjsConfig}}
 /* jshint ignore:end */
 
 module = null;
 
 define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], function(exports, m, _, interact) {
-  var phaseToRemove;
-
   exports.ActivityEditor = {
     'view': function(ctrl, args) {
       return m('div',
@@ -16,7 +14,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
           _.values(args.activity.phases) // we are getting an array of phases and sorting them by their specified order.
             .sort(function(a, b) { return a.order - b.order})
             .map(function(phase) {
-              return m.component(Phase, _.extend(args, {'phase': phase}));
+              return m.component(Phase, _.extend(_.clone(args), {'phase': phase}));
             }),
           m('.phase.add-phase-button', {
               'onclick': function(e) {
@@ -31,6 +29,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
     }
   };
 
+
   var Phase = {
     'controller': function(args) {
       return {
@@ -42,11 +41,9 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
           'style': (ctrl.size === 'large' ? 'position: absolute; z-index: 100; border: none' : '')
         },
         m('span.phase-arrow.glyphicon.glyphicon-circle-arrow-right'),
-        bindOnce(function() {
-          return m('iframe.phase-view-' + ctrl.size, {
-            'key': args.phase.id,
-            'src': '/client?mode=initialStateSetup&teacher=' + args.teacher.id + '&activity=' + args.activity.id + '&phase=' + args.phase.id
-          })
+        m('iframe.phase-view-' + ctrl.size, {
+          'key': args.phase.id,
+          'src': '/client?mode=initialStateSetup&teacher=' + args.teacher.id + '&activity=' + args.activity.id + '&phase=' + args.phase.id
         }),
         m('.iframe-cover', {
           'style': (ctrl.size === 'small' ? 'display: none;' : ''),
@@ -72,17 +69,6 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
       );
     }
   };
-
-  var bindOnce = (function() {
-    var cache = {}
-    return function(view) {
-        if (!cache[view.toString()]) {
-            cache[view.toString()] = true
-            return view()
-        }
-        else return {subtree: "retain"}
-    }
-  }())
 
   var AddPhaseModal = {
     'controller': function(args) {
@@ -155,7 +141,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
               'data-dismiss': 'modal',
               'onclick': function() {
                 args.activity.sendAction('remove-phase-from-activity', phaseToRemove);
-                classToDelete = void 0;
+                phaseToRemove = void 0;
               }
             }, "Delete!")
           )

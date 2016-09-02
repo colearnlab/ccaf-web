@@ -47,7 +47,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     store.teachers[user].addObserver(function(newStore, oldStore) {
       if (oldStore === null)
         m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
-        
+      
       m.redraw(true);
     });
   });
@@ -65,7 +65,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
       if (ctrl.component === 'visualizer')
         return m.component(stateVisualizer.Visualizer, {'classroom': args.teacher.classrooms[ctrl.state], 'rootControl': ctrl});
       if (ctrl.component === 'activity-editor')
-        return m.component(activityEditor.ActivityEditor, {'teacher': args.teacher, 'activity': args.teacher.activities[ctrl.state], 'apps': args.apps,  'rootControl': ctrl});
+        return m.component(activityEditor.ActivityEditor, {'teacher': args.teacher, 'activity': args.teacher.activities[ctrl.state], 'apps': args.apps, 'rootControl': ctrl});
     }
   };
 
