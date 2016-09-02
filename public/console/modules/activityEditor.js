@@ -32,21 +32,37 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
   };
 
   var Phase = {
+    'controller': function(args) {
+      return {
+        'size': 'small'
+      };
+    },
     'view': function(ctrl, args) {
-      return m('div.phase',
+      return m('div.phase', {
+          'style': (ctrl.size === 'large' ? 'position: absolute; z-index: 100; border: none' : '')
+        },
         m('span.phase-arrow.glyphicon.glyphicon-circle-arrow-right'),
-        m('iframe.activity-view', {
-          'height': '200',
-          'width:': '310',
-          'src': '/client'
+        bindOnce(function() {
+          return m('iframe.phase-view-' + ctrl.size, {
+            'key': args.phase.id,
+            'src': '/client?mode=initialStateSetup&teacher=' + args.teacher.id + '&activity=' + args.activity.id + '&phase=' + args.phase.id
+          })
         }),
+        m('.iframe-cover', {
+          'style': (ctrl.size === 'small' ? 'display: none;' : ''),
+          'onclick': function(e) {
+            ctrl.size = 'large';
+          }
+        }, m.trust("&nbsp;")),
         m('.phase-app-icon-holder',
           m('img.phase-app-icon', {
+            'style': (ctrl.size === 'large' ? 'display: none;' : ''),
             'height': '45px',
             'src': 'apps/' + args.phase.app + '/'+ args.apps[args.phase.app].icon
           })
         ),
         m('span.glyphicon.glyphicon-remove.remove-phase', {
+          'style': (ctrl.size === 'large' ? 'display: none;' : ''),
           'onclick': function(e) {
             console.log('hi');
             phaseToRemove = args.phase.id;
@@ -56,6 +72,17 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
       );
     }
   };
+
+  var bindOnce = (function() {
+    var cache = {}
+    return function(view) {
+        if (!cache[view.toString()]) {
+            cache[view.toString()] = true
+            return view()
+        }
+        else return {subtree: "retain"}
+    }
+  }())
 
   var AddPhaseModal = {
     'controller': function(args) {
@@ -101,6 +128,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
               'disabled': ctrl.app === null,
               'onclick': function(e) {
                 args.activity.sendAction('add-phase-to-activity', ctrl.app);
+                ctrl.app = null;
               }
             }, "Add")
           )

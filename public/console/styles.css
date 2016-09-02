@@ -19,6 +19,12 @@ html, body, .stretch {
   margin-top: 25vh;
 }
 
+.phases {
+  position: absolute;
+  top: 50px;
+  left: 50px;
+}
+
 .phase {
   width: 310px;
   height: 200px;
@@ -30,18 +36,37 @@ html, body, .stretch {
   position: relative;
 }
 
-.activity-view {
+.phase-view-small {
   border: none;
   border-width: 0px;
-  height: 100%;
+  position: absolute;
+  width: 930px;
+  height: 600px;
+  transform: scale(calc(1/3));
+  transform-origin: 0 0;
+}
+
+.phase-view-large {
+  border: none;
+  border-width: 0px;
+  position: absolute;
+  width: 930px;
+  height: 600px;
+}
+
+.iframe-cover {
+  position: absolute;
   width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .phase-arrow {
   font-size: 32px;
   position: absolute;
   left: -56px;
-  top: 65px;
+  top: 80px;
 }
 
 .phase:first-child > .phase-arrow {
