@@ -20,14 +20,21 @@ html, body, .stretch {
 }
 
 .phase {
-  width: 250px;
-  height: 175px;
+  width: 310px;
+  height: 200px;
   border: 2px solid gray;
   border-radius: 5px;
   float: left;
   margin-left: 75px;
   margin-bottom: 35px;
   position: relative;
+}
+
+.activity-view {
+  border: none;
+  border-width: 0px;
+  height: 100%;
+  width: 100%;
 }
 
 .phase-arrow {
@@ -56,6 +63,22 @@ html, body, .stretch {
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 32px;
+}
+
+.phase-app-icon-holder {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+}
+
+.remove-phase {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid black;
+  background-color: black;
+  color: white;
+  top: -3px;
+  right: -3px;
 }
 
 .call-to-action {
