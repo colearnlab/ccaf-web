@@ -8,6 +8,13 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
   exports.ActivityEditor = {
     'view': function(ctrl, args) {
       return m('div',
+        m('p#statusbar',
+          m('span.glyphicon.glyphicon-circle-arrow-left.return-arrow', {
+            'onclick': function(e) {
+              args.rootControl.component = 'menu';
+            }
+          }), m.trust("&nbsp;"), "Activity: ", args.activity.name
+        ),
         m.component(AddPhaseModal, args),
         m.component(RemovePhaseModal, args),
         m('.phases',
@@ -37,16 +44,19 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
       };
     },
     'view': function(ctrl, args) {
+      console.log
       return m('div.phase', {
-          'style': (ctrl.size === 'large' ? 'position: absolute; z-index: 100; border: none' : '')
+          'style': (ctrl.size === 'large' ? 'width: 150vw; height: 150vh; position: absolute; top: -20vh; left: -20vw; z-index: 100; border: none; background-color: rgba(0,0,0,0.5); ' + (args.phase.order !== 1 ? 'margin-left:0px;': '') : '')
         },
-        m('span.phase-arrow.glyphicon.glyphicon-circle-arrow-right'),
+        m('span.phase-arrow.glyphicon.glyphicon-circle-arrow-right',  {
+          'style': (ctrl.size === 'large' ? 'display: none;' : '')
+        }),
         m('iframe.phase-view-' + ctrl.size, {
           'key': args.phase.id,
           'src': '/client?mode=initialStateSetup&teacher=' + args.teacher.id + '&activity=' + args.activity.id + '&phase=' + args.phase.id
         }),
         m('.iframe-cover', {
-          'style': (ctrl.size === 'small' ? 'display: none;' : ''),
+          'style': (ctrl.size === 'large' ? 'display: none;' : ''),
           'onclick': function(e) {
             ctrl.size = 'large';
           }
@@ -61,11 +71,18 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
         m('span.glyphicon.glyphicon-remove.remove-phase', {
           'style': (ctrl.size === 'large' ? 'display: none;' : ''),
           'onclick': function(e) {
-            console.log('hi');
             phaseToRemove = args.phase.id;
             $('#remove-phase-modal').modal('show');
           }
-        })
+        }),
+        m('.phase-title', {
+            'style': (ctrl.size === 'small' ? 'display: none;' : ''),
+            'onclick': function(e) {
+              ctrl.size = 'small';
+            }
+          },
+            "Editing phase ", args.phase.order, " (click ", m('span.underline', "here"), " to return)"
+        )
       );
     }
   };
@@ -115,6 +132,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
               'onclick': function(e) {
                 args.activity.sendAction('add-phase-to-activity', ctrl.app);
                 ctrl.app = null;
+                $('#add-phase-modal').modal('hide');
               }
             }, "Add")
           )
@@ -128,7 +146,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
       return m('.modal.fade#remove-phase-modal',
         m('.modal-content.col-md-6.col-md-offset-3',
           m('.modal-header',
-            m('h4.modal-title', "Delete class?")
+            m('h4.modal-title', "Delete phase?")
           ),
           m('.modal-body',
             "Are you sure you want to delete this phase? This cannot be undone."

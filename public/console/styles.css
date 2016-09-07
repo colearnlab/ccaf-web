@@ -6,6 +6,10 @@ html, body, .stretch {
   background-color: #E2E4E7;
 }
 
+.underline {
+  text-decoration: underline;
+}
+
 .menu-holder > .panel-heading {
   background-color: #44968C !important;
   font-weight: bold !important;
@@ -21,7 +25,7 @@ html, body, .stretch {
 
 .phases {
   position: absolute;
-  top: 50px;
+  top: 10vh;
   left: 50px;
 }
 
@@ -47,11 +51,14 @@ html, body, .stretch {
 }
 
 .phase-view-large {
-  border: none;
-  border-width: 0px;
+  border: 2px solid gray;
+  border-radius: 5px;
   position: absolute;
-  width: 930px;
-  height: 600px;
+  width: 90vw;
+  height: 80vh;
+  top: 20vh;
+  left: 20vw;
+  z-index: 0;
 }
 
 .iframe-cover {
@@ -67,6 +74,7 @@ html, body, .stretch {
   position: absolute;
   left: -56px;
   top: 80px;
+  pointer-events: none;
 }
 
 .phase:first-child > .phase-arrow {
@@ -80,6 +88,20 @@ html, body, .stretch {
 
 .add-phase-button {
   float: left;
+}
+
+.phase-title {
+  z-index: 100;
+  position: absolute;
+  top: 101vh;
+  left: 20vw;
+  font-size: 32px;
+  width: 700px;
+  text-align: center;
+  background-color: rgba(0, 0, 0, 0.25);
+  border-radius: 5px;
+  border: 1px solid black;
+  color: white;
 }
 
 .add-phase-symbol {
@@ -100,10 +122,10 @@ html, body, .stretch {
   position: absolute;
   border-radius: 50%;
   border: 1px solid black;
-  background-color: black;
+  background-color: red;
   color: white;
-  top: -3px;
-  right: -3px;
+  top: -10px;
+  right: -10px;
 }
 
 .call-to-action {
@@ -115,7 +137,7 @@ html, body, .stretch {
 }
 
 .menu-holder {
-  margin-top: 5vh;
+  margin-top: 10vh;
 }
 
 .menu-body-holder {

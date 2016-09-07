@@ -19,6 +19,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
       return e.preventDefault(), false;
   });
 
+  var state;
   stm.init(function(store) {
     // get base element to mount to
     var root = document.getElementById('root');
@@ -47,19 +48,23 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     store.teachers[user].addObserver(function(newStore, oldStore) {
       if (oldStore === null)
         m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
-      
-      m.redraw(true);
+
+
+      if (state !== 'activity-editor')
+        m.redraw(true);
     });
   });
 
+  var state;
   var Main = {
     'controller': function(args) {
-      return {
+      return ctrl = {
         'component': 'menu',
         'state': void 0
       }
     },
     'view': function(ctrl, args) {
+      state = ctrl.component;
       if (ctrl.component === 'menu')
         return m.component(Menu, _.extend(args, {'rootControl': ctrl}));
       if (ctrl.component === 'visualizer')
@@ -73,6 +78,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
   var Menu = {
     'view': function(ctrl, args) {
       return m('div',
+        m('#statusbar', m.trust('&nbsp;')),
         m('.row',
           m.component(CreateClassModal, args),
           m.component(CreateActivityModal, args),

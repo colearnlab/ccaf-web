@@ -35,6 +35,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               }
             }),
             m.trust("&nbsp;"),
+            "Classroom: ",
             args.classroom.name
           ),
           m('div#visualizerHolder',
