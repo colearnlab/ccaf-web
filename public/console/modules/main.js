@@ -4,10 +4,9 @@
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'configurationActions', './stateVisualizer', 'clientUtil', 'underscore', './activityEditor'], function(exports, checkerboard, m, autoconnect, modal, configurationActions, stateVisualizer, clientUtil, _, activityEditor) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'configurationActions', './stateVisualizer', 'clientUtil', 'underscore', './activityEditor', 'loginHelper'], function(exports, checkerboard, m, autoconnect, modal, configurationActions, stateVisualizer, clientUtil, _, activityEditor, loginHelper) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
-  var params = {};
   autoconnect.monitor(stm.ws);
 
   document.body.addEventListener('mousewheel', function(e) {
@@ -29,34 +28,16 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     store.sendAction('init');
     store.addObserver(function(){});
 
-    var queryString = location.hash.substring(1),
-        regex = /([^&=]+)=([^&]*)/g, q;
-    while (q = regex.exec(queryString)) {
-      params[decodeURIComponent(q[1])] = decodeURIComponent(q[2]);
-    }
-
-    if (typeof params['access_token'] === 'undefined') {
-      location.href = 'https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=28967180344-1gbtncntpn95jvtbuumha98j305ic8cr.apps.googleusercontent.com&redirect_uri=https://csteps.colearnlab.org/console&scope=profile%20email';
-    }
-
-    var email;
-    $.getJSON('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + params['access_token'], function(err, data) {
-      getPerson('me', function(user) {
-        location.hash = "";
-        user.emails.forEach(function(_email) {
-          if (_email.type === "account")
-            email = _email.value;
-        });
-
-        var user = getTeacher();
+    loginHelper.login(function() {
+      loginHelper.getUserEmail(function(email) {
+        var user = getTeacher(email);
         if (typeof user === 'undefined')
           store.sendAction('add-teacher', "New teacher", email);
-        user = getTeacher();
+        user = getTeacher(email);
 
         store.teachers[user].addObserver(function(newStore, oldStore) {
           if (oldStore === null)
             m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
-
 
           if (state !== 'activity-editor')
             m.redraw(true);
@@ -64,7 +45,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
       });
     });
 
-    function getTeacher() {
+    function getTeacher(email) {
       for (var id in store.teachers) {
         if (email === store.teachers[id].email)
           return id;
@@ -380,14 +361,4 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
       );
     }
   };
-
-  function getPerson(email, success, error) {
-    $.ajax('https://www.googleapis.com/plus/v1/people/' + email + '?key=AIzaSyB7kpd6apGLyKVF69m3uZ5zI_Z7S8dv3G0', {
-      'headers': {
-        'Authorization': 'Bearer ' + params['access_token']
-      },
-      'success': success,
-      'error': error
-    });
-  }
 });

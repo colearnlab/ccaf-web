@@ -4,15 +4,6 @@
  * app (which has some extra external logic to handle server discovery), or projected
  * (ie via iframe). The client module first identifies with a student (via GUI login)
  * or a specific instance (via URL parameters).
- * - GUI login
- *    Loads the instance pointed to by the user-instance mapping. If there is no
- *    instance, it shows a blank screen. It automatically unloads/loads instances
- *    when the mapping is changed.
- * - URL login
- *    Used when instances are loaded via iframe to be shown as projector panels.
- *    Loads the specified instance. If the instance is deleted, it shows a blank screen.
- *    However, as projections are also removed when instances are removed, this is
- *    a fallback and shouldn't ever be seen by the end-user.
  */
 
 /* jshint ignore:start */
@@ -64,6 +55,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
         // The load function takes a root element, an action creator, the root store and the future paramters object.
         appModule.load(reRoot(), stm.action, initialState, params);
       });
+    } else {
+
     }
 
   });
@@ -93,6 +86,16 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
     el.id = 'root';
     document.body.appendChild(el);
     return el;
+  }
+
+  function getPerson(email, success, error) {
+    $.ajax('https://www.googleapis.com/plus/v1/people/' + email + '?key=AIzaSyB7kpd6apGLyKVF69m3uZ5zI_Z7S8dv3G0', {
+      'headers': {
+        'Authorization': 'Bearer ' + params['access_token']
+      },
+      'success': success,
+      'error': error
+    });
   }
 
   /* --- playback helpers --- */
