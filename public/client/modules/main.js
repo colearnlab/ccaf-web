@@ -108,6 +108,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
         return m('.waiting-for-teacher', "Waiting for your teacher to launch an activity...");
       else {
         var phase = student.currentPhase;
+        var orderedPhases = _.values(activities[classroom.currentActivity].phases).sort(function(a, b) { return a.order - b.order});
+
         return m('div', {
           'key': args.groupId + '.' + phase,
           'config': function(el) {
@@ -123,7 +125,19 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
                 });
               });
           }
-        });
+        },
+          m('#statusbar',
+            m('div.arrow.arrow-left', {
+              'style': (student.currentPhase === orderedPhases[0].id ? 'opacity: 0.5' : '')
+            }, m.trust('&nbsp;')),
+              orderedPhases.map(function(phase) {
+                return m('div.phase-marker' + (phase.id === student.currentPhase ? '.active-phase' : ''), m.trust("&nbsp;"));
+            }),
+            m('div.arrow.arrow-right', {
+              'style': (student.currentPhase === orderedPhases[orderedPhases.length - 1].id ? 'opacity: 0.5' : '')
+            }, m.trust('&nbsp;'))
+          )
+        );
       }
     }
   };

@@ -39,7 +39,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           m('p#statusbar',
             m('span.glyphicon.glyphicon-circle-arrow-left', {
               'onclick': function(e) {
-                args.rootControl.component = 'menu';
+                args.rootControl.component = 'menu'; 
                 m.redraw(true);
               }
             }),
@@ -47,8 +47,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             "Classroom: ",
             args.classroom.name,
             " ",
-            "Mode: ",
-            (mode === 'edit' ? 'Edit' : 'Live'),
+            m('small', (typeof args.classroom.currentActivity !== 'undefined' ? "Current activity: " + args.activities[args.classroom.currentActivity].name : "")),
             m('button.pull-right', {
               'style': (mode !== 'edit' ? 'display: none' : ''),
               'onclick': function() {

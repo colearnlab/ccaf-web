@@ -182,3 +182,33 @@ iframe {
   margin: 0;
   padding: 0;
 }
+
+.phase-marker {
+  display: inline-block;
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  border: 5px solid white;
+  margin: 9px;
+}
+
+.active-phase {
+  background-color: white;
+}
+
+.arrow {
+  display: inline-block;
+  width: 23px;
+  height: 23px;
+  margin-top: 9px;
+  border-bottom: 5px white solid;
+  border-left: 5px white solid;
+}
+
+.arrow-left {
+  transform: scaleX(0.75) rotate(45deg);
+}
+
+.arrow-right {
+  transform: scaleX(0.75) rotate(-135deg);
+}
