@@ -47,7 +47,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
       var initialState = phase.initialState;
 
       requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
-        var mode = 'student';
         var params = {
           'mode': 'projector'
         };
@@ -62,17 +61,61 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
           _.values(teacher.classrooms).forEach(function(classroom) {
             _.values(classroom.students).forEach(function(student) {
               if (student.email === email) {
-                classrooms.push({'teacher': teacher.id, 'classroom': classroom.id});
+                classrooms.push({'teacherId': teacher.id, 'classroomId': classroom.id, 'groupId': classroom.studentGroupMapping[student.id], 'studentId': student.id});
                 student.sendAction('update-student', {'name': user.displayName});
               }
             });
           });
         });
-        debugger;
+
+        if (classrooms.length === 0)
+          m.mount(document.getElementById('root'), m.component(NoClassroom));
+
+
+        if (classrooms.length === 1) {
+          m.mount(document.getElementById('root'), m.component(Classroom, _.extend({'store': store}, classrooms[0])));
+        }
       });
     }
-
   });
+
+  var NoClassroom = {
+    'view': function(__, args) {
+      return m('div', "You haven't yet been added to a classroom. Ask your teacher to add you, and make sure that you are logging in with the email that they used to add you.");
+    }
+  }
+
+  var Classroom = {
+    'view': function(__, args) {
+      var teacher = args.store.teachers[args.teacherId];
+      var activities = teacher.activities;
+      var classroom = teacher.classrooms[args.classroomId];
+      var group = classroom.groups[args.groupId];
+      var student = classroom.students[args.studentId];
+
+      if (typeof classroom.currentActivity === 'undefined')
+        return m('.waiting-for-teacher', "Waiting for your teacher to launch an activity...");
+      else {
+        var phase = student.currentPhase;
+        return m('div', {
+          'key': args.groupId + '.' + phase,
+          'config': function(el) {
+              var appStm = new checkerboard.STM(wsAddress);
+              var params = {
+                'mode': student,
+                'student': args.studentId
+              };
+              var app = activities[classroom.currentActivity].phases[phase].app;
+              requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
+                localStm.init(function(appStore) {
+                  appModule.load(el, appStm.action, appStore.teachers[args.teacherId].classrooms[args.classroomId].groups[args.groupId].states[args.phase], params);
+                });
+              });
+          }
+        });
+      }
+    }
+  }
 
   /* --- support functions --- */
 

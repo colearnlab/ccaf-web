@@ -28,10 +28,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     store.sendAction('init');
     store.addObserver(function(){});
 
-    loginHelper.login(function(email) {
+    loginHelper.login(function(email, _user) {
       var user = getTeacher(email);
       if (typeof user === 'undefined')
-        store.sendAction('add-teacher', "New teacher", email);
+        store.sendAction('add-teacher', _user.displayName, email);
       user = getTeacher(email);
 
       store.teachers[user].addObserver(function(newStore, oldStore) {
