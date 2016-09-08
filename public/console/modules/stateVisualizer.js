@@ -91,10 +91,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         m('div#student-list',
           _.values(args.classroom.students)
             .filter(function(student) {
-              return typeof args.classroom.studentGroupMapping[student.id] === 'undefined';
+              console.log(typeof args.classroom.studentGroupMapping[student.id] === 'undefined');
+              return (typeof args.classroom.studentGroupMapping[student.id] === 'undefined');
             })
             .map(function(student) {
+              console.log(student);
               return m('div.student-entry', {
+                'key': student.id,
                 'data-student': student.id
               }, student.name || student.email);
             })
@@ -207,8 +210,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           interact.stop(event);
         var target = event.target;
 
-        savedParent.appendChild(target);
-
+        //savedParent.appendChild(target);
         if (target.getAttribute('data-group') === null) {
           classroom.sendAction('associate-student-to-group', target.getAttribute('data-student'), null);
         }
@@ -218,6 +220,8 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         target.style.width = '';
         target.setAttribute('data-x', null);
         target.setAttribute('data-y', null);
+
+        m.redraw(true);
       }
     });
 
@@ -231,6 +235,8 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           if (event.target.childElementCount < 8)
             classroom.sendAction('associate-student-to-group', student, group);
           event.target.classList.remove('drop-active');
+
+          m.redraw(true);
         },
         'ondragenter': function(event) {
           var group = event.target.getAttribute('data-group');

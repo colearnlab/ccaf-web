@@ -7,7 +7,7 @@ module = null;
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'configurationActions', './stateVisualizer', 'clientUtil', 'underscore', './activityEditor'], function(exports, checkerboard, m, autoconnect, modal, configurationActions, stateVisualizer, clientUtil, _, activityEditor) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
-
+  var params = {};
   autoconnect.monitor(stm.ws);
 
   document.body.addEventListener('mousewheel', function(e) {
@@ -29,7 +29,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     store.sendAction('init');
     store.addObserver(function(){});
 
-    var params = {}, queryString = location.hash.substring(1),
+    var queryString = location.hash.substring(1),
         regex = /([^&=]+)=([^&]*)/g, q;
     while (q = regex.exec(queryString)) {
       params[decodeURIComponent(q[1])] = decodeURIComponent(q[2]);
@@ -41,31 +41,26 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
 
     var email;
     $.getJSON('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + params['access_token'], function(err, data) {
-      $.ajax('https://www.googleapis.com/plus/v1/people/me?key=AIzaSyB7kpd6apGLyKVF69m3uZ5zI_Z7S8dv3G0', {
-        'headers': {
-          'Authorization': 'Bearer ' + params['access_token']
-        },
-        'success': function(user) {
-          location.hash = "";
-          user.emails.forEach(function(_email) {
-            if (_email.type === "account")
-              email = _email.value;
-          });
+      getPerson('me', function(user) {
+        location.hash = "";
+        user.emails.forEach(function(_email) {
+          if (_email.type === "account")
+            email = _email.value;
+        });
 
-          var user = getTeacher();
-          if (typeof user === 'undefined')
-            store.sendAction('add-teacher', "New teacher", email);
-          user = getTeacher();
+        var user = getTeacher();
+        if (typeof user === 'undefined')
+          store.sendAction('add-teacher', "New teacher", email);
+        user = getTeacher();
 
-          store.teachers[user].addObserver(function(newStore, oldStore) {
-            if (oldStore === null)
-              m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
+        store.teachers[user].addObserver(function(newStore, oldStore) {
+          if (oldStore === null)
+            m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
 
 
-            if (state !== 'activity-editor')
-              m.redraw(true);
-          });
-        }
+          if (state !== 'activity-editor')
+            m.redraw(true);
+        });
       });
     });
 
@@ -275,7 +270,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                 }).forEach(function(email, i) {
                   initialStudents[i] = {id: i, 'email': email};
                 });
-                console.log(initialStudents);
+
                 args.teacher.sendAction('add-classroom-to-teacher', ctrl.name, initialStudents);
               }
             }, "Save")
@@ -386,4 +381,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     }
   };
 
+  function getPerson(email, success, error) {
+    $.ajax('https://www.googleapis.com/plus/v1/people/' + email + '?key=AIzaSyB7kpd6apGLyKVF69m3uZ5zI_Z7S8dv3G0', {
+      'headers': {
+        'Authorization': 'Bearer ' + params['access_token']
+      },
+      'success': success,
+      'error': error
+    });
+  }
 });
