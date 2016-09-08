@@ -42,7 +42,9 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
           'id': key,
           'name': name,
           'email': email,
-          'classrooms': {}
+          'classrooms': {},
+          'activities': {},
+          'recordings': {}
         };
       });
 
@@ -121,7 +123,6 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
 
   stm.action('add-activity-to-teacher')
     .onReceive(function(name) {
-      this.activities = this.activities || {};
       var key = findNextKey(this.activities);
       this.activities[key] = {
         'id': key,
@@ -149,6 +150,45 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
   stm.action('remove-phase-from-activity')
     .onReceive(function(id) {
       delete this.phases[id];
+    });
+
+  stm.action('launch-activity-in-classroom')
+    .onReceive(function(classroomId, activityId) {
+      // stores initial states indexed by phase id
+      var initialStates = {};
+
+      // iterate through phases and retrieve initial state of phase
+      _.values(this.activities[activityId].phases).forEach(function(phase) {
+        initialStates[phase.id] = phase.initialState;
+      });
+
+      // iterate through groups and copy initial states
+      _.values(this.classrooms[classroomId].groups).forEach(function(group) {
+        group.states = JSON.parse(JSON.stringify(initialStates));
+      });
+
+      // initialize students' current phase to 0
+      _.values(this.classrooms[classroomId].students).forEach(function(student) {
+        student.currentPhase = 0;
+      })
+
+      // mark that there is a live activity
+      this.classrooms[classroomId].currentActivity = activityId;
+
+      this.classrooms[classroomId].currentRecording = findNextKey(this.recordings);
+      this.recordings[this.classrooms[classroomId].currentRecording] = {
+        'startTime': Date.now()
+      };
+    });
+
+  stm.action('end-activity-in-classroom')
+    .onReceive(function(classroomId) {
+      var recording = this.recordings[this.classrooms[classroomId].currentRecording];
+      recording.image = JSON.parse(JSON.stringify(this.classrooms[classroomId]));
+      recording.endTime = Date.now();
+
+      this.classrooms[classroomId].currentActivity = void 0;
+      this.classrooms[classroomId].currentRecording = void 0;
     });
   };
   /* --- support functions --- */

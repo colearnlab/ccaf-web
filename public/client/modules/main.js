@@ -70,11 +70,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
 
         if (classrooms.length === 0)
           m.mount(document.getElementById('root'), m.component(NoClassroom));
-
-
-        if (classrooms.length === 1) {
+        else if (classrooms.length === 1) {
           m.mount(document.getElementById('root'), m.component(Classroom, _.extend({'store': store}, classrooms[0])));
         }
+        else if (classrooms.length > 1)
       });
     }
   });
@@ -108,12 +107,18 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
               var app = activities[classroom.currentActivity].phases[phase].app;
               requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
                 localStm.init(function(appStore) {
-                  appModule.load(el, appStm.action, appStore.teachers[args.teacherId].classrooms[args.classroomId].groups[args.groupId].states[args.phase], params);
+                  appModule.load(el, appStm.action, appStore.teachers[args.teacherId].classrooms[args.classroomId].groups[args.groupId].states[args.phase.id], params);
                 });
               });
           }
         });
       }
+    }
+  };
+
+  var ClassroomSelect = {
+    'view': function(__, args) {
+
     }
   }
 

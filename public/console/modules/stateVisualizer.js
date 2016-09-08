@@ -9,9 +9,11 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
   var modal = false;
   var savedParent;
   var interactable;
+  var _args;
 
   var Visualizer = {
     'view': function(ctrl, args) {
+      _args = args;
       classroom = args.classroom;
       mode = 'edit';
 
@@ -28,15 +30,25 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           }
         },
           m.component(AddStudentsModal),
+          m.component(LaunchActivityModal, args),
           m('p#statusbar',
             m('span.glyphicon.glyphicon-circle-arrow-left', {
               'onclick': function(e) {
                 args.rootControl.component = 'menu';
+                m.redraw(true);
               }
             }),
             m.trust("&nbsp;"),
             "Classroom: ",
-            args.classroom.name
+            args.classroom.name,
+            "Mode: ",
+            (mode === 'edit' ? 'Edit' : ''),
+            m('button.pull-right', {
+              'style': (mode !== 'edit' ? 'display: none' : ''),
+              'onclick': function() {
+                $('#launch-activity-modal').modal('show');
+              }
+            }, (typeof args.classroom.currentActivity === 'undefined' ? "Launch activity" : "Resume activity"))
           ),
           m('div#visualizerHolder',
             m('div#sidebar', {
@@ -157,6 +169,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         },
           args.studentsInGroup.map(function(student) {
             return m('div.student-entry', {
+              'key': student.id,
               'data-student': student.id
             }, student.name || student.email);
           })
@@ -210,7 +223,6 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           interact.stop(event);
         var target = event.target;
 
-        //savedParent.appendChild(target);
         if (target.getAttribute('data-group') === null) {
           classroom.sendAction('associate-student-to-group', target.getAttribute('data-student'), null);
         }
@@ -220,6 +232,9 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         target.style.width = '';
         target.setAttribute('data-x', null);
         target.setAttribute('data-y', null);
+
+        if (savedParent.getAttribute('data-group') === null && target.getAttribute('data-group') === null)
+            savedParent.appendChild(target);
 
         m.redraw(true);
       }
@@ -235,6 +250,9 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           if (event.target.childElementCount < 8)
             classroom.sendAction('associate-student-to-group', student, group);
           event.target.classList.remove('drop-active');
+
+          if (savedParent.getAttribute('data-group') === group)
+                  savedParent.appendChild(event.relatedTarget);
 
           m.redraw(true);
         },
@@ -298,5 +316,53 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
         )
       );
     }
-  }
+  };
+
+  var LaunchActivityModal = {
+    'controller': function(args) {
+      return {
+        'activity': null
+      }
+    },
+    'view': function(ctrl, args) {
+      return m('.modal.fade#launch-activity-modal',
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Launch activity")
+          ),
+          m('.modal-body',
+            m('div.form-horizontal',
+              m('.form-group',
+                m('.list-group',
+                  _.values(args.activities).map(function(activity) {
+                    return m('.list-group-item' + (ctrl.activity === activity.id ? '.active' : ''), {
+                      'onclick': function() {
+                        ctrl.activity = activity.id;
+                      }
+                    },
+                      activity.name
+                    );
+                  })
+                )
+              )
+            )
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              'data-dismiss': 'modal'
+            }, "Close"),
+            m('button.btn.btn-primary#submit-new-class', {
+              'data-dismiss': 'modal',
+              'disabled': ctrl.app === null,
+              'onclick': function(e) {
+                args.teacher.sendAction('launch-activity-in-classroom', classroom.id, ctrl.activity);
+                ctrl.activity = null;
+                $('#add-phase-modal').modal('hide');
+              }
+            }, "Add")
+          )
+        )
+      );
+    }
+  };
 });

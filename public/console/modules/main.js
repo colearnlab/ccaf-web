@@ -64,7 +64,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
       if (ctrl.component === 'menu')
         return m.component(Menu, _.extend(args, {'rootControl': ctrl}));
       if (ctrl.component === 'visualizer')
-        return m.component(stateVisualizer.Visualizer, {'classroom': args.teacher.classrooms[ctrl.state], 'rootControl': ctrl});
+        return m.component(stateVisualizer.Visualizer, {'teacher': args.teacher, 'activities': args.teacher.activities, 'classroom': args.teacher.classrooms[ctrl.state], 'rootControl': ctrl});
       if (ctrl.component === 'activity-editor')
         return m.component(activityEditor.ActivityEditor, {'teacher': args.teacher, 'activity': args.teacher.activities[ctrl.state], 'apps': args.apps, 'rootControl': ctrl});
     }
