@@ -99,7 +99,8 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         var key = findNextKey(this.students);
         this.students[key] = {
           'id': key,
-          'email': email
+          'email': email,
+          'currentPhase': 0
         };
       });
 

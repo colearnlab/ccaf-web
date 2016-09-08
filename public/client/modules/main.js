@@ -56,27 +56,39 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
       });
     } else {
       loginHelper.login(function(email, user) {
-        var classrooms = [];
-        _.values(store.teachers).forEach(function(teacher) {
-          _.values(teacher.classrooms).forEach(function(classroom) {
-            _.values(classroom.students).forEach(function(student) {
-              if (student.email === email) {
-                classrooms.push({'teacherId': teacher.id, 'classroomId': classroom.id, 'groupId': classroom.studentGroupMapping[student.id], 'studentId': student.id});
-                student.sendAction('update-student', {'name': user.displayName});
-              }
-            });
-          });
-        });
+        store.addObserver(function(newStore, oldStore) {
+          if (oldStore === null)
+            m.render(document.getElementById('root'), m.component(Root, {'store': newStore, 'email': email, 'user': user}));
 
-        if (classrooms.length === 0)
-          m.mount(document.getElementById('root'), m.component(NoClassroom));
-        else if (classrooms.length === 1) {
-          m.mount(document.getElementById('root'), m.component(Classroom, _.extend({'store': store}, classrooms[0])));
-        }
-        else if (classrooms.length > 1)
+          // redraw conditions:
+        });
       });
     }
   });
+
+  var Root = {
+    'view': function(__, args) {
+      var store = args.store;
+      var email = args.email;
+      var user = args.user;
+      var classrooms = [];
+      _.values(store.teachers).forEach(function(teacher) {
+        _.values(teacher.classrooms).forEach(function(classroom) {
+          _.values(classroom.students).forEach(function(student) {
+            if (student.email === email) {
+              classrooms.push({'teacherId': teacher.id, 'classroomId': classroom.id, 'groupId': classroom.studentGroupMapping[student.id], 'studentId': student.id});
+              student.sendAction('update-student', {'name': user.displayName});
+            }
+          });
+        });
+      });
+
+      if (classrooms.length === 0)
+        return m.component(NoClassroom);
+      else if (classrooms.length === 1)
+        return m.component(Classroom, _.extend({'store': store}, classrooms[0]));
+    }
+  }
 
   var NoClassroom = {
     'view': function(__, args) {
@@ -105,9 +117,9 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
                 'student': args.studentId
               };
               var app = activities[classroom.currentActivity].phases[phase].app;
-              requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
-                localStm.init(function(appStore) {
-                  appModule.load(el, appStm.action, appStore.teachers[args.teacherId].classrooms[args.classroomId].groups[args.groupId].states[args.phase.id], params);
+              appStm.init(function(appStore) {
+                requirejs(['/apps/' + app + '/' + appStore.apps[app].client], function(appModule) {
+                  appModule.load(el, appStm.action, appStore.teachers[args.teacherId].classrooms[args.classroomId].groups[args.groupId].states[phase], params);
                 });
               });
           }

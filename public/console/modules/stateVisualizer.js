@@ -175,11 +175,6 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           })
         ),
         m('div.instance-footer',
-          m('span.instance-button.project-button' + (projecting ? '.projecting' : ''), {
-            'onclick': function() {
-              args.store.classrooms[args.classroom].sendAction('toggle-projection', id);
-            }
-          }, m('img', {'height': '30px', 'width': '30px', 'src': projecting ? 'console/project-on.png' : 'console/project-off.png'})),
           m('span.instance-button', {
             'style': (!(mode === 'edit') ? 'display:none;' : ''),
             'onclick': function() {

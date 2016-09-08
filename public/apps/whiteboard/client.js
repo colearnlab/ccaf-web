@@ -2,6 +2,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
   var canvasHeight = 5000;
   var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
   exports.load = function(el, action, store, params) {
+
     var deviceState, canvas, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 10};
     var hCanvas, hCtx;
     var curPath = {}, lastPath = [];
