@@ -13,7 +13,7 @@
 // Ensures that RequireJS plays nicely with electron-browser.
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurationActions'], function(exports, checkerboard, m, autoconnect, configurationActions) {
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurationActions', 'loginHelper'], function(exports, checkerboard, m, autoconnect, configurationActions, loginHelper) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
 
@@ -56,7 +56,20 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
         appModule.load(reRoot(), stm.action, initialState, params);
       });
     } else {
-
+      loginHelper.login(function(email, user) {
+        var classrooms = [];
+        _.values(store.teachers).forEach(function(teacher) {
+          _.values(teacher.classrooms).forEach(function(classroom) {
+            _.values(classroom.students).forEach(function(student) {
+              if (student.email === email) {
+                classrooms.push({'teacher': teacher.id, 'classroom': classroom.id});
+                student.sendAction('update-student', {'name': user.displayName});
+              }
+            });
+          });
+        });
+        debugger;
+      });
     }
 
   });
@@ -86,16 +99,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
     el.id = 'root';
     document.body.appendChild(el);
     return el;
-  }
-
-  function getPerson(email, success, error) {
-    $.ajax('https://www.googleapis.com/plus/v1/people/' + email + '?key=AIzaSyB7kpd6apGLyKVF69m3uZ5zI_Z7S8dv3G0', {
-      'headers': {
-        'Authorization': 'Bearer ' + params['access_token']
-      },
-      'success': success,
-      'error': error
-    });
   }
 
   /* --- playback helpers --- */

@@ -28,20 +28,18 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     store.sendAction('init');
     store.addObserver(function(){});
 
-    loginHelper.login(function() {
-      loginHelper.getUserEmail(function(email) {
-        var user = getTeacher(email);
-        if (typeof user === 'undefined')
-          store.sendAction('add-teacher', "New teacher", email);
-        user = getTeacher(email);
+    loginHelper.login(function(email) {
+      var user = getTeacher(email);
+      if (typeof user === 'undefined')
+        store.sendAction('add-teacher', "New teacher", email);
+      user = getTeacher(email);
 
-        store.teachers[user].addObserver(function(newStore, oldStore) {
-          if (oldStore === null)
-            m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
+      store.teachers[user].addObserver(function(newStore, oldStore) {
+        if (oldStore === null)
+          m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
 
-          if (state !== 'activity-editor')
-            m.redraw(true);
-        });
+        if (state !== 'activity-editor')
+          m.redraw(true);
       });
     });
 

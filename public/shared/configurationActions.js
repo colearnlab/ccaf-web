@@ -101,6 +101,12 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         };
       });
 
+    stm.action('update-student')
+      .onReceive(function(newProps) {
+        for (var p in newProps)
+          this[p] = newProps[p];
+      })
+
     /* associate-user-to-instance: associates a user to an instance on the state it
      * is called on.
      */

@@ -16,26 +16,24 @@ define('loginHelper', ['exports'], function(exports, m, _) {
     accessToken = params['access_token'];
 
     $.ajax('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + params['access_token'], {
-      'success': success,
+      'success': function() {
+        $.ajax('https://www.googleapis.com/plus/v1/people/me?key=' + apiKey, {
+          'headers': {
+            'Authorization': 'Bearer ' + accessToken
+          },
+          'success': function(user) {
+            user.emails.forEach(function(email) {
+              if (email.type === "account")
+                success(email.value, user);
+            });
+          },
+          'error': redirectToLogin
+        });
+      },
       'error': redirectToLogin
     });
 
     location.hash = "";
-  }
-
-  exports.getUserEmail = function(success, error) {
-    $.ajax('https://www.googleapis.com/plus/v1/people/me?key=' + apiKey, {
-      'headers': {
-        'Authorization': 'Bearer ' + accessToken
-      },
-      'success': function(user) {
-        user.emails.forEach(function(email) {
-          if (email.type === "account")
-            success(email.value);
-        });
-      },
-      'error': error
-    });
   }
 
   function redirectToLogin() {
