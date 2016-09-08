@@ -113,6 +113,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                     }
                   },
                   classroom.name,
+                  " ",
+                  (typeof classroom.currentActivity !== 'undefined' ? m('small', "Current activity: ", args.teacher.activities[classroom.currentActivity].name) : ''),
                   m('span.glyphicon.glyphicon-remove.pull-right', {
                     'style': 'color: gray',
                     'onclick': function(e) {

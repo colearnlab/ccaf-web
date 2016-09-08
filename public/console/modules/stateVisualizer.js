@@ -12,10 +12,15 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
   var _args;
 
   var Visualizer = {
+    'controller': function(args) {
+      return {
+        'mode': typeof args.classroom.currentActivity === 'undefined' ? 'edit' : 'live'
+      };
+    },
     'view': function(ctrl, args) {
       _args = args;
       classroom = args.classroom;
-      mode = 'edit';
+      mode = ctrl.mode;
 
       var students = args.classroom.students;
       var groups = args.classroom.groups;
@@ -41,14 +46,27 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             m.trust("&nbsp;"),
             "Classroom: ",
             args.classroom.name,
+            " ",
             "Mode: ",
-            (mode === 'edit' ? 'Edit' : ''),
+            (mode === 'edit' ? 'Edit' : 'Live'),
             m('button.pull-right', {
               'style': (mode !== 'edit' ? 'display: none' : ''),
               'onclick': function() {
-                $('#launch-activity-modal').modal('show');
+                if (typeof args.classroom.currentActivity === 'undefined')
+                  $('#launch-activity-modal').modal('show');
+                else {
+                  ctrl.mode = 'live';
+                  m.redraw(true);
+                }
               }
-            }, (typeof args.classroom.currentActivity === 'undefined' ? "Launch activity" : "Resume activity"))
+            }, (typeof args.classroom.currentActivity === 'undefined' ? "Launch activity" : "Resume activity")),
+            m('button.pull-right', {
+              'style': (mode === 'edit' ? 'display: none' : ''),
+              'onclick': function() {
+                  ctrl.mode = 'edit';
+                  m.redraw(true);
+                }
+              }, "Edit")
           ),
           m('div#visualizerHolder',
             m('div#sidebar', {
@@ -107,8 +125,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               return (typeof args.classroom.studentGroupMapping[student.id] === 'undefined');
             })
             .map(function(student) {
-              console.log(student);
-              return m('div.student-entry', {
+              return m('div' + (mode === 'edit' ? '.student-entry' : '.student-entry-notouch'), {
                 'key': student.id,
                 'data-student': student.id
               }, student.name || student.email);
@@ -168,7 +185,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           }
         },
           args.studentsInGroup.map(function(student) {
-            return m('div.student-entry', {
+            return m('div' + (mode === 'edit' ? '.student-entry' : '.student-entry-notouch'), {
               'key': student.id,
               'data-student': student.id
             }, student.name || student.email);
