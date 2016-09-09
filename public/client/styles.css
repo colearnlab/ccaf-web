@@ -212,3 +212,18 @@ iframe {
 .arrow-right {
   transform: scaleX(0.75) rotate(-135deg);
 }
+
+#root, .app-frame {
+  height: 100vh;
+  width: 100vw;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.phase-controls {
+  position: absolute;
+  z-index: 100;
+  top: 0px;
+  left: 9px;
+} 

@@ -59,6 +59,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     }
 
     function resizeCanvas() {
+      console.log(window.innerWidth);
       hCanvas.width = canvas.width = '1280';
       hCanvas.height = canvas.height = canvasHeight * 1280 / window.innerWidth;
       hCanvas.style.height = canvas.style.height = canvasHeight + 'px';
@@ -168,12 +169,12 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     function initListeners() {
       canvas.addEventListener('mousedown', function(e) {
         deviceState.sendAction('create-path', 0);
-        console.log(canvas.canvasTop);
-        deviceState.sendAction('add-point', 0, e.clientX * 1280 / window.innerWidth, (e.clientY + canvas.canvasTop) * canvas.height / 5000);
+        console.log(e)
+        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY + canvas.canvasTop) * canvas.height / 5000 + 50);
       });
 
       canvas.addEventListener('mousemove', function(e) {
-        deviceState.sendAction('add-point', 0, e.clientX * 1280 / window.innerWidth, (e.clientY + canvas.canvasTop) * canvas.height / 5000);
+        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY + canvas.canvasTop) * canvas.height / 5000 + 50);
       });
 
       canvas.addEventListener('mouseup', function(e) {

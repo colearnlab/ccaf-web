@@ -31,6 +31,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
       return e.preventDefault(), false;
   });
 
+  var currentClassroom, appWs;
   stm.init(function(store) {
     store.addObserver(function(){});
     configurationActions.load(stm);
@@ -54,12 +55,39 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
         // The load function takes a root element, an action creator, the root store and the future paramters object.
         appModule.load(reRoot(), stm.action, initialState, params);
       });
+    } else if (gup('mode') == 'student') {
+      var teacherId = gup('teacher');
+      var classroomId = gup('classroom');
+      var activity = store.teachers[teacherId].activities[store.teachers[teacherId].classrooms[classroomId].currentActivity];
+      var student = store.teachers[teacherId].classrooms[classroomId].students[gup('student')];
+      var phase = student.currentPhase;
+      var app = activity.phases[phase].app;
+
+      var params = {
+        'mode': 'student',
+        'student': student.id
+      };
+
+      requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
+        appModule.load(document.getElementById('root'), stm.action, store.teachers[teacherId].classrooms[classroomId].groups[gup('group')].states[phase], params);
+      });
     } else {
+      document.body.removeChild(document.getElementById('statusbar'));
       loginHelper.login(function(email, user) {
         store.addObserver(function(newStore, oldStore) {
           if (oldStore === null)
-            m.render(document.getElementById('root'), m.component(Root, {'store': newStore, 'email': email, 'user': user}));
-
+            m.mount(document.getElementById('root'), m.component(Root, {'store': newStore, 'email': email, 'user': user}));
+          else {
+            if (typeof currentClassroom !== 'undefined' && (
+                 newStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].students[currentClassroom.studentId].currentPhase !== oldStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].students[currentClassroom.studentId].currentPhase
+              || newStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].studentGroupMapping[currentClassroom.studentId] !== oldStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].studentGroupMapping[currentClassroom.studentId]
+            ))
+                {
+                  console.log('redraw!');
+                  m.render(root, m.component(Root, {'store': newStore, 'email': email, 'user': user}));
+                  m.redraw(true);
+                }
+          }
           // redraw conditions:
         });
       });
@@ -85,8 +113,10 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
 
       if (classrooms.length === 0)
         return m.component(NoClassroom);
-      else if (classrooms.length === 1)
+      else if (classrooms.length === 1) {
+        currentClassroom = classrooms[0];
         return m.component(Classroom, _.extend({'store': store}, classrooms[0]));
+      }
     }
   }
 
@@ -109,34 +139,35 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
       else {
         var phase = student.currentPhase;
         var orderedPhases = _.values(activities[classroom.currentActivity].phases).sort(function(a, b) { return a.order - b.order});
-
-        return m('div', {
-          'key': args.groupId + '.' + phase,
-          'config': function(el) {
-              var appStm = new checkerboard.STM(wsAddress);
-              var params = {
-                'mode': student,
-                'student': args.studentId
-              };
-              var app = activities[classroom.currentActivity].phases[phase].app;
-              appStm.init(function(appStore) {
-                requirejs(['/apps/' + app + '/' + appStore.apps[app].client], function(appModule) {
-                  appModule.load(el, appStm.action, appStore.teachers[args.teacherId].classrooms[args.classroomId].groups[args.groupId].states[phase], params);
-                });
-              });
-          }
-        },
-          m('#statusbar',
+        var currentPhaseIndex;
+        for (var i = 0; i < orderedPhases.length; i++)
+          if (orderedPhases[i].id === phase)
+            currentPhaseIndex = i;
+        return m('div.app-frame',
+          m('div.phase-controls',
             m('div.arrow.arrow-left', {
-              'style': (student.currentPhase === orderedPhases[0].id ? 'opacity: 0.5' : '')
+              'style': (student.currentPhase === orderedPhases[0].id ? 'opacity: 0.5; pointer-events: none;' : ''),
+              'onclick': function(e) {
+                student.sendAction('update-student', {'currentPhase': orderedPhases[currentPhaseIndex - 1].id});
+              }
             }, m.trust('&nbsp;')),
               orderedPhases.map(function(phase) {
-                return m('div.phase-marker' + (phase.id === student.currentPhase ? '.active-phase' : ''), m.trust("&nbsp;"));
+                return m('div.phase-marker' + (phase.id === student.currentPhase ? '.active-phase' : ''), {
+                  'onclick': function(e) {
+                    student.sendAction('update-student', {'currentPhase': phase.id})
+                  }
+                }, m.trust("&nbsp;"));
             }),
             m('div.arrow.arrow-right', {
-              'style': (student.currentPhase === orderedPhases[orderedPhases.length - 1].id ? 'opacity: 0.5' : '')
+              'style': (student.currentPhase === orderedPhases[orderedPhases.length - 1 ].id ? 'opacity: 0.5; pointer-events: none;' : ''),
+              'onclick': function(e) {
+                student.sendAction('update-student', {'currentPhase': orderedPhases[currentPhaseIndex + 1].id});
+              }
             }, m.trust('&nbsp;'))
-          )
+          ),
+          m('iframe.app-frame', {
+            'src': 'client?mode=student&teacher=' + args.teacherId + '&classroom=' + args.classroomId + '&group=' + args.groupId + '&student=' + args.studentId
+          })
         );
       }
     }

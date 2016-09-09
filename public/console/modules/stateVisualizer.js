@@ -9,7 +9,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
   var modal = false;
   var savedParent;
   var interactable;
-  var _args;
+  var _args, _ctrl;
 
   var Visualizer = {
     'controller': function(args) {
@@ -19,6 +19,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
     },
     'view': function(ctrl, args) {
       _args = args;
+      _ctrl = ctrl;
       classroom = args.classroom;
       mode = ctrl.mode;
 
@@ -39,7 +40,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           m('p#statusbar',
             m('span.glyphicon.glyphicon-circle-arrow-left', {
               'onclick': function(e) {
-                args.rootControl.component = 'menu'; 
+                args.rootControl.component = 'menu';
                 m.redraw(true);
               }
             }),
@@ -59,6 +60,12 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
                 }
               }
             }, (typeof args.classroom.currentActivity === 'undefined' ? "Launch activity" : "Resume activity")),
+            m('button.pull-right', {
+              'style': (mode === 'edit' && typeof args.classroom.currentActivity !== 'undefined' ? '' : 'display: none'),
+              'onclick': function(e) {
+                args.teacher.sendAction('end-activity-in-classroom', args.classroom.id);
+              }
+            }, "End activity"),
             m('button.pull-right', {
               'style': (mode === 'edit' ? 'display: none' : ''),
               'onclick': function() {
@@ -367,8 +374,10 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               'disabled': ctrl.app === null,
               'onclick': function(e) {
                 args.teacher.sendAction('launch-activity-in-classroom', classroom.id, ctrl.activity);
+                _ctrl.mode = 'live';
                 ctrl.activity = null;
                 $('#add-phase-modal').modal('hide');
+                m.redraw(true);
               }
             }, "Add")
           )
