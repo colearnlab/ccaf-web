@@ -170,11 +170,11 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       canvas.addEventListener('mousedown', function(e) {
         deviceState.sendAction('create-path', 0);
         console.log(e)
-        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY + canvas.canvasTop) * canvas.height / 5000 + 50);
+        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / 5000 + 50);
       });
 
       canvas.addEventListener('mousemove', function(e) {
-        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY + canvas.canvasTop) * canvas.height / 5000 + 50);
+        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / 5000 + 50);
       });
 
       canvas.addEventListener('mouseup', function(e) {

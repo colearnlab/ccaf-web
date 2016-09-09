@@ -136,6 +136,8 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
 
       if (typeof classroom.currentActivity === 'undefined')
         return m('.waiting-for-teacher', "Waiting for your teacher to launch an activity...");
+      else if (typeof args.groupId === 'undefined')
+        return m('.waiting-for-teacher', "Waiting for your teacher to add you to a group...");
       else {
         var phase = student.currentPhase;
         var orderedPhases = _.values(activities[classroom.currentActivity].phases).sort(function(a, b) { return a.order - b.order});

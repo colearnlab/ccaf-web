@@ -9,6 +9,13 @@
     .no-top {border-top: 0}
     .center {  position:absolute; top:50%; left:50%; transform: translate(-50%,-50%); }
     .main-panel { padding: 0 }
+    .top {
+      top: 50%;
+      transform: translate(-50%, -50%);
+      position: absolute;
+      left: 50%;
+      width: 500px;
+    }
   </style>
   <body oncontextmenu="return false">
 
@@ -22,7 +29,7 @@
         },
         'view': function(ctrl, args) {
           var innerComponent = typeof ctrl.type === 'undefined' ? UserTypeSelect : EmailAddressEnter;
-          return m('div.row',
+          return m('div.row.top',
             m('div.col-sm-6.col-sm-offset-3.col-md-4.col-md-offset-4',
               m('div.panel.panel-default',
                 m('.panel-heading', "CCAF launcher"),
