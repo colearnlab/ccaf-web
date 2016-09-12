@@ -1,9 +1,10 @@
-define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
-  var canvasHeight = 5000;
+define(['clientUtil', 'exports', 'mithril', 'pdfjs'], function(clientUtil, exports, m, pdfjs) {
+  var canvasHeight = 15000;
   var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
   exports.load = function(el, action, store, params) {
 
     var deviceState, canvas, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 10};
+    var pdfContainer;
     var hCanvas, hCtx;
     var curPath = {}, lastPath = [];
     var cursor;
@@ -14,10 +15,13 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     resizeCanvas();
     clearScreen();
 
+
+    pdfjs.disableWorker = true;
+
     deviceState.paths.addObserver(drawPaths);
     deviceState.cursors.addObserver(function(cursors, oldCursors) {
       canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]) * window.innerWidth/1280;
-      document.getElementById('pointers').style.transform = hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
+      document.getElementById('pointers').style.transform = pdfContainer.style.transform = hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
 
       if (_.isEqual(cursors, oldCursors))
         return;
@@ -37,6 +41,10 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
     function initElements() {
       clientUtil.css('/apps/whiteboard/styles.css');
 
+      pdfContainer = document.createElement('div');
+      pdfContainer.id = 'pdf-container';
+      el.appendChild(pdfContainer);
+
       canvas = document.createElement('canvas');
       el.appendChild(canvas);
       canvas.style.opacity = '0.9';
@@ -50,6 +58,24 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       pointers.id = 'pointers';
       el.appendChild(pointers);
 
+      if (params.mode === 'projector') {
+        var pdfButton = document.createElement('input');
+        pdfButton.type = "file";
+        pdfButton.innerHTML = "Set PDF";
+        pdfButton.id = "pdf-button";
+        document.body.appendChild(pdfButton);
+
+        pdfButton.addEventListener('change', function(e) {
+          if (e.target.files.length > 0) {
+            var reader = new FileReader();
+            reader.onload = function(evt) {
+              store.sendAction('set-pdf', Array.prototype.slice.call(new Uint8Array(evt.target.result)));
+            };
+            reader.readAsArrayBuffer(e.target.files[0]);
+          }
+        });
+      }
+
       store.sendAction('wb-init');
       deviceState = store;
 
@@ -58,13 +84,60 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       el.appendChild(controls);
     }
 
+    var drawing = false;
     function resizeCanvas() {
-      console.log(window.innerWidth);
       hCanvas.width = canvas.width = '1280';
       hCanvas.height = canvas.height = canvasHeight * 1280 / window.innerWidth;
       hCanvas.style.height = canvas.style.height = canvasHeight + 'px';
       ctx = canvas.getContext('2d');
       hCtx = hCanvas.getContext('2d');
+
+      if (drawing || !store.pdf)
+        return;
+
+      while(pdfContainer.childNodes.length)
+        pdfContainer.removeChild(pdfContainer.firstChild);
+
+      drawing = true;
+      pdfjs.getDocument(new Uint8Array(store.pdf)).then(function(pdf) {
+        var pages = pdf.numPages;
+        var container = document.getElementById('pdf-container');
+        var curPage = 1;
+
+        var processPage = function(page) {
+          console.log(curPage);
+          curPage++;
+          var pdfCanvas = document.createElement('canvas');
+          pdfCanvas.style = 'position: initial'
+          pdfCanvas.width = hCanvas.width;
+
+          var scale = 1.5;
+          var viewport = page.getViewport(scale);
+
+          pdfCanvas.height = viewport.height;
+
+          var pdfCtx = pdfCanvas.getContext('2d');
+
+          var renderContext = {
+            'canvasContext': pdfCtx,
+            'viewport': viewport
+          };
+
+          page.render(renderContext).then(function() {
+            container.appendChild(pdfCanvas);
+            if (curPage <= pages)
+              pdf.getPage(curPage).then(processPage);
+            else {
+              drawing = false;
+              curPage = 1;
+            }
+
+          });
+
+        };
+
+        pdf.getPage(curPage).then(processPage)
+      });
     }
 
     function createActions() {
@@ -87,6 +160,16 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
           if (typeof this.pointers[cursor] === 'undefined') {
             this.pointers[cursor] = {x:-1, y:-1};
           }
+        });
+
+      action('set-pdf')
+        .onReceive(function(a) {
+          this.pdf = a;
+        });
+
+      action('clear-pdf')
+        .onReceive(function() {
+          this.pdf = undefined;
         });
 
       action('create-path')
@@ -170,11 +253,11 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       canvas.addEventListener('mousedown', function(e) {
         deviceState.sendAction('create-path', 0);
         console.log(e)
-        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / 5000 + 50);
+        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
       });
 
       canvas.addEventListener('mousemove', function(e) {
-        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / 5000 + 50);
+        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
       });
 
       canvas.addEventListener('mouseup', function(e) {
@@ -190,13 +273,13 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
         for (var i = 0; i < e.changedTouches.length; i++) {
           touch = e.changedTouches[i];
           deviceState.sendAction('create-path', touch.identifier + 1);
-          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / 5000);
+          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / canvasHeight);
         }
       });
 
       canvas.addEventListener('touchmove', function(e) {
         for (var i = 0; i < e.changedTouches.length; i++)
-        deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / 5000);
+        deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / canvasHeight);
       });
 
       canvas.addEventListener('touchend', function(e) {
@@ -497,7 +580,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
               setTimeout(function() {
                 ctrl.confirmState = false;
                 m.redraw(true);
-              }, 5000);
+              }, canvasHeight);
             }, 250);
           }
             else {
@@ -535,7 +618,7 @@ define(['clientUtil', 'exports', 'mithril'], function(clientUtil, exports, m) {
       var canvas = document.getElementsByTagName('canvas')[0];
       var myCursor;
       var cursors = _.pairs(args.deviceState.cursors).map(function(pair, i) {
-        var left = (pair[1] - 1500) * (80.1/(5000-1500)) + 5;
+        var left = (pair[1] - 1500) * (80.1/(canvasHeight-1500)) + 5;
         if (pair[0] === args.cursor)
           myCursor = i;
 

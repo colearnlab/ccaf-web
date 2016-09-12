@@ -6,7 +6,9 @@
     "type": "git",
     "url": "git+https://github.com/ccaf/ccaf-web.git"
   },
-  "author": "Gregory Fabry",
+  "author": {
+    "name": "Gregory Fabry"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ccaf/ccaf-web/issues"
@@ -19,9 +21,20 @@
     "mithril": "^0.2.0",
     "requirejs": "^2.1.20",
     "underscore": "^1.8.3",
-    "jquery": "~2.2.4"
+    "jquery": "~2.2.4",
+    "pdfjs-dist": "~1.5.454"
   },
   "scripts": {
     "install": "node build"
-  }
+  },
+  "readme": "This repository contains all web files relating to CCAF. For more information, see github.com/ccaf/ccaf.\n\nThis software uses icons made by Freepik at flaticon.com.",
+  "readmeFilename": "README.md",
+  "description": "This repository contains all web files relating to CCAF. For more information, see github.com/ccaf/ccaf.",
+  "_id": "ccaf-web@0.4.0",
+  "dist": {
+    "shasum": "e1c46e390ffd39eb603ff5d6b4aa79f548f8e708"
+  },
+  "_resolved": "git://github.com/ccaf/ccaf-web#1e889d334e9b7bcf3f317154bc76401b9edc9f44",
+  "_from": "git://github.com/ccaf/ccaf-web",
+  "_fromGithub": true
 }

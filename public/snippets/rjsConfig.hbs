@@ -11,11 +11,15 @@ requirejs.config({
     'configurationActions': '/shared/configurationActions',
     'autoconnect': '/shared/autoconnect',
     'underscore': '/lib/underscore',
-    'loginHelper': '/shared/loginHelper'
+    'loginHelper': '/shared/loginHelper',
+    'pdfjs': '/lib/pdf'
   },
   'shim': {
     'underscore': {
       'exports': '_'
+    },
+    'pdfjs': {
+      'exports': 'PDFJS'
     }
   }
 });

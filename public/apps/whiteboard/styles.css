@@ -142,3 +142,10 @@ canvas {
   background-color: red;
   box-shadow: 0px 0px 10px white;
 }
+
+#pdf-button {
+  position: absolute;
+  z-index: 100;
+  top: 10px;
+  left: 10px;
+}
