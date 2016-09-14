@@ -1,5 +1,5 @@
-define(['clientUtil', 'exports', 'mithril', 'pdfjs'], function(clientUtil, exports, m, pdfjs) {
-  var canvasHeight = 15000;
+define(['clientUtil', 'exports', 'mithril', 'pdfjs', 'fileManager'], function(clientUtil, exports, m, fileManager) {
+  var canvasHeight = 5000;
   var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
   exports.load = function(el, action, store, params) {
 
@@ -15,10 +15,75 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs'], function(clientUtil, expor
     resizeCanvas();
     clearScreen();
 
+    //pdfjs.disableWorker = true;
 
-    pdfjs.disableWorker = true;
+    var newPaths, oldPaths, notDrawn = false;
+    deviceState.paths.addObserver(function(_newPaths, _oldPaths) {
+      newPaths = _newPaths;
+      if (!notDrawn) {
+        oldPaths = _oldPaths;
+        notDrawn = true;
+      }
+    });
 
-    deviceState.paths.addObserver(drawPaths);
+    var drawPaths = function() {
+      var path;
+      oldPaths = oldPaths || [];
+      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].filter(Boolean).length > newPaths[i].filter(Boolean).length; })) {
+        oldPaths = [];
+        curPath = {};
+        clearScreen();
+      }
+
+      newPaths.forEach(function(newPath, i) {
+        // NOTE: currently there is a bug in playback due to the behavior of the
+        // diff/patch system. For some reason, when a point is added it creates a patch
+        // that is "modified undefined" instead of creating a new object. Thus, when
+        // the patch is reversed, instead of clearing that entry in the array completely
+        // it still exists but is set to null. The check for newPath[0] to actually
+        // exist as well as filtering empty entries in the old array below (filter(Boolean))
+        // are temporary fixes to this problem.
+        if (!newPath || newPath.length === 0 || !newPath[0])
+          return;
+
+        var curCtx;
+
+        if (newPath[0].highlight)
+          curCtx = hCtx;
+        else
+          curCtx = ctx;
+
+        curCtx.shadowColor = curCtx.strokeStyle = newPath[0].strokeStyle;
+        curCtx.lineWidth = newPath[0].lineWidth;
+        curCtx.lineCap = curCtx.lineJoin = "round";
+        curCtx.shadowBlur = 1;
+
+
+        path = newPath;
+
+        var j = oldPaths[i] ? oldPaths[i].filter(Boolean).length : 1;
+        for (; j < newPaths[i].length; j++) {
+          if (!path[j])
+            continue;
+
+          curCtx.beginPath();
+
+          if (path[j-1] && path[j - 1].x)
+            curCtx.moveTo(path[j - 1].x, path[j - 1].y);
+          else
+            curCtx.moveTo(path[j].x - 1, path[j].y);
+
+          curCtx.lineTo(path[j].x, path[j].y);
+          curCtx.closePath();
+          curCtx.stroke();
+        }
+      });
+      notDrawn = false;
+      setTimeout(drawPaths, 50);
+    }
+
+    drawPaths();
+
     deviceState.cursors.addObserver(function(cursors, oldCursors) {
       canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]) * window.innerWidth/1280;
       document.getElementById('pointers').style.transform = pdfContainer.style.transform = hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
@@ -69,7 +134,13 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs'], function(clientUtil, expor
           if (e.target.files.length > 0) {
             var reader = new FileReader();
             reader.onload = function(evt) {
-              store.sendAction('set-pdf', Array.prototype.slice.call(new Uint8Array(evt.target.result)));
+              fileManager.upload('/apps/whiteboard/media/' + e.target.files[0].name, Array.prototype.slice.call(new Uint8Array (evt.target.result)), function(err) {
+                if (err)
+                  return alert("File upload error.");
+
+                console.log('hi');
+                store.sendAction('set-pdf', '/apps/whiteboard/media/' + e.target.files[0].name);
+              });
             };
             reader.readAsArrayBuffer(e.target.files[0]);
           }
@@ -97,9 +168,9 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs'], function(clientUtil, expor
 
       while(pdfContainer.childNodes.length)
         pdfContainer.removeChild(pdfContainer.firstChild);
-
+/*
       drawing = true;
-      pdfjs.getDocument(new Uint8Array(store.pdf)).then(function(pdf) {
+      pdfjs.getDocument(store.pdf).then(function(pdf) {
         var pages = pdf.numPages;
         var container = document.getElementById('pdf-container');
         var curPage = 1;
@@ -138,6 +209,7 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs'], function(clientUtil, expor
 
         pdf.getPage(curPage).then(processPage)
       });
+      */
     }
 
     function createActions() {
@@ -289,61 +361,8 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs'], function(clientUtil, expor
 
       window.addEventListener('resize', function() {
         resizeCanvas();
-        drawPaths(deviceState.paths, null);
-      });
-    }
-
-    function drawPaths(newPaths, oldPaths) {
-      var path;
-      oldPaths = oldPaths || [];
-      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].filter(Boolean).length > newPaths[i].filter(Boolean).length; })) {
-        oldPaths = [];
-        curPath = {};
-        clearScreen();
-      }
-
-      newPaths.forEach(function(newPath, i) {
-        // NOTE: currently there is a bug in playback due to the behavior of the
-        // diff/patch system. For some reason, when a point is added it creates a patch
-        // that is "modified undefined" instead of creating a new object. Thus, when
-        // the patch is reversed, instead of clearing that entry in the array completely
-        // it still exists but is set to null. The check for newPath[0] to actually
-        // exist as well as filtering empty entries in the old array below (filter(Boolean))
-        // are temporary fixes to this problem.
-        if (!newPath || newPath.length === 0 || !newPath[0])
-          return;
-
-        var curCtx;
-
-        if (newPath[0].highlight)
-          curCtx = hCtx;
-        else
-          curCtx = ctx;
-
-        curCtx.shadowColor = curCtx.strokeStyle = newPath[0].strokeStyle;
-        curCtx.lineWidth = newPath[0].lineWidth;
-        curCtx.lineCap = curCtx.lineJoin = "round";
-        curCtx.shadowBlur = 1;
-
-
-        path = newPath;
-
-        var j = oldPaths[i] ? oldPaths[i].filter(Boolean).length : 1;
-        for (; j < newPaths[i].length; j++) {
-          if (!path[j])
-            continue;
-
-          curCtx.beginPath();
-
-          if (path[j-1] && path[j - 1].x)
-            curCtx.moveTo(path[j - 1].x, path[j - 1].y);
-          else
-            curCtx.moveTo(path[j].x - 1, path[j].y);
-
-          curCtx.lineTo(path[j].x, path[j].y);
-          curCtx.closePath();
-          curCtx.stroke();
-        }
+        oldPaths = null;
+        //drawPaths(deviceState.paths, null);
       });
     }
 
