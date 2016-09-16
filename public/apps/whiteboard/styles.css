@@ -146,6 +146,14 @@ canvas {
 #pdf-button {
   position: absolute;
   z-index: 100;
-  top: 10px;
+  top: 12px;
   left: 10px;
+  width: 100px;
+}
+
+#clear-button {
+  position: absolute;
+  z-index: 100;
+  top: 12px;
+  left: 120px;
 }

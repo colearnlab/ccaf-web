@@ -5,10 +5,10 @@ define('fileManager', ['exports'], function(exports) {
       'url': '/upload',
       'data': {
         'path': path,
-        'contents': fileAsArray,
-        'success': callback ? callback.bind(false) : function(){},
-        'error': callback ? callback.bind(true) : function(){}
-      }
+        'c': fileAsArray
+      },
+      'success': callback ? callback.bind(false) : function(){},
+      'error': callback ? callback.bind(true) : function(){}
     });
   }
 });

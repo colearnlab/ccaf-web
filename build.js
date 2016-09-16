@@ -42,7 +42,7 @@ mkdirSync(path.resolve(__dirname, 'public', 'lib'));
 
 // copy dependencies to lib
 copy(
-  path.resolve(path.dirname(path.dirname(require.resolve('pdfjs-dist'))), 'build', 'pdf.js'),
+  path.resolve(path.dirname(path.dirname(require.resolve('pdfjs-dist'))), 'build', 'pdf.combined.js'),
   path.resolve(__dirname, 'public', 'lib', 'pdf.js'),
   function(err) {
     if (err) console.error(err);

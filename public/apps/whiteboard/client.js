@@ -1,4 +1,4 @@
-define(['clientUtil', 'exports', 'mithril', 'pdfjs', 'fileManager'], function(clientUtil, exports, m, fileManager) {
+define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil, exports, m, fileManager) {
   var canvasHeight = 5000;
   var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
   exports.load = function(el, action, store, params) {
@@ -9,24 +9,11 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs', 'fileManager'], function(cl
     var curPath = {}, lastPath = [];
     var cursor;
 
-    createActions();
-    initElements();
-    initListeners();
-    resizeCanvas();
-    clearScreen();
-
-    //pdfjs.disableWorker = true;
-
-    var newPaths, oldPaths, notDrawn = false;
-    deviceState.paths.addObserver(function(_newPaths, _oldPaths) {
-      newPaths = _newPaths;
-      if (!notDrawn) {
-        oldPaths = _oldPaths;
-        notDrawn = true;
-      }
-    });
-
+    var frame = null;
     var drawPaths = function() {
+      if (frame == null)
+        return frame = requestAnimationFrame(drawPaths);
+
       var path;
       oldPaths = oldPaths || [];
       if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].filter(Boolean).length > newPaths[i].filter(Boolean).length; })) {
@@ -79,10 +66,24 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs', 'fileManager'], function(cl
         }
       });
       notDrawn = false;
-      setTimeout(drawPaths, 50);
+      frame = null;
     }
 
-    drawPaths();
+    createActions();
+    initElements();
+    initListeners();
+    resizeCanvas();
+    clearScreen();
+
+    var newPaths, oldPaths, notDrawn = false;
+    deviceState.paths.addObserver(function(_newPaths, _oldPaths) {
+      newPaths = _newPaths;
+      if (!notDrawn) {
+        oldPaths = _oldPaths;
+        notDrawn = true;
+        drawPaths();
+      }
+    });
 
     deviceState.cursors.addObserver(function(cursors, oldCursors) {
       canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]) * window.innerWidth/1280;
@@ -132,19 +133,33 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs', 'fileManager'], function(cl
 
         pdfButton.addEventListener('change', function(e) {
           if (e.target.files.length > 0) {
+            pdfButton.disabled = true;
+            clearButton.disabled = true;
             var reader = new FileReader();
             reader.onload = function(evt) {
-              fileManager.upload('/apps/whiteboard/media/' + e.target.files[0].name, Array.prototype.slice.call(new Uint8Array (evt.target.result)), function(err) {
+              var name = e.target.files[0].name.replace(/ /g, "+");
+              fileManager.upload('/apps/whiteboard/media/' + name, Array.prototype.slice.call(new Uint8Array (evt.target.result)), function(err) {
                 if (err)
                   return alert("File upload error.");
 
-                console.log('hi');
-                store.sendAction('set-pdf', '/apps/whiteboard/media/' + e.target.files[0].name);
+                pdfButton.disabled = false;
+                clearButton.disabled = false;
+                store.sendAction('set-pdf', '/apps/whiteboard/media/' + name);
+                resizeCanvas();
               });
             };
             reader.readAsArrayBuffer(e.target.files[0]);
           }
         });
+
+        var clearButton = document.createElement('button');
+        clearButton.id = "clear-button";
+        clearButton.innerHTML = "Clear PDF";
+        document.body.appendChild(clearButton);
+        clearButton.addEventListener('click', function() {
+          store.sendAction('set-pdf', null);
+          resizeCanvas();
+        })
       }
 
       store.sendAction('wb-init');
@@ -163,53 +178,62 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs', 'fileManager'], function(cl
       ctx = canvas.getContext('2d');
       hCtx = hCanvas.getContext('2d');
 
-      if (drawing || !store.pdf)
-        return;
+      if (!drawing && !store.pdf) {
+        while(pdfContainer.childNodes.length)
+          pdfContainer.removeChild(pdfContainer.firstChild);
+      }
 
-      while(pdfContainer.childNodes.length)
-        pdfContainer.removeChild(pdfContainer.firstChild);
-/*
-      drawing = true;
-      pdfjs.getDocument(store.pdf).then(function(pdf) {
-        var pages = pdf.numPages;
-        var container = document.getElementById('pdf-container');
-        var curPage = 1;
+      if (!drawing && store.pdf) {
+        while(pdfContainer.childNodes.length)
+          pdfContainer.removeChild(pdfContainer.firstChild);
 
-        var processPage = function(page) {
-          console.log(curPage);
-          curPage++;
-          var pdfCanvas = document.createElement('canvas');
-          pdfCanvas.style = 'position: initial'
-          pdfCanvas.width = hCanvas.width;
+        drawing = true;
+        PDFJS.getDocument(store.pdf).then(function(pdf) {
+          var pages = pdf.numPages;
+          var container = document.getElementById('pdf-container');
+          var curPage = 1;
 
-          var scale = 1.5;
-          var viewport = page.getViewport(scale);
+          var processPage = function(page) {
+            console.log(curPage);
+            curPage++;
+            var pdfCanvas = document.createElement('canvas');
+            pdfCanvas.style = 'position: initial'
+            pdfCanvas.width = hCanvas.width;
 
-          pdfCanvas.height = viewport.height;
+            var scale = 1.5;
+            var viewport = page.getViewport(scale);
 
-          var pdfCtx = pdfCanvas.getContext('2d');
+            pdfCanvas.height = viewport.height;
 
-          var renderContext = {
-            'canvasContext': pdfCtx,
-            'viewport': viewport
+            var pdfCtx = pdfCanvas.getContext('2d');
+
+            var renderContext = {
+              'canvasContext': pdfCtx,
+              'viewport': viewport
+            };
+
+            page.render(renderContext).then(function() {
+              container.appendChild(pdfCanvas);
+              if (curPage <= pages)
+                pdf.getPage(curPage).then(processPage);
+              else {
+                drawing = false;
+                curPage = 1;
+                oldPaths = null;
+                notDrawn = true;
+                drawPaths();
+              }
+
+            });
+
           };
 
-          page.render(renderContext).then(function() {
-            container.appendChild(pdfCanvas);
-            if (curPage <= pages)
-              pdf.getPage(curPage).then(processPage);
-            else {
-              drawing = false;
-              curPage = 1;
-            }
-
-          });
-
-        };
-
-        pdf.getPage(curPage).then(processPage)
-      });
-      */
+          pdf.getPage(curPage).then(processPage)
+        });
+      }
+      oldPaths = null;
+      notDrawn = true;
+      drawPaths();
     }
 
     function createActions() {
@@ -361,8 +385,6 @@ define(['clientUtil', 'exports', 'mithril', 'pdfjs', 'fileManager'], function(cl
 
       window.addEventListener('resize', function() {
         resizeCanvas();
-        oldPaths = null;
-        //drawPaths(deviceState.paths, null);
       });
     }
 
