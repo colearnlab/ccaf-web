@@ -16,7 +16,7 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
         for (var teacher in this.teachers) {
           teacher = this.teachers[teacher];
 
-          teacher.currentActivity = typeof teacher.currentActivity === 'undefined' ? null : teacher.currentActivity;
+          teacher.currentActivity = teacher.currentActivity === null ? null : teacher.currentActivity;
 
           teacher.activities = teacher.activities || {};
           for (var activity in teacher.activities) {
@@ -56,7 +56,9 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
           'name': name,
           'students': initialStudents,
           'groups': {},
-          'studentGroupMapping': {}
+          'studentGroupMapping': {},
+          'currentActivity': null,
+          'currentRecording': null
         };
       });
 
@@ -188,8 +190,8 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       recording.image = JSON.parse(JSON.stringify(this.classrooms[classroomId]));
       recording.endTime = Date.now();
 
-      this.classrooms[classroomId].currentActivity = void 0;
-      this.classrooms[classroomId].currentRecording = void 0;
+      this.classrooms[classroomId].currentActivity = null;
+      this.classrooms[classroomId].currentRecording = null;
     });
   };
   /* --- support functions --- */

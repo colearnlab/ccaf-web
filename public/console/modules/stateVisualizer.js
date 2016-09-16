@@ -14,7 +14,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
   var Visualizer = {
     'controller': function(args) {
       return {
-        'mode': typeof args.classroom.currentActivity === 'undefined' ? 'edit' : 'live'
+        'mode': args.classroom.currentActivity === null ? 'edit' : 'live'
       };
     },
     'view': function(ctrl, args) {
@@ -48,20 +48,20 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             "Classroom: ",
             args.classroom.name,
             " ",
-            m('small', (typeof args.classroom.currentActivity !== 'undefined' ? "Current activity: " + args.activities[args.classroom.currentActivity].name : "")),
+            m('small', (args.classroom.currentActivity !== null ? "Current activity: " + args.activities[args.classroom.currentActivity].name : "")),
             m('button.pull-right', {
               'style': (mode !== 'edit' ? 'display: none' : ''),
               'onclick': function() {
-                if (typeof args.classroom.currentActivity === 'undefined')
+                if (args.classroom.currentActivity === null)
                   $('#launch-activity-modal').modal('show');
                 else {
                   ctrl.mode = 'live';
                   m.redraw(true);
                 }
               }
-            }, (typeof args.classroom.currentActivity === 'undefined' ? "Launch activity" : "Resume activity")),
+            }, (args.classroom.currentActivity === null ? "Launch activity" : "Resume activity")),
             m('button.pull-right', {
-              'style': (mode === 'edit' && typeof args.classroom.currentActivity !== 'undefined' ? '' : 'display: none'),
+              'style': (mode === 'edit' && args.classroom.currentActivity !== null ? '' : 'display: none'),
               'onclick': function(e) {
                 args.teacher.sendAction('end-activity-in-classroom', args.classroom.id);
               }
