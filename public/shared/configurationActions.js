@@ -68,12 +68,21 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       });
 
     stm.action('create-group-in-classroom')
-      .onReceive(function(app) {
-        var key = findNextKey(this.groups);
+      .onReceive(function(classroomId, app) {
+        var classroom = this.classrooms[classroomId];
+        var initialStates;
+        if (classroom.currentActivity !== null) {
+          initialStates = {};
+          _.values(this.activities[classroom.currentActivity].phases).forEach(function(phase) {
+            initialStates[phase.id] = phase.initialState;
+          });
+        }
+        var key = findNextKey(classroom.groups);
         var name = "Group " + (key + 1);
-        this.groups[key] = {
+        classroom.groups[key] = {
           'id': key,
-          'name': name
+          'name': name,
+          'states': initialStates
         };
       });
 

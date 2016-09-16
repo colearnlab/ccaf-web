@@ -97,7 +97,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               m('img.add-instance-button', {
                 'style': (!(mode === 'edit') ? 'display:none;':''),
                 'onclick': function(e) {
-                  args.classroom.sendAction('create-group-in-classroom', null);
+                  args.teacher.sendAction('create-group-in-classroom', classroom.id, null);
                   e.stopPropagation();
                 },
                 'width': '64px',
