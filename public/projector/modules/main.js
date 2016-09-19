@@ -11,11 +11,15 @@
 
 module = null;
 
-define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'cookies', 'modal', 'configurationActions', 'interact'], function(exports, checkerboard, m, autoconnect, login, cookies, modal, configurationActions, interact) {
-  /* jshint ignore:start */
+define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'cookies', 'modal', 'configurationActions', 'clientUtil', 'underscore'], function(exports, checkerboard, m, autoconnect, login, cookies, modal, configurationActions, clientUtil, _) {
   var wsAddress = 'wss://' + window.location.hostname;
-  /* jshint ignore:end */
   var stm = new checkerboard.STM(wsAddress);
+
+  var gup = clientUtil.gup;
+
+  var teacherId = gup('teacher');
+  var classroomId = gup('classroom');
+  var studentGroupMapping;
 
   // autoconnect will detect a WebSocket disconnect, show a modal and try to reconnect.
   autoconnect.monitor(stm.ws);
@@ -35,34 +39,43 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     configurationActions.load(stm);
     store.sendAction('init');
 
-    store.addObserver(function(){});
+    var oldProjections;
+    store.teachers[teacherId].classrooms[classroomId].addObserver(function(newClassroom, oldClassroom) {
+      studentGroupMapping = newClassroom.studentGroupMapping;
+      var projections = _.values(newClassroom.students)
+        .filter(function(student) {
+          return newClassroom.currentActivity !== null && student.projected;
+        })
+        .map(function(student) {
+          return {'id': student.id, 'group': studentGroupMapping[student.id]};
+        });
 
-    var root = document.getElementById('root');
-    login.display(root, {'student': false, 'store': store}, function(classroom) {
-      m.mount(root, m.component(panelComponent, {'classroom': classroom, 'classroomName': store.classrooms[classroom].name, 'panels': store.classrooms[classroom].projections}));
-      store.classrooms[classroom].projections.addObserver(function(classroom, oldClassroom) {
-        m.redraw(true);
-      });
+      if (JSON.stringify(projections) != JSON.stringify(oldProjections)) {
+        m.render(document.getElementById('root'), m.component(panelComponent, projections));
+        oldProjections = projections;
+      }
     });
   });
 
+
+
   var panelComponent = {
-    'view': function(ctrl, args) {
-      var panels = _.values(args.panels);
-      var numTiles = panels.length;
+    'view': function(ctrl, projections) {
+      var numTiles = projections.length;
       var tileClass = '.tile' + numTiles;
 
       if (numTiles === 0)
-        modal.display("Projecting " + args.classroomName, {dismissable:false});
+        modal.display("Projecting", {dismissable:false});
       else
         modal.close();
 
       return m('div.panelHolder', {
         'style': 'column-count: ' + (numTiles < 4 ? numTiles : numTiles / 2)
-      }, panels.map(function(panel) {
+      }, projections.map(function(projection) {
         return m('div.appPanel' + tileClass,
           m('iframe', {
-            'src': 'client?classroom=' + args.classroom + '&instance=' + panel.instanceId
+            'key': projection.id,
+            'src': 'client?mode=student&teacher=' + teacherId + '&classroom=' + classroomId + '&group=' + projection.group + '&student=' + projection.id
           })
         );
       }));

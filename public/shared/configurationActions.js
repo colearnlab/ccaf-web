@@ -119,7 +119,12 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       .onReceive(function(newProps) {
         for (var p in newProps)
           this[p] = newProps[p];
-      })
+      });
+
+    stm.action('toggle-project-on-student')
+      .onReceive(function() {
+        this.projected = !this.projected;
+      });
 
     /* associate-user-to-instance: associates a user to an instance on the state it
      * is called on.
@@ -201,6 +206,11 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
 
       this.classrooms[classroomId].currentActivity = null;
       this.classrooms[classroomId].currentRecording = null;
+
+      _.values(this.classrooms[classroomId].students).forEach(function(student) {
+        student.projected = false;
+      });
+      
     });
   };
   /* --- support functions --- */

@@ -50,6 +50,11 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             " ",
             m('small', (args.classroom.currentActivity !== null ? "Current activity: " + args.activities[args.classroom.currentActivity].name : "")),
             m('button.pull-right', {
+              'onclick': function() {
+                window.open('projector?teacher=' + args.teacher.id + '&classroom=' + args.classroom.id)
+              }
+            }, "Projector"),
+            m('button.pull-right', {
               'style': (mode !== 'edit' ? 'display: none' : ''),
               'onclick': function() {
                 if (args.classroom.currentActivity === null)
@@ -194,7 +199,14 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             return m('div' + (mode === 'edit' ? '.student-entry' : '.student-entry-notouch'), {
               'key': student.id,
               'data-student': student.id
-            }, student.name || student.email);
+            }, student.name || student.email,
+              m('span.glyphicon.glyphicon-facetime-video.pull-right.project-button', {
+                'style': 'color: ' + (student.projected ? 'orange' : 'gray'),
+                'onclick': function(e) {
+                  student.sendAction('toggle-project-on-student');
+                }
+              })
+            );
           })
         ),
         m('div.instance-footer',
