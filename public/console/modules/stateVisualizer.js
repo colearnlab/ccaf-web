@@ -95,7 +95,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
                   if (studentGroupMapping[student] == pair[0])
                     studentsInGroup.push(students[student]);
 
-                return m.component(GroupCard, {'students': students, 'group': group, 'studentsInGroup': studentsInGroup});
+                return m.component(GroupCard, {'classroom': args.classroom, 'students': students, 'group': group, 'studentsInGroup': studentsInGroup});
               })
             ),
             m('div.add-instance-container',
@@ -130,17 +130,18 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           })
         ),
         m('div#student-list',
-          _.values(args.classroom.students)
-            .filter(function(student) {
-              console.log(typeof args.classroom.studentGroupMapping[student.id] === 'undefined');
-              return (typeof args.classroom.studentGroupMapping[student.id] === 'undefined');
-            })
-            .map(function(student) {
-              return m('div' + (mode === 'edit' ? '.student-entry' : '.student-entry-notouch'), {
-                'key': student.id,
-                'data-student': student.id
-              }, student.name || student.email);
-            })
+          m('div',
+            _.values(args.classroom.students)
+              .filter(function(student) {
+                return (typeof args.classroom.studentGroupMapping[student.id] === 'undefined');
+              })
+              .map(function(student) {
+                return m('div' + (mode === 'edit' ? '.student-entry' : '.student-entry-notouch'), {
+                  'key': student.id,
+                  'data-student': student.id
+                }, student.name || student.email);
+              })
+          )
         )
       );
     }
@@ -201,7 +202,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               'data-student': student.id
             }, student.name || student.email,
               m('span.glyphicon.glyphicon-facetime-video.pull-right.project-button', {
-                'style': 'color: ' + (student.projected ? 'orange' : 'gray'),
+                'style': 'color: ' + (student.projected ? 'orange' : 'gray') + '; ' + (mode === 'edit' || args.classroom.currentActivity === null ? 'display: none;' : ''),
                 'onclick': function(e) {
                   student.sendAction('toggle-project-on-student');
                 }
@@ -312,7 +313,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           m('.modal-body',
             m('div.form-horizontal',
               m('.form-group',
-                m('p', "Enter a list of email addresses, separated by commas, spaces or newlines."),
+                m('p', "Enter a list of email addresses. (Seperated by commas, spaces or by adding a new line)"),
                 m('textarea.form-control', {
                   'oninput': function(e) {
                     ctrl.students = e.target.value;
@@ -325,6 +326,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
             m('button.btn.btn-default', {
               'data-dismiss': 'modal',
               'onclick': function() {
+                ctrl.students = "";
                 modal = false;
               }
             }, "Close"),
@@ -339,9 +341,10 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
                 });
 
                 modal = false;
+                ctrl.students = "";
                 m.redraw(true);
               }
-            }, "Save")
+            }, "Add")
           )
         )
       );
@@ -365,12 +368,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               m('.form-group',
                 m('.list-group',
                   _.values(args.activities).map(function(activity) {
-                    return m('.list-group-item' + (ctrl.activity === activity.id ? '.active' : ''), {
+                    return m('.list-group-item' + (ctrl.activity === activity.id ? '.active' : '') + (_.values(activity.phases).length > 0 ? '' : '.disabled'), {
                       'onclick': function() {
-                        ctrl.activity = activity.id;
+                        if (_.values(activity.phases).length > 0)
+                          ctrl.activity = activity.id;
                       }
                     },
-                      activity.name
+                      activity.name, " ", (_.values(activity.phases).length > 0 ? '' : m('small', "This activity has no phases"))
                     );
                   })
                 )
@@ -379,19 +383,22 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
           ),
           m('.modal-footer',
             m('button.btn.btn-default', {
-              'data-dismiss': 'modal'
+              'data-dismiss': 'modal',
+              'onclick': function() {
+                ctrl.activity = null;
+              }
             }, "Close"),
             m('button.btn.btn-primary#submit-new-class', {
               'data-dismiss': 'modal',
-              'disabled': ctrl.app === null,
+              'disabled': ctrl.activity === null,
               'onclick': function(e) {
                 args.teacher.sendAction('launch-activity-in-classroom', classroom.id, ctrl.activity);
                 _ctrl.mode = 'live';
                 ctrl.activity = null;
-                $('#add-phase-modal').modal('hide');
+                $('#launch-activity-modal').modal('hide');
                 m.redraw(true);
               }
-            }, "Add")
+            }, "Launch!")
           )
         )
       );

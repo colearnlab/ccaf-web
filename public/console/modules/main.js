@@ -26,7 +26,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
     // load actions from shared source and initialize
     configurationActions.load(stm);
     store.sendAction('init');
-    store.addObserver(function(){});
 
     loginHelper.login(function(email, _user) {
       var user = getTeacher(email);
@@ -34,13 +33,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
         store.sendAction('add-teacher', _user.displayName, email);
       user = getTeacher(email);
 
-      store.teachers[user].addObserver(function(newStore, oldStore) {
-        if (oldStore === null)
-          m.mount(root, m.component(Main, {'teacher': newStore, 'apps': store.apps, 'user': user}));
+      //store.teachers[user].addObserver(function(newStore, oldStore) {
+      //  if (oldStore === null)
+          m.mount(root, m.component(Main, {'teacher': store.teachers[user], 'apps': store.apps, 'user': user}));
 
-        if (state !== 'activity-editor')
-          m.redraw(true);
-      });
+    //    if (state !== 'activity-editor')
+    //      m.redraw(true);
+    //  });
     });
 
     function getTeacher(email) {
@@ -116,7 +115,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                   " ",
                   (classroom.currentActivity !== null ? m('small', "Current activity: ", args.teacher.activities[classroom.currentActivity].name) : ''),
                   m('span.glyphicon.glyphicon-remove.pull-right', {
-                    'style': 'color: gray',
+                    'style': 'color: gray; ' + (classroom.currentActivity !== null ? 'display: none;' : ''),
                     'onclick': function(e) {
                       $('#delete-class-modal').modal('show');
                       classToDelete = pairs[0];
@@ -130,14 +129,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
           m('div.call-to-action', {
               'style': _.keys(args.teacher.classrooms).length > 0 ? 'display: none' : ''
             },
-            "You have no classes! ",
-            m('span', {
-              'style': 'text-decoration: underline',
+            m('a', {
+              'style': 'text-decoration: underline; cursor: pointer',
               'onclick': function(e) {
                 $('#create-class-modal').modal('show');
               }
             }, "Click here"),
-            " to add one."
+            " to add a new class."
           )
         )
       );
@@ -169,7 +167,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
                   },
                   activity.name,
                   m('span.glyphicon.glyphicon-remove.pull-right', {
-                    'style': 'color: gray',
+                    'style': 'color: gray; ' + (_.values(args.teacher.classrooms).map(function(c) { return c.currentActivity; }).indexOf(parseInt(pairs[0])) > -1 ? 'display: none' : ''),
                     'onclick': function(e) {
                       $('#delete-activity-modal').modal('show');
                       activityToDelete = pairs[0];
@@ -183,14 +181,13 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
           m('div.call-to-action', {
               'style': _.keys(args.teacher.activities).length > 0 ? 'display: none' : 'padding: 0 1em 0 1em'
             },
-            "You have no activities", (_.keys(args.teacher.classrooms).length > 0 ? "! " : ", either! "),
-            m('span', {
-              'style': 'text-decoration: underline',
+            m('a', {
+              'style': 'text-decoration: underline; cursor: pointer',
               'onclick': function(e) {
                 $('#create-activity-modal').modal('show');
               }
             }, "Click here"),
-            " to create an activity."
+            " to add a new activity."
           )
         )
       );
@@ -228,7 +225,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
               ),
               m('.form-group',
                 m('label',   "Students"),
-                m('p', "Enter a list of email addresses, separated by commas, spaces or newlines. (You can always add more later)."),
+                m('p', "Enter a list of email addresses. (Seperated by commas, spaces or by adding a new line)"),
                 m('textarea.form-control', {
                   'oninput': function(e) {
                     ctrl.students = e.target.value;
@@ -321,7 +318,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
           m('.modal-footer',
             m('button.btn.btn-default', {
               'data-dismiss': 'modal'
-            }, "Take me back"),
+            }, "Cancel"),
             m('button.btn.btn-danger', {
               'data-dismiss': 'modal',
               'onclick': function() {
@@ -348,7 +345,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'modal', 'c
           m('.modal-footer',
             m('button.btn.btn-default', {
               'data-dismiss': 'modal'
-            }, "Take me back"),
+            }, "Cancel"),
             m('button.btn.btn-danger', {
               'data-dismiss': 'modal',
               'onclick': function() {

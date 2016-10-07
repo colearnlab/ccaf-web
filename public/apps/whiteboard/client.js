@@ -1,9 +1,10 @@
 define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil, exports, m, fileManager) {
-  var canvasHeight = 5000;
+  var canvasHeight = 3000, canvasWidth = 1200;
+  var canvas;
   var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
   exports.load = function(el, action, store, params) {
 
-    var deviceState, canvas, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 10};
+    var deviceState, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 3};
     var pdfContainer;
     var hCanvas, hCtx;
     var curPath = {}, lastPath = [];
@@ -12,11 +13,11 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
     var frame = null;
     var drawPaths = function() {
       if (frame == null)
-        return frame = requestAnimationFrame(drawPaths);
+        return frame = setTimeout(function() { requestAnimationFrame(drawPaths); }, 50);
 
       var path;
       oldPaths = oldPaths || [];
-      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].filter(Boolean).length > newPaths[i].filter(Boolean).length; })) {
+      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].length > newPaths[i].length; })) {
         oldPaths = [];
         curPath = {};
         clearScreen();
@@ -41,26 +42,65 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
           curCtx = ctx;
 
         curCtx.shadowColor = curCtx.strokeStyle = newPath[0].strokeStyle;
-        curCtx.lineWidth = newPath[0].lineWidth;
         curCtx.lineCap = curCtx.lineJoin = "round";
-        curCtx.shadowBlur = 1;
 
 
         path = newPath;
 
-        var j = oldPaths[i] ? oldPaths[i].filter(Boolean).length : 1;
+        var j = oldPaths[i] ? oldPaths[i].length : 1;
         for (; j < newPaths[i].length; j++) {
           if (!path[j])
             continue;
 
           curCtx.beginPath();
-
+          var threeAgo, twoAgo, oneAgo, cur = path[j];
           if (path[j-1] && path[j - 1].x)
-            curCtx.moveTo(path[j - 1].x, path[j - 1].y);
+            oneAgo = {x:path[j-1].x, y:path[j-1].y};
           else
-            curCtx.moveTo(path[j].x - 1, path[j].y);
+            oneAgo = {x: path[j].x-1, y:path[j].y};
 
-          curCtx.lineTo(path[j].x, path[j].y);
+          if (path[j-2] && path[j-2].x) {
+            twoAgo = {x:path[j-2].x, y:path[j-2].y};
+            if(Math.sqrt((twoAgo.x-oneAgo.x)*(twoAgo.x-oneAgo.x) + (twoAgo.y-oneAgo.y)*(twoAgo.y-oneAgo.y)) > 10) {
+              twoAgo.x = (twoAgo.x + oneAgo.x)/2;
+              twoAgo.y = (twoAgo.y + oneAgo.y)/2;
+            }
+          }
+
+          if (path[j-3] && path[j-3].x) {
+            threeAgo = {x:path[j-3].x, y:path[j-3].y};
+            if(Math.sqrt((threeAgo.x-twoAgo.x)*(threeAgo.x-twoAgo.x) + (threeAgo.y-twoAgo.y)*(threeAgo.y-twoAgo.y)) > 5) {
+              threeAgo.x = (threeAgo.x + twoAgo.x)/2;
+              threeAgo.y = (threeAgo.y + twoAgo.y)/2;
+            }
+          }
+
+
+          if (threeAgo)
+            ctx.moveTo(threeAgo.x, threeAgo.y);
+          else if (twoAgo)
+            ctx.moveTo(twoAgo.x, twoAgo.y);
+          else
+            ctx.moveTo(oneAgo.x, oneAgo.y);
+
+          //if (twoAgo)
+          //  curCtx.lineWidth = 15/Math.sqrt((oneAgo.x - cur.x)*(oneAgo.x - cur.x) + (oneAgo.y - cur.y)*(oneAgo.y - cur.y)) * newPath[0].lineWidth;
+          //else
+            curCtx.lineWidth = newPath[0].lineWidth;
+
+          if (curCtx.lineWidth < newPath[0].lineWidth - 1)
+            curCtx.lineWidth = newPath[0].lineWidth - 1;
+
+          if (curCtx.lineWidth > newPath[0].lineWidth + 3)
+            curCtx.lineWidth = newPath[0].lineWidth + 3;
+
+          if (threeAgo)
+            curCtx.bezierCurveTo(twoAgo.x, twoAgo.y, oneAgo.x, oneAgo.y, cur.x, cur.y);
+          if (twoAgo)
+            curCtx.quadraticCurveTo(oneAgo.x, oneAgo.y, cur.x, cur.y);
+          else
+            curCtx.lineTo(cur.x, cur.y);
+
           curCtx.closePath();
           curCtx.stroke();
         }
@@ -75,18 +115,28 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
     resizeCanvas();
     clearScreen();
 
-    var newPaths, oldPaths, notDrawn = false;
-    deviceState.paths.addObserver(function(_newPaths, _oldPaths) {
+    var newPaths, oldPaths, _oldPaths, notDrawn = false;
+    var pathObserver = function(_newPaths) {
       newPaths = _newPaths;
       if (!notDrawn) {
         oldPaths = _oldPaths;
         notDrawn = true;
         drawPaths();
       }
-    });
+
+      _oldPaths = [];
+      for (var i = 0; i < _newPaths.length; i++) {
+        if (newPaths[i])
+          _oldPaths[i] = {'length': _newPaths[i].length};
+      }
+
+    };
+
+    pathObserver.noOld = true;
+    deviceState.paths.addObserver(pathObserver);
 
     deviceState.cursors.addObserver(function(cursors, oldCursors) {
-      canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]) * window.innerWidth/1280;
+      canvas.canvasTop = (canvasHeight - cursors[params.mode === 'student' ? params.student : -1]) * window.innerWidth/canvasWidth;
       document.getElementById('pointers').style.transform = pdfContainer.style.transform = hCanvas.style.transform = canvas.style.transform = 'translate(0px,-' + canvas.canvasTop + 'px)';
 
       if (_.isEqual(cursors, oldCursors))
@@ -172,11 +222,13 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
 
     var drawing = false;
     function resizeCanvas() {
-      hCanvas.width = canvas.width = '1280';
-      hCanvas.height = canvas.height = canvasHeight * 1280 / window.innerWidth;
+      hCanvas.width = canvas.width = canvasWidth;
+      hCanvas.height = canvas.height = canvasHeight * canvasWidth / window.innerWidth;
       hCanvas.style.height = canvas.style.height = canvasHeight + 'px';
       ctx = canvas.getContext('2d');
+      ctx.translate(0.5, 0.5);
       hCtx = hCanvas.getContext('2d');
+      hCtx.translate(0.5, 0.5);
 
       if (!drawing && !store.pdf) {
         while(pdfContainer.childNodes.length)
@@ -349,11 +401,11 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
       canvas.addEventListener('mousedown', function(e) {
         deviceState.sendAction('create-path', 0);
         console.log(e)
-        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
+        deviceState.sendAction('add-point', 0, e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
       });
 
       canvas.addEventListener('mousemove', function(e) {
-        deviceState.sendAction('add-point', 0, e.offsetX * 1280 / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
+        deviceState.sendAction('add-point', 0, e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
       });
 
       canvas.addEventListener('mouseup', function(e) {
@@ -369,13 +421,22 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
         for (var i = 0; i < e.changedTouches.length; i++) {
           touch = e.changedTouches[i];
           deviceState.sendAction('create-path', touch.identifier + 1);
-          deviceState.sendAction('add-point', touch.identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / canvasHeight);
+          var rect = e.target.getBoundingClientRect();
+          var offsetX = touch.pageX - rect.left;
+          var offsetY = touch.pageY - rect.top;
+          deviceState.sendAction('add-point', touch.identifier + 1, offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50);
         }
       });
 
       canvas.addEventListener('touchmove', function(e) {
-        for (var i = 0; i < e.changedTouches.length; i++)
-        deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, e.changedTouches[i].clientX * 1280 / window.innerWidth, (e.changedTouches[i].clientY + canvas.canvasTop) * canvas.height / canvasHeight);
+        var touch;
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          touch = e.changedTouches[i];
+          var rect = e.target.getBoundingClientRect();
+          var offsetX = touch.pageX - rect.left;
+          var offsetY = touch.pageY - rect.top;
+          deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50);
+        }
       });
 
       canvas.addEventListener('touchend', function(e) {
@@ -709,19 +770,19 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
 
         },
         'onmousedown': function(e) {
-          args.pointers[args.cursor].sendAction('update-pointer', e.pageX, e.pageY);
+          args.pointers[args.cursor].sendAction('update-pointer', e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
         },
         'onmouseup': function(e) {
           args.pointers[args.cursor].sendAction('update-pointer', -1, -1);
         },
         'onmousemove': function(e) {
           if (e.buttons > 0)
-            args.pointers[args.cursor].sendAction('update-pointer', e.pageX, e.pageY);
+            args.pointers[args.cursor].sendAction('update-pointer', e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
         }
       },
         _.pairs(args.pointers).map(function(pair) {
           return m('div.pointer', {
-            'style': 'top: ' + (pair[1].y-50) + 'px; left: ' + pair[1].x + 'px; background-color: ' + colorHash(pair[0]) + '; opacity: ' + (pair[1].x < 0 ? '0;' : '1;')
+            'style': 'top: ' + (((pair[1].y-50)*canvasHeight/canvas.height)) + 'px; left: ' + (pair[1].x * window.innerWidth / canvasWidth) + 'px; background-color: ' + colorHash(pair[0]) + '; opacity: ' + (pair[1].x < 0 ? '0;' : '1;')
           });
         })
       );

@@ -10,13 +10,8 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       .onReceive(function() {
         this.teachers = this.teachers || {};
 
-        // moved
-        this.classrooms = null;
-
         for (var teacher in this.teachers) {
           teacher = this.teachers[teacher];
-
-          teacher.currentActivity = teacher.currentActivity === null ? null : teacher.currentActivity;
 
           teacher.activities = teacher.activities || {};
           for (var activity in teacher.activities) {
@@ -208,9 +203,10 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       this.classrooms[classroomId].currentRecording = null;
 
       _.values(this.classrooms[classroomId].students).forEach(function(student) {
+        student.currentPhase = -1;
         student.projected = false;
       });
-      
+
     });
   };
   /* --- support functions --- */

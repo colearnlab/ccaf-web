@@ -16,7 +16,7 @@ module = null;
 define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurationActions', 'loginHelper'], function(exports, checkerboard, m, autoconnect, configurationActions, loginHelper) {
   var wsAddress = 'wss://' + window.location.host;
   var stm = new checkerboard.STM(wsAddress);
-  stm.sync(100);
+  stm.sync(25);
 
   // autoconnect will detect a WebSocket disconnect, show a modal and try to reconnect.
   autoconnect.monitor(stm.ws);
@@ -34,7 +34,6 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
 
   var currentClassroom, appWs;
   stm.init(function(store) {
-    store.addObserver(function(){});
     configurationActions.load(stm);
 
     /* --- Start of code run on initialization --- */
@@ -74,52 +73,51 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
       });
     } else {
       document.body.removeChild(document.getElementById('statusbar'));
-      loginHelper.login(function(email, user) {
-        store.addObserver(function(newStore, oldStore) {
-          if (oldStore === null)
-            m.mount(document.getElementById('root'), m.component(Root, {'store': newStore, 'email': email, 'user': user}));
-          else {
-            if (typeof currentClassroom !== 'undefined' && (
-                 newStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].students[currentClassroom.studentId].currentPhase !== oldStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].students[currentClassroom.studentId].currentPhase
-              || newStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].studentGroupMapping[currentClassroom.studentId] !== oldStore.teachers[currentClassroom.teacherId].classrooms[currentClassroom.classroomId].studentGroupMapping[currentClassroom.studentId]
-            ))
-                {
-                  console.log('redraw!');
-                  m.render(root, m.component(Root, {'store': newStore, 'email': email, 'user': user}));
-                  m.redraw(true);
-                }
-          }
-          // redraw conditions:
+      loginHelper.login(function loginCallback(email, user, reload) {
+        var classrooms = [];
+        _.values(store.teachers).forEach(function(teacher) {
+          _.values(teacher.classrooms).forEach(function(classroom) {
+            _.values(classroom.students).forEach(function(student) {
+              if (student.email === email) {
+                classrooms.push({'teacherId': teacher.id, 'classroomId': classroom.id, 'groupId': classroom.studentGroupMapping[student.id], 'studentId': student.id});
+                student.sendAction('update-student', {'name': user.displayName});
+              }
+            });
+          });
         });
+
+        if (!reload && classrooms.length === 0) {
+          store.teachers.addObserver(function(newTeachers, oldTeachers) {
+            if (oldTeachers)
+              loginCallback(email, user, true);
+          });
+          m.render(document.getElementById('root'), NoClassroom);
+          return;
+        } else if (reload && classrooms.length > 0) {
+          location.reload();
+        }
+
+        currentClassroom = classrooms[0];
+        var teacherId = currentClassroom.teacherId;
+        var classroomId = currentClassroom.classroomId;
+        var groupId = currentClassroom.groupId;
+        var studentId = currentClassroom.studentId;
+
+        store.teachers[teacherId].classrooms[classroomId].students[studentId].addObserver(function(newStudent, oldStudent) {
+          if (!oldStudent || newStudent.currentPhase != oldStudent.currentPhase)
+            m.render(document.getElementById('root'), m.component(Classroom, _.extend({'store': store}, currentClassroom)));
+        });
+
+        store.teachers[teacherId].classrooms[classroomId].studentGroupMapping.addObserver(function(newMapping, oldMapping) {
+          if (!oldMapping || newMapping[studentId] != oldMapping[studentId]) {
+            currentClassroom.groupId = newMapping[studentId];
+            m.render(document.getElementById('root'), m.component(Classroom, _.extend({'store': store}, currentClassroom)));
+          }
+        });
+
       });
     }
   });
-
-  var Root = {
-    'view': function(__, args) {
-      var store = args.store;
-      var email = args.email;
-      var user = args.user;
-      var classrooms = [];
-      _.values(store.teachers).forEach(function(teacher) {
-        _.values(teacher.classrooms).forEach(function(classroom) {
-          _.values(classroom.students).forEach(function(student) {
-            if (student.email === email) {
-              classrooms.push({'teacherId': teacher.id, 'classroomId': classroom.id, 'groupId': classroom.studentGroupMapping[student.id], 'studentId': student.id});
-              student.sendAction('update-student', {'name': user.displayName});
-            }
-          });
-        });
-      });
-
-      if (classrooms.length === 0)
-        return m.component(NoClassroom);
-      else if (classrooms.length === 1) {
-        currentClassroom = classrooms[0];
-        return m.component(Classroom, _.extend({'store': store}, classrooms[0]));
-      }
-    }
-  }
 
   var NoClassroom = {
     'view': function(__, args) {
@@ -135,7 +133,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
       var group = classroom.groups[args.groupId];
       var student = classroom.students[args.studentId];
 
-      if (typeof classroom.currentActivity === 'undefined')
+      if (classroom.currentActivity == null)
         return m('.waiting-for-teacher', "Waiting for your teacher to launch an activity...");
       else if (typeof args.groupId === 'undefined')
         return m('.waiting-for-teacher', "Waiting for your teacher to add you to a group...");
@@ -169,7 +167,7 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
             }, m.trust('&nbsp;'))
           ),
           m('iframe.app-frame', {
-            'src': 'client?mode=student&teacher=' + args.teacherId + '&classroom=' + args.classroomId + '&group=' + args.groupId + '&student=' + args.studentId
+            'src': 'client?mode=student&teacher=' + args.teacherId + '&classroom=' + args.classroomId + '&group=' + args.groupId + '&student=' + args.studentId + '&phase=' + phase
           })
         );
       }

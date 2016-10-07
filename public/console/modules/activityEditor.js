@@ -81,7 +81,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
               ctrl.size = 'small';
             }
           },
-            "Editing phase ", args.phase.order, " (click ", m('span.underline', "here"), " to return)"
+            m('p', {'style': 'color: white; text-decoration: underline; cursor: pointer;'}, "Save phase")
         )
       );
     }
@@ -154,7 +154,7 @@ define('activityEditor', ['exports', 'mithril', 'underscore', 'interact'], funct
           m('.modal-footer',
             m('button.btn.btn-default', {
               'data-dismiss': 'modal'
-            }, "Take me back"),
+            }, "Cancel"),
             m('button.btn.btn-danger', {
               'data-dismiss': 'modal',
               'onclick': function() {

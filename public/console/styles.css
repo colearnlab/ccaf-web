@@ -96,7 +96,7 @@ html, body, .stretch {
   top: 101vh;
   left: 20vw;
   font-size: 32px;
-  width: 700px;
+  width: 300px;
   text-align: center;
   background-color: rgba(0, 0, 0, 0.25);
   border-radius: 5px;
@@ -220,6 +220,9 @@ html, body, .stretch {
 #student-list {
   margin: 0;
   padding-left: 0;
+  height: 90vh;
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
 .drop-active {

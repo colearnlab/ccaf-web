@@ -72,7 +72,7 @@
             'placeholder': "email address",
             'onkeypress': function(e) {
               if (e.keyCode === 13) {
-            	 location.href = "https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=28967180344-1gbtncntpn95jvtbuumha98j305ic8cr.apps.googleusercontent.com&redirect_uri=https://csteps.colearnlab.org/" + (args.ctrl.type === "Student" ? 'client' : 'console') + "&scope=profile%20email&login_hint=" + e.target.value;
+            	 location.href = "https://accounts.google.com/o/oauth2/v2/auth?response_type=token&client_id=28967180344-1gbtncntpn95jvtbuumha98j305ic8cr.apps.googleusercontent.com&redirect_uri=https://csteps.education.illinois.edu/" + (args.ctrl.type === "Student" ? 'client' : 'console') + "&scope=profile%20email&login_hint=" + e.target.value;
 	            }
             }
           });

@@ -40,20 +40,26 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
     store.sendAction('init');
 
     var oldProjections;
-    store.teachers[teacherId].classrooms[classroomId].addObserver(function(newClassroom, oldClassroom) {
-      studentGroupMapping = newClassroom.studentGroupMapping;
-      var projections = _.values(newClassroom.students)
+    var studentGroupMapping;
+    store.teachers[teacherId].classrooms[classroomId].studentGroupMapping.addObserver(function(newStudentGroupMapping) {
+      studentGroupMapping = newStudentGroupMapping;
+    });
+    store.teachers[teacherId].classrooms[classroomId].students.addObserver(function(students) {
+      var projections = _.values(students)
         .filter(function(student) {
-          return newClassroom.currentActivity !== null && student.projected;
+          return student.projected;
         })
         .map(function(student) {
-          return {'id': student.id, 'group': studentGroupMapping[student.id]};
+          return {'id': student.id, 'group': studentGroupMapping[student.id], 'currentPhase': student.currentPhase};
         });
 
-      if (JSON.stringify(projections) != JSON.stringify(oldProjections)) {
+      //if (JSON.stringify(projections) != JSON.stringify(oldProjections)) {
+        //debugger;
         m.render(document.getElementById('root'), m.component(panelComponent, projections));
-        oldProjections = projections;
-      }
+        //m.redraw(true);
+        //console.log('redraw!');
+        //oldProjections = projections;
+      //}
     });
   });
 
@@ -70,11 +76,11 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'login', 'c
         modal.close();
 
       return m('div.panelHolder', {
-        'style': 'column-count: ' + (numTiles < 4 ? numTiles : numTiles / 2)
+        //'style': 'column-count: ' + (numTiles < 4 ? numTiles : numTiles / 2)
       }, projections.map(function(projection) {
         return m('div.appPanel' + tileClass,
           m('iframe', {
-            'key': projection.id,
+            'key': projection.id + '' + projection.currentPhase,
             'src': 'client?mode=student&teacher=' + teacherId + '&classroom=' + classroomId + '&group=' + projection.group + '&student=' + projection.id
           })
         );
