@@ -2,8 +2,9 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
   var canvasHeight = 3000, canvasWidth = 1200;
   var canvas;
   var colors = ['#C72026', '#772787', '#20448E', '#499928', '#000000'];
-  exports.load = function(el, action, store, params) {
-
+  var redrawTriggered, params;
+  exports.load = function(el, action, store, _params) {
+    params = _params;
     var deviceState, ctx, pen = {'strokeStyle': colors[0], 'lineWidth': 3};
     var pdfContainer;
     var hCanvas, hCtx;
@@ -17,7 +18,8 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
 
       var path;
       oldPaths = oldPaths || [];
-      if (newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].length > newPaths[i].length; })) {
+      if (redrawTriggered || newPaths.filter(Boolean).length < oldPaths.filter(Boolean).length || newPaths.some(function(newPath, i) { return oldPaths[i] && oldPaths[i].length > newPaths[i].length; })) {
+        redrawTriggered = false;
         oldPaths = [];
         curPath = {};
         clearScreen();
@@ -52,15 +54,23 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
           if (!path[j])
             continue;
 
-          curCtx.beginPath();
           var threeAgo, twoAgo, oneAgo, cur = path[j];
+
+          if (cur.x < 0)
+            continue;
+
           if (path[j-1] && path[j - 1].x)
             oneAgo = {x:path[j-1].x, y:path[j-1].y};
           else
             oneAgo = {x: path[j].x-1, y:path[j].y};
 
+          if (oneAgo.x < 0)
+            continue;
+
           if (path[j-2] && path[j-2].x) {
             twoAgo = {x:path[j-2].x, y:path[j-2].y};
+            if (twoAgo.x < 0)
+              continue;
             if(Math.sqrt((twoAgo.x-oneAgo.x)*(twoAgo.x-oneAgo.x) + (twoAgo.y-oneAgo.y)*(twoAgo.y-oneAgo.y)) > 10) {
               twoAgo.x = (twoAgo.x + oneAgo.x)/2;
               twoAgo.y = (twoAgo.y + oneAgo.y)/2;
@@ -69,12 +79,15 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
 
           if (path[j-3] && path[j-3].x) {
             threeAgo = {x:path[j-3].x, y:path[j-3].y};
+            if (threeAgo.x < 0)
+              continue;
             if(Math.sqrt((threeAgo.x-twoAgo.x)*(threeAgo.x-twoAgo.x) + (threeAgo.y-twoAgo.y)*(threeAgo.y-twoAgo.y)) > 5) {
               threeAgo.x = (threeAgo.x + twoAgo.x)/2;
               threeAgo.y = (threeAgo.y + twoAgo.y)/2;
             }
           }
 
+          curCtx.beginPath();
 
           if (threeAgo)
             ctx.moveTo(threeAgo.x, threeAgo.y);
@@ -119,6 +132,11 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
     var pathObserver = function(_newPaths) {
       newPaths = _newPaths;
       if (!notDrawn) {
+        for (var i = 0; i < newPaths.length; i++) {
+          if (_oldPaths && _oldPaths[i] && newPaths[i] && _oldPaths[i][0] && newPaths[i][0] && newPaths[i][0].erased != _oldPaths[i][0].erased)
+            redrawTriggered = true;
+        }
+
         oldPaths = _oldPaths;
         notDrawn = true;
         drawPaths();
@@ -127,7 +145,7 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
       _oldPaths = [];
       for (var i = 0; i < _newPaths.length; i++) {
         if (newPaths[i])
-          _oldPaths[i] = {'length': _newPaths[i].length};
+          _oldPaths[i] = {'length': _newPaths[i].length, 0: {'erased': newPaths[i] && newPaths[i][0] ? newPaths[i][0].erased : 0}};
       }
 
     };
@@ -226,9 +244,9 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
       hCanvas.height = canvas.height = canvasHeight * canvasWidth / window.innerWidth;
       hCanvas.style.height = canvas.style.height = canvasHeight + 'px';
       ctx = canvas.getContext('2d');
-      ctx.translate(0.5, 0.5);
+      //ctx.translate(0.5, 0.5);
       hCtx = hCanvas.getContext('2d');
-      hCtx.translate(0.5, 0.5);
+      //hCtx.translate(0.5, 0.5);
 
       if (!drawing && !store.pdf) {
         while(pdfContainer.childNodes.length)
@@ -323,7 +341,7 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
       action('create-path')
         .onReceive(function(identifier) {
           if (typeof curPath[identifier] === 'undefined') {
-            this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
+            this.paths[this.paths.length] = [{'creator': params.student, 'erased': 0, 'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
             lastPath.push(curPath[identifier] = this.paths.length - 1);
             return 'paths.' + curPath[identifier];
           } else if (curPath[identifier] >= 0) {
@@ -331,10 +349,10 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
           } else {
             curPath[identifier] *= -1;
             if (!this.paths[curPath[identifier]]) {
-              this.paths[this.paths.length] = [{'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
+              this.paths[this.paths.length] = [{'creator': params.student, 'erased': 0, 'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight}];
               lastPath.push(curPath[identifier] = this.paths.length - 1);
             } else {
-              this.paths[curPath[identifier]][0] = {'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight};
+              this.paths[curPath[identifier]][0] = {'creator': params.student, 'erased': 0, 'strokeStyle': pen.strokeStyle, 'lineWidth': pen.lineWidth, 'highlight': currentTool === tools.highlight};
               lastPath.push(curPath[identifier]);
               return 'paths.' + curPath[identifier] + '.0';
             }
@@ -353,6 +371,23 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
             return 'paths.' + curPath[identifier] + '.' + (this.paths[curPath[identifier]].length - 1);
           }
           return false;
+        });
+
+      action('erase')
+        .onReceive(function(x, y, d) {
+          //console.log('erasing', x, y, d);
+          y -= 50;
+          for (var i = 0; i < this.paths.length; i++) {
+            for (var j = 1; j < this.paths[i].length; j++) {
+              var p = this.paths[i][j];
+              if (Math.sqrt((p.x - x) * (p.x - x) + (p.y - y) * (p.y - y)) <= d) {
+                //console.log('erased', i, j);
+                p.x = -1; p.y = -1;
+                this.paths[i][0].erased = (this.paths[i][0].erased + 1) || 0;
+                //setTimeout(resizeCanvas, 0);
+              }
+            }
+          }
         });
 
       action('end-path')
@@ -399,32 +434,44 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
 
     function initListeners() {
       canvas.addEventListener('mousedown', function(e) {
-        deviceState.sendAction('create-path', 0);
-        console.log(e)
-        deviceState.sendAction('add-point', 0, e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
+        if (currentTool == tools.eraser && e.buttons > 0)
+          deviceState.sendAction('erase', e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50, pen.lineWidth);
+        else {
+          deviceState.sendAction('create-path', 0);
+          deviceState.sendAction('add-point', 0, e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
+        }
       });
 
       canvas.addEventListener('mousemove', function(e) {
-        deviceState.sendAction('add-point', 0, e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
+        if (currentTool == tools.eraser && e.buttons > 0)
+          deviceState.sendAction('erase', e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50, pen.lineWidth);
+        else
+          deviceState.sendAction('add-point', 0, e.offsetX * canvasWidth / window.innerWidth, (e.offsetY) * canvas.height / canvasHeight + 50);
       });
 
       canvas.addEventListener('mouseup', function(e) {
-        deviceState.sendAction('end-path', 0);
+        if (currentTool != tools.eraser)
+          deviceState.sendAction('end-path', 0);
       });
 
       canvas.addEventListener('mouseleave', function(e) {
-        deviceState.sendAction('end-path', 0);
+        if (currentTool != tools.eraser)
+          deviceState.sendAction('end-path', 0);
       });
 
       canvas.addEventListener('touchstart', function(e) {
         var touch;
         for (var i = 0; i < e.changedTouches.length; i++) {
           touch = e.changedTouches[i];
-          deviceState.sendAction('create-path', touch.identifier + 1);
           var rect = e.target.getBoundingClientRect();
           var offsetX = touch.pageX - rect.left;
           var offsetY = touch.pageY - rect.top;
-          deviceState.sendAction('add-point', touch.identifier + 1, offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50);
+          if (currentTool == tools.eraser) {
+            deviceState.sendAction('erase', offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50, pen.lineWidth);
+          } else {
+            deviceState.sendAction('create-path', touch.identifier + 1);
+            deviceState.sendAction('add-point', touch.identifier + 1, offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50);
+          }
         }
       });
 
@@ -435,13 +482,17 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
           var rect = e.target.getBoundingClientRect();
           var offsetX = touch.pageX - rect.left;
           var offsetY = touch.pageY - rect.top;
-          deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50);
+          if (currentTool == tools.eraser)
+            deviceState.sendAction('erase', offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50, pen.lineWidth);
+          else
+            deviceState.sendAction('add-point', e.changedTouches[i].identifier + 1, offsetX * canvasWidth / window.innerWidth, (offsetY) * canvas.height / canvasHeight + 50);
         }
       });
 
       canvas.addEventListener('touchend', function(e) {
         for (var i = 0; i < e.changedTouches.length; i++)
-          deviceState.sendAction('end-path', e.changedTouches[i].identifier + 1);
+          if (currentTool != tools.eraser)
+            deviceState.sendAction('end-path', e.changedTouches[i].identifier + 1);
       });
 
       window.addEventListener('resize', function() {
@@ -698,16 +749,7 @@ define(['clientUtil', 'exports', 'mithril', 'fileManager'], function(clientUtil,
   };
 
   function colorHash(num) {
-    var r = 37, g = 569, b = 997;
-    if (num != -1) {
-      for (var i = 0; i < num; i++) {
-        r = (r * g + b) % 255;
-        b = (b * g + r) % 255;
-        g = (g * r + b) % 255;
-      }
-    }
-
-    return 'rgba(' + [r,g,b,0.9].join(',') + ')';
+    return params.colors[num];
   }
 
   var Slider = {

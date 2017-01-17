@@ -49,8 +49,18 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
 
       requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
         var params = {
-          'mode': 'projector'
+          'mode': 'projector',
+          'colors': {-1: }
         };
+
+        var studentsInGroup = [];
+        var studentGroupMapping = store.teachers[teacherId].classrooms[classroomId].studentGroupMapping;
+        var colors = ['#FFD400', '#EB6E23', '#325EAB', '#20A049'];
+        for (var s in studentGroupMapping) {
+          if (studentGroupMapping[s] == studentGroupMapping[student.id]) {
+            params.colors[s] = colors[params.colors.length];
+          }
+        }
 
         // The load function takes a root element, an action creator, the root store and the future paramters object.
         appModule.load(reRoot(), stm.action, initialState, params);
@@ -65,8 +75,19 @@ define('main', ['exports', 'checkerboard', 'mithril', 'autoconnect', 'configurat
 
       var params = {
         'mode': 'student',
-        'student': student.id
+        'student': student.id,
+        'colors': []
       };
+
+      var studentsInGroup = [];
+      var studentGroupMapping = store.teachers[teacherId].classrooms[classroomId].studentGroupMapping;
+      var colors = ['#FFD400', '#EB6E23', '#325EAB', '#20A049'];
+      for (var s in studentGroupMapping) {
+        if (studentGroupMapping[s] == studentGroupMapping[student.id]) {
+          params.colors[s] = colors[params.colors.length];
+        }
+      }
+      //params.color = colors[studentsInGroup.indexOf("" + student.id)];
 
       requirejs(['/apps/' + app + '/' + store.apps[app].client], function(appModule) {
         appModule.load(document.getElementById('root'), stm.action, store.teachers[teacherId].classrooms[classroomId].groups[gup('group')].states[phase], params);

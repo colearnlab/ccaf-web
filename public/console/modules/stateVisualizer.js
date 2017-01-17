@@ -95,7 +95,7 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
                   if (studentGroupMapping[student] == pair[0])
                     studentsInGroup.push(students[student]);
 
-                return m.component(GroupCard, {'classroom': args.classroom, 'students': students, 'group': group, 'studentsInGroup': studentsInGroup});
+                return m.component(GroupCard, {'teacher': args.teacher, 'classroom': args.classroom, 'students': students, 'group': group, 'studentsInGroup': studentsInGroup});
               })
             ),
             m('div.add-instance-container',
@@ -196,11 +196,13 @@ define('stateVisualizer', ['exports', 'mithril', 'underscore', 'interact'], func
               el.style['column-count'] = el.style['-webkit-column-count'] = 1;
           }
         },
-          args.studentsInGroup.map(function(student) {
+          args.studentsInGroup.map(function(student, i) {
+            var colors = ['#FFD400', '#EB6E23', '#325EAB', '#20A049'];
             return m('div' + (mode === 'edit' ? '.student-entry' : '.student-entry-notouch'), {
               'key': student.id,
               'data-student': student.id
-            }, student.name || student.email,
+            }, m('div.student-globe', {'style': 'background-color: ' + colors[i]}, m.trust('&nbsp;')), student.name || student.email, m.trust("&nbsp;"),
+            (args.classroom.currentActivity != null ? Array.apply(null, Array(_.values(args.teacher.activities[args.classroom.currentActivity].phases).sort(function(a, b) { return a.order - b.order}).length)).map(function (_, i) {if (i == student.currentPhase) return m('span', 'X'); else return m('span', {'onclick': function() { student.sendAction('update-student', {'currentPhase': i}) }}, 'O');}) : ''),
               m('span.glyphicon.glyphicon-facetime-video.pull-right.project-button', {
                 'style': 'color: ' + (student.projected ? 'orange' : 'gray') + '; ' + (mode === 'edit' || args.classroom.currentActivity === null ? 'display: none;' : ''),
                 'onclick': function(e) {

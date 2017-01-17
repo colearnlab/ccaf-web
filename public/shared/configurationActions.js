@@ -187,20 +187,24 @@ define('configurationActions', ['exports', 'underscore'], function(exports, _) {
       // mark that there is a live activity
       this.classrooms[classroomId].currentActivity = activityId;
 
-      this.classrooms[classroomId].currentRecording = findNextKey(this.recordings);
-      this.recordings[this.classrooms[classroomId].currentRecording] = {
-        'startTime': Date.now()
-      };
+      //this.classrooms[classroomId].currentRecording = findNextKey(this.recordings);
+      //this.recordings[this.classrooms[classroomId].currentRecording] = {
+      //  'startTime': Date.now()
+      //};
     });
 
   stm.action('end-activity-in-classroom')
     .onReceive(function(classroomId) {
-      var recording = this.recordings[this.classrooms[classroomId].currentRecording];
-      recording.image = JSON.parse(JSON.stringify(this.classrooms[classroomId]));
-      recording.endTime = Date.now();
+      //var recording = this.recordings[this.classrooms[classroomId].currentRecording];
+      //recording.image = JSON.parse(JSON.stringify(this.classrooms[classroomId]));
+      //recording.endTime = Date.now();
 
       this.classrooms[classroomId].currentActivity = null;
       this.classrooms[classroomId].currentRecording = null;
+
+      _.values(this.classrooms[classroomId].groups).forEach(function(group) {
+        group.states = null;
+      });
 
       _.values(this.classrooms[classroomId].students).forEach(function(student) {
         student.currentPhase = -1;
