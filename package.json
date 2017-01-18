@@ -17,12 +17,13 @@
   "dependencies": {
     "bootstrap": "^3.3.5",
     "checkerboard": "^0.4.0",
+    "express": "^4.14.0",
     "interact.js": "^1.2.6",
-    "mithril": "^0.2.0",
-    "requirejs": "^2.1.20",
-    "underscore": "^1.8.3",
     "jquery": "~2.2.4",
-    "pdfjs-dist": "~1.5.454"
+    "mithril": "^0.2.0",
+    "pdfjs-dist": "~1.5.454",
+    "requirejs": "^2.1.20",
+    "underscore": "^1.8.3"
   },
   "scripts": {
     "install": "node build"

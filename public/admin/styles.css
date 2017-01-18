@@ -1,0 +1,21 @@
+.edit-box-feedback {
+  color: green;
+  transition: opacity 0.25s;
+}
+
+.edit-box-feedback-off {
+  opacity: 0;
+}
+
+.edit-box-feedback-on {
+  opacity: 1;
+}
+
+.user-listing thead tr th {
+  width: 300px;
+}
+
+.user-listing-add-user {
+  font-style: italic;
+  text-align: center;
+}
