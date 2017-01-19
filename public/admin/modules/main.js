@@ -16,7 +16,9 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
             m("ul.nav.nav-pills.nav-stacked",
               // Take the mapping of links; turn them into pairs; turn each pair into a list item
               // with an anchor to the key and the text of the value.
-              _.pairs(ctrl.links).map(function(pair) { return m("li" + (location.hash.slice(2) === pair[0] ? ".active" : ""), m("a[href=#/" + pair[0] + "]", pair[1])); })
+              _.pairs(ctrl.links).map(function(pair) {
+                  return m("li" + (location.hash.slice(2) === pair[0] ? ".active" : ""), m("a[href=#/" + pair[0] + "]", pair[1]));
+              })
             )
           ),
           m("div.col-sm-8.col-md-9",
