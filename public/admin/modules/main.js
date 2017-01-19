@@ -65,7 +65,9 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
         },
         user.name)),
         m("td", user.email),
-        m("td", user.type.charAt(0).toUpperCase() + user.type.slice(1))
+        m("td", user.type, m.trust("&nbsp;&nbsp;&nbsp;  "), m("span.glyphicon.glyphicon-remove", {
+          onclick: args.triggerDelete
+        }))
       )
     }
   };
@@ -74,11 +76,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
     controller: function(args) {
       return {
         users: User.list(args.type),
-        editingUser: null
+        editingUser: null,
+        deletingUser: null
       };
     },
     view: function(ctrl, args) {
-      var userEditModal = m.component(UserEditModal);
       return m("div",
         (ctrl.editingUser ? m.component(UserEditModal, {
             user: ctrl.editingUser,
@@ -88,6 +90,14 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
               m.endComputation();
             }
           }) : ""),
+          (ctrl.deletingUser ? m.component(UserDeleteModal, {
+              user: ctrl.deletingUser,
+              endDelete: function() {
+                ctrl.users = User.list(args.type);
+                ctrl.deletingUser = null;
+                m.endComputation();
+              }
+            }) : ""),
         m("table.table.table-striped.user-listing",
           m("thead",
             m("tr",
@@ -102,13 +112,20 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
                 user: user,
                 triggerEdit: function() {
                   ctrl.editingUser = user;
+                },
+                triggerDelete: function() {
+                  ctrl.deletingUser = user;
                 }
               });
             }),
             m("tr",
               m("td[colspan=3].user-listing-add-user", m("a", {
                 onclick: function() {
-                  ctrl.editingUser = {};
+                  ctrl.editingUser = {
+                    name: "New user",
+                    email: "",
+                    type: args.type
+                  };
                 }
               },
               "Click to add"))
@@ -219,6 +236,56 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
               disabled: ctrl.saving,
               onclick: submit
             }, "Save")
+          )
+        )
+      );
+    }
+  };
+
+  var UserDeleteModal = {
+    'view': function(ctrl, args) {
+      return m('.modal.fade#user-delete-modal', {
+          config: function() {
+            $("#user-delete-modal").modal({
+              backdrop: "static"
+            });
+            $("#user-delete-modal").modal("show");
+          }
+        },
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Delete user?")
+          ),
+          m('.modal-body',
+            "Are you sure you want to delete this user? All classrooms and activities belonging to this user will also be deleted. This cannot be undone."
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              'data-dismiss': 'modal'
+            }, "Cancel"),
+            m('button.btn.btn-danger', {
+              'data-dismiss': 'modal',
+              'onclick': function() {
+                m.startComputation();
+                $.ajax({
+                  type: "DELETE",
+                  data: args.user,
+                  url: "/api/v1/users",
+                  success: function() {
+                    $("#user-delete-modal").modal("hide");
+                    args.endDelete();
+                  },
+                  error: function(jqxhr) {
+                    if (jqxhr.status == 401) {
+                      alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
+                    } else {
+                      alert("Server error. Try your request again later.");
+                    }
+                    args.endDelete();
+                  }
+                })
+              }
+            }, "Delete!")
           )
         )
       );
