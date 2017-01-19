@@ -15,9 +15,22 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
           m("div.col-sm-4.col-md-3",
             m("ul.nav.nav-pills.nav-stacked",
               // Take the mapping of links; turn them into pairs; turn each pair into a list item
-              // with an anchor to the key and the text of the value.
+              // with an link to the key and the text of the value.
               _.pairs(ctrl.links).map(function(pair) {
-                  return m("li" + (location.hash.slice(2) === pair[0] ? ".active" : ""), m("a[href=#/" + pair[0] + "]", pair[1]));
+                var hash = pair[0],
+                    linkText = pair[1];
+
+                // If this button refers to the active pane, mark as active.
+                // We slice because m.route() returns with a leading slash.
+                return m("li", {
+                    class: (m.route().slice(1) === pair[0] ? "active" : "")
+                  },
+                  m("a", {
+                      href: "#/" + hash
+                    },
+                    linkText
+                  )
+                );
               })
             )
           ),
@@ -38,38 +51,49 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
 
   // User methods.
   var User = function User(name, email, type){
-    this.name = name;
-    this.email = email;
-    this.type = type;
+    this.name = name || "New user";
+    this.email = email || "";
+    this.type = type || "";
   }
 
   // Return a list of all users of a certain type.
   User.list = function(type) {
-    return m.request({method: "GET", url: "/api/v1/users"}).then(function(users) {
-      if (typeof type === "undefined")
-        return users.data;
-      else
-        return users.data.filter(function(user) { return user.type === type });
-    })
+    return m.request({
+      method: "GET",
+      url: "/api/v1/users"
+    }).then(function(users) {
+        if (typeof type === "undefined")
+          return users.data;
+        else
+          return users.data.filter(function(user) { return user.type === type });
+      }
+    )
   };
 
+  // This is a row in the user table, withoptions to click a user"s name to
+  // bring up an edit modal and to click a delete button to bring up a delete
+  // modal. Since the logic for the edit and delete dialogs are in the parent
+  // component, the parent component provides triggerEdit and triggerDelete
+  // functions to allow this component to trigger an edit or delete.
   var UserRow = {
-    controller: function(args) {
-      return {
-        editInitial: args.editInitial
-      };
-    },
     view: function(ctrl, args) {
-      var user = args.user;
       return m("tr",
         m("td", m("a", {
-          onclick: args.triggerEdit
-        },
-        user.name)),
-        m("td", user.email),
-        m("td", user.type, m.trust("&nbsp;&nbsp;&nbsp;  "), m("span.glyphicon.glyphicon-remove", {
-          onclick: args.triggerDelete
-        }))
+            onclick: args.triggerEdit
+          },
+          args.user.name)
+        ),
+        m("td",
+          args.user.email
+        ),
+        m("td",
+          args.user.type,
+          m.trust("&nbsp;&nbsp;&nbsp;"),
+          m("span.glyphicon.glyphicon-remove", {
+              onclick: args.triggerDelete
+            }
+          )
+        )
       )
     }
   };
@@ -78,38 +102,60 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
     controller: function(args) {
       return {
         users: User.list(args.type),
+        // editingUser is the user that is currently being edited. When a user
+        // is selected to be edited this property is filled in.
         editingUser: null,
+        // Similar to editingUser, when a user is selected to be deleted this
+        // property is filled in.
         deletingUser: null
       };
     },
     view: function(ctrl, args) {
       return m("div",
-        (ctrl.editingUser ? m.component(UserEditModal, {
-            user: ctrl.editingUser,
-            endEdit: function() {
-              ctrl.users = User.list(args.type);
-              ctrl.editingUser = null;
-              m.endComputation();
-            }
-          }) : ""),
-          (ctrl.deletingUser ? m.component(UserDeleteModal, {
-              user: ctrl.deletingUser,
-              endDelete: function() {
-                ctrl.users = User.list(args.type);
-                ctrl.deletingUser = null;
-                m.endComputation();
+        (ctrl.editingUser
+          ? m.component(UserEditModal, {
+                user: ctrl.editingUser,
+                endEdit: function() {
+                  // When the modal is closed, reload the user list, clear the
+                  // currently edited user, and end the asynchronous process
+                  // to trigger a redraw.
+                  ctrl.users = User.list(args.type);
+                  ctrl.editingUser = null;
+                  m.endComputation();
+                }
               }
-            }) : ""),
+            )
+          : ""),
+        (ctrl.deletingUser
+          ? m.component(UserDeleteModal, {
+                user: ctrl.deletingUser,
+                endDelete: function() {
+                  // Similar to endEdit.
+                  ctrl.users = User.list(args.type);
+                  ctrl.deletingUser = null;
+                  m.endComputation();
+                }
+              }
+            )
+          : ""),
         m("table.table.table-striped.user-listing",
           m("thead",
             m("tr",
-              m("th", "Name"),
-              m("th", "Email"),
-              m("th", "User type")
+              m("th",
+                "Name"
+              ),
+              m("th",
+                "Email"
+              ),
+              m("th",
+                "User type"
+              )
             )
           ),
           m("tbody",
-            (ctrl.users() || []).map(function(user) {
+            ctrl.users().map(function(user) {
+              // The user component is passed the user to display, as well
+              // as functions it can call to trigger edit and delete modals.
               return m.component(UserRow, {
                 user: user,
                 triggerEdit: function() {
@@ -121,16 +167,17 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
               });
             }),
             m("tr",
-              m("td[colspan=3].user-listing-add-user", m("a", {
-                onclick: function() {
-                  ctrl.editingUser = {
-                    name: "New user",
-                    email: "",
-                    type: args.type
-                  };
-                }
-              },
-              "Click to add"))
+              m("td[colspan=3].user-listing-add-user",
+                // To add a user, simply set the currently edited user property
+                // to a new user.
+                m("a", {
+                    onclick: function() {
+                      ctrl.editingUser = new User(null, null, args.type);
+                    }
+                  },
+                  "Click to add"
+                )
+              )
             )
           )
         )
@@ -146,31 +193,32 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
         saving: false
       };
     },
-    'view': function(ctrl, args) {
+    view: function(ctrl, args) {
       var submit = function() {
         ctrl.saving = true;
         m.startComputation();
         $.post({
-          url: "/api/v1/users",
-          data: ctrl.user,
-          success: function() {
-            $("#user-edit-modal").modal("hide");
-            args.endEdit();
-          },
-          error: function(jqxhr) {
-            if (jqxhr.status == 400) {
-              ctrl.saving = false;
-              ctrl.warnEmail = true;
-            } else if (jqxhr.status == 401) {
-              alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
-            } else {
-              alert("Server error. Try your request again later.")
+            url: "/api/v1/users",
+            data: ctrl.user,
+            success: function() {
+              $("#user-edit-modal").modal("hide");
+              args.endEdit();
+            },
+            error: function(jqxhr) {
+              if (jqxhr.status == 400) {
+                ctrl.saving = false;
+                ctrl.warnEmail = true;
+              } else if (jqxhr.status == 401) {
+                alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
+              } else {
+                alert("Server error. Try your request again later.");
+              }
+              m.endComputation();
             }
-            m.endComputation();
           }
-        })
+        );
       };
-      return m('.modal.fade#user-edit-modal', {
+      return m(".modal.fade#user-edit-modal", {
           config: function() {
             $("#user-edit-modal").modal({
               backdrop: "static"
@@ -178,11 +226,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
             $("#user-edit-modal").modal("show");
           }
         },
-        m('.modal-content.col-md-6.col-md-offset-3',
-          m('.modal-header',
-            m('h4.modal-title', "Edit user")
+        m(".modal-content.col-md-6.col-md-offset-3",
+          m(".modal-header",
+            m("h4.modal-title", "Edit user")
           ),
-          m('.modal-body',
+          m(".modal-body",
             m("form.form-horizontal", {
               onsubmit: submit
             },
@@ -229,12 +277,12 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
               })
             )
           ),
-          m('.modal-footer',
-            m('button.btn.btn-default', {
+          m(".modal-footer",
+            m("button.btn.btn-default", {
               disabled: ctrl.saving,
-              'data-dismiss': 'modal'
+              "data-dismiss": "modal"
             }, "Cancel"),
-            m('button.btn.btn-primary', {
+            m("button.btn.btn-primary", {
               disabled: ctrl.saving,
               onclick: submit
             }, "Save")
@@ -245,8 +293,8 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
   };
 
   var UserDeleteModal = {
-    'view': function(ctrl, args) {
-      return m('.modal.fade#user-delete-modal', {
+    view: function(ctrl, args) {
+      return m(".modal.fade#user-delete-modal", {
           config: function() {
             $("#user-delete-modal").modal({
               backdrop: "static"
@@ -254,20 +302,20 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
             $("#user-delete-modal").modal("show");
           }
         },
-        m('.modal-content.col-md-6.col-md-offset-3',
-          m('.modal-header',
-            m('h4.modal-title', "Delete user?")
+        m(".modal-content.col-md-6.col-md-offset-3",
+          m(".modal-header",
+            m("h4.modal-title", "Delete user?")
           ),
-          m('.modal-body',
+          m(".modal-body",
             "Are you sure you want to delete this user? All classrooms and activities belonging to this user will also be deleted. This cannot be undone."
           ),
-          m('.modal-footer',
-            m('button.btn.btn-default', {
-              'data-dismiss': 'modal'
+          m(".modal-footer",
+            m("button.btn.btn-default", {
+              "data-dismiss": "modal"
             }, "Cancel"),
-            m('button.btn.btn-danger', {
-              'data-dismiss': 'modal',
-              'onclick': function() {
+            m("button.btn.btn-danger", {
+              "data-dismiss": "modal",
+              onclick: function() {
                 m.startComputation();
                 $.ajax({
                   type: "DELETE",
