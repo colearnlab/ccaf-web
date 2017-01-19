@@ -1,4 +1,4 @@
-define("main", ["exports", "mithril", "jquery", "underscore"], function(exports, m, $, _) {
+define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], function(exports, m, $, _) {
   // The main component has a sidebar and a place to display content.
   var Shell = {
     controller: function(args) {
@@ -60,109 +60,34 @@ define("main", ["exports", "mithril", "jquery", "underscore"], function(exports,
     view: function(ctrl, args) {
       var user = args.user;
       return m("tr",
-        m("td", user.name),
-        m.component(EditBox, {editing: ctrl.editInitial, type: args.user.type, key: "email", value: user.email, url: "/api/v1/users", _id: user._id}),
+        m("td", m("a", {
+          onclick: args.triggerEdit
+        },
+        user.name)),
+        m("td", user.email),
         m("td", user.type.charAt(0).toUpperCase() + user.type.slice(1))
       )
     }
   };
 
-  // The edit box allows us to change record fields via the API.
-  // args: _id, key, value, url (ie API endpoint).
-  var EditBox = {
-    controller: function(args) {
-      var ctrl = {
-        _id: args._id,
-        editing: args.editing || false, // Whether the value is currently being edited.
-        value: args.value, // The value that can be edited.
-        timeout: null, // The id to the timeout such that 750ms of inactivity will trigger a save.
-        success: false // If this is true, display the "success" checkmark to indicate saving has worked.
-      };
-
-      // The save function takes the value input by the user and crafts a post
-      // request to update the record.
-      ctrl.save = function() {
-          // The data to be sent consists of the updated field and the id of the record (if it exists).
-          var data = {
-            _id: ctrl._id,
-            type: args.type
-          };
-          data[args.key] = ctrl.value;
-
-          $.post({
-            url: args.url,
-            data: data,
-            success: function(newData) {
-              console.log(newData);
-              ctrl._id = newData.data._id;
-
-              if (!ctrl.editing)
-                return;
-              // This dance is simple: set the success checkmark flag and force
-              // it to be rendered; then create a timeout to take the flag away
-              // in 1.5s and start the computation process again to ensure that
-              // change is reflected as well.
-              ctrl.success = true;
-              m.redraw();
-              setTimeout(function() {
-                ctrl.success = false;
-                m.redraw();
-              }, 1500);
-            },
-            error: function() {
-              alert("Could not save. Refresh the page and try again.")
-            }
-          });
-        };
-        return ctrl;
-    },
-    view: function(ctrl, args) {
-      if (!ctrl.editing)
-        return m("td#edit-box-static", {
-          onclick: function() {
-            ctrl.editing = true;
-          }
-        }, ctrl.value);
-
-      return m("td.form-group.form-inline.has-feedback",
-        m("input.form-control.input-sm", {
-          value: ctrl.value,
-          onkeyup: function(e) {
-            ctrl.value = e.target.value;
-            if (ctrl.timeout !== null)
-              clearTimeout(ctrl.timeout);
-
-            if (e.keyCode === 13) {
-              ctrl.editing = false;
-            } else {
-              ctrl.timeout = setTimeout(ctrl.save.bind(null, ctrl.value), 1000);
-            }
-          },
-          onblur: function(e) {
-            ctrl.editing = false;
-            if (ctrl.timeout !== null)
-              clearTimeout(ctrl.timeout);
-
-            ctrl.save(ctrl.value);
-          },
-          config: function(el) {
-            el.focus();
-          }
-        }),
-        m("span.glyphicon.glyphicon-ok.form-control-feedback.edit-box-feedback.edit-box-feedback-" + (ctrl.success ? "on" : "off"))
-      );
-    }
-  }
-
   var UserListing = {
     controller: function(args) {
       return {
-        newUser: null,
-        users: User.list(args.type)
+        users: User.list(args.type),
+        editingUser: null
       };
     },
     view: function(ctrl, args) {
+      var userEditModal = m.component(UserEditModal);
       return m("div",
+        (ctrl.editingUser ? m.component(UserEditModal, {
+            user: ctrl.editingUser,
+            endEdit: function() {
+              ctrl.users = User.list(args.type);
+              ctrl.editingUser = null;
+              m.endComputation();
+            }
+          }) : ""),
         m("table.table.table-striped.user-listing",
           m("thead",
             m("tr",
@@ -173,19 +98,127 @@ define("main", ["exports", "mithril", "jquery", "underscore"], function(exports,
           ),
           m("tbody",
             (ctrl.users() || []).map(function(user) {
-              return m.component(UserRow, {user: user});
+              return m.component(UserRow, {
+                user: user,
+                triggerEdit: function() {
+                  ctrl.editingUser = user;
+                }
+              });
             }),
-            (
-              ctrl.newUser ? m.component(UserRow, {editInitial: true, user: ctrl.newUser}) : ''
-            ),
             m("tr",
               m("td[colspan=3].user-listing-add-user", m("a", {
                 onclick: function() {
-                  ctrl.newUser = new User("New person", "", args.type);
+                  ctrl.editingUser = {};
                 }
               },
               "Click to add"))
             )
+          )
+        )
+      );
+    }
+  };
+
+  var UserEditModal = {
+    controller: function(args) {
+      return {
+        user: _.clone(args.user),
+        warnEmail: false,
+        saving: false
+      };
+    },
+    'view': function(ctrl, args) {
+      var submit = function() {
+        ctrl.saving = true;
+        m.startComputation();
+        $.post({
+          url: "/api/v1/users",
+          data: ctrl.user,
+          success: function() {
+            $("#user-edit-modal").modal("hide");
+            args.endEdit();
+          },
+          error: function(jqxhr) {
+            if (jqxhr.status == 400) {
+              ctrl.saving = false;
+              ctrl.warnEmail = true;
+            } else if (jqxhr.status == 401) {
+              alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
+            } else {
+              alert("Server error. Try your request again later.")
+            }
+            m.endComputation();
+          }
+        })
+      };
+      return m('.modal.fade#user-edit-modal', {
+          config: function() {
+            $("#user-edit-modal").modal({
+              backdrop: "static"
+            });
+            $("#user-edit-modal").modal("show");
+          }
+        },
+        m('.modal-content.col-md-6.col-md-offset-3',
+          m('.modal-header',
+            m('h4.modal-title', "Edit user")
+          ),
+          m('.modal-body',
+            m("form.form-horizontal", {
+              onsubmit: submit
+            },
+              m(".form-group",
+                m("label.col-md-2.control-label[for=user-modal-name]", "Name"),
+                m("div.col-md-10",
+                  m("input.form-control#user-modal-name", {
+                    value: ctrl.user.name,
+                    oninput: function(el) {
+                      ctrl.user.name = el.target.value;
+                    }
+                  })
+                )
+              ),
+              m(".form-group",
+                m("label.col-md-2.control-label[for=user-modal-email]", "Email"),
+                m(".alert.alert-warning", {
+                  style: (ctrl.warnEmail ? "" : "display: none;")
+                },
+                  "There is already a user with this email address."
+                ),
+                m("div.col-md-10",
+                  m("input.form-control#user-modal-email", {
+                    value: ctrl.user.email,
+                    oninput: function(el) {
+                      ctrl.user.email = el.target.value;
+                    }
+                  })
+                )
+              ),
+              m(".form-group",
+                m("label.col-md-2.control-label[for=user-modal-type]", "User Type"),
+                m("div.col-md-10",
+                  m("input.form-control#user-modal-type", {
+                    value: ctrl.user.type,
+                    oninput: function(el) {
+                      ctrl.user.type = el.target.value;
+                    }
+                  })
+                )
+              ),
+              m("input[type=submit]", {
+                style: "display: none"
+              })
+            )
+          ),
+          m('.modal-footer',
+            m('button.btn.btn-default', {
+              disabled: ctrl.saving,
+              'data-dismiss': 'modal'
+            }, "Cancel"),
+            m('button.btn.btn-primary', {
+              disabled: ctrl.saving,
+              onclick: submit
+            }, "Save")
           )
         )
       );
@@ -197,5 +230,6 @@ define("main", ["exports", "mithril", "jquery", "underscore"], function(exports,
     "/": m.component(Shell, Placeholder),
     "/administrators": m.component(Shell, m.component(UserListing, {type: "administrator"})),
     "/teachers": m.component(Shell, m.component(UserListing, {type: "teacher"}))
-  })
+  });
+
 });
