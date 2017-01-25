@@ -1,4 +1,6 @@
-define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], function(exports, m, $, _) {
+define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstrap"], function(exports, m, $, _, models) {
+  var User = models.User;
+
   // The main component has a sidebar and a place to display content.
   var Shell = {
     controller: function(args) {
@@ -7,7 +9,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
           "administrators": "Manage administrators",
           "teachers": "Manage teachers"
         }
-      }
+      };
     },
     view: function(ctrl, component) {
       return m("div.container#main",
@@ -45,56 +47,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
   // A simple placeholder when you first visit the page.
   var Placeholder = {
     view: function(__, args) {
-      return m("div", "Select an option on the right")
-    }
-  }
-
-  // User methods.
-  var User = function User(name, email, type){
-    this.name = name || "New user";
-    this.email = email || "";
-    this.type = type || "";
-  }
-
-  // Return a list of all users of a certain type.
-  User.list = function(type) {
-    return m.request({
-      method: "GET",
-      url: "/api/v1/users"
-    }).then(function(users) {
-        if (typeof type === "undefined")
-          return users.data;
-        else
-          return users.data.filter(function(user) { return user.type === type });
-      }
-    )
-  };
-
-  // This is a row in the user table, withoptions to click a user"s name to
-  // bring up an edit modal and to click a delete button to bring up a delete
-  // modal. Since the logic for the edit and delete dialogs are in the parent
-  // component, the parent component provides triggerEdit and triggerDelete
-  // functions to allow this component to trigger an edit or delete.
-  var UserRow = {
-    view: function(ctrl, args) {
-      return m("tr",
-        m("td", m("a", {
-            onclick: args.triggerEdit
-          },
-          args.user.name)
-        ),
-        m("td",
-          args.user.email
-        ),
-        m("td",
-          args.user.type,
-          m.trust("&nbsp;&nbsp;&nbsp;"),
-          m("span.glyphicon.glyphicon-remove", {
-              onclick: args.triggerDelete
-            }
-          )
-        )
-      )
+      return m("div", "Select an option.");
     }
   };
 
@@ -112,26 +65,26 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
     },
     view: function(ctrl, args) {
       return m("div",
-        (ctrl.editingUser
-          ? m.component(UserEditModal, {
+        (ctrl.editingUser ? m.component(UserEditModal, {
                 user: ctrl.editingUser,
-                endEdit: function() {
+                endEdit: function(reload) {
                   // When the modal is closed, reload the user list, clear the
                   // currently edited user, and end the asynchronous process
                   // to trigger a redraw.
-                  ctrl.users = User.list(args.type);
+                  if (reload)
+                    ctrl.users = User.list(args.type);
                   ctrl.editingUser = null;
                   m.endComputation();
                 }
               }
             )
           : ""),
-        (ctrl.deletingUser
-          ? m.component(UserDeleteModal, {
+        (ctrl.deletingUser ? m.component(UserDeleteModal, {
                 user: ctrl.deletingUser,
-                endDelete: function() {
+                endDelete: function(reload) {
                   // Similar to endEdit.
-                  ctrl.users = User.list(args.type);
+                  if (reload)
+                    ctrl.users = User.list(args.type);
                   ctrl.deletingUser = null;
                   m.endComputation();
                 }
@@ -158,6 +111,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
               // as functions it can call to trigger edit and delete modals.
               return m.component(UserRow, {
                 user: user,
+                lastUser: ctrl.users().length === 1,
                 triggerEdit: function() {
                   ctrl.editingUser = user;
                 },
@@ -185,6 +139,35 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
     }
   };
 
+  // This is a row in the user table, with options to click a user"s name to
+  // bring up an edit modal and to click a delete button to bring up a delete
+  // modal. Since the logic for the edit and delete dialogs are in the parent
+  // component, the parent component provides triggerEdit and triggerDelete
+  // functions to allow this component to trigger an edit or delete.
+  var UserRow = {
+    view: function(ctrl, args) {
+      return m("tr",
+        m("td", m("a", {
+            onclick: args.triggerEdit
+          },
+          args.user.name)
+        ),
+        m("td",
+          args.user.email
+        ),
+        m("td",
+          args.user.type,
+          m.trust("&nbsp;&nbsp;&nbsp;"),
+          m("span.glyphicon.glyphicon-remove", {
+              style: (args.lastUser && args.user.type == "administrator" ? "display: none;" : ""),
+              onclick: args.triggerDelete
+            }
+          )
+        )
+      );
+    }
+  };
+
   var UserEditModal = {
     controller: function(args) {
       return {
@@ -194,15 +177,13 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
       };
     },
     view: function(ctrl, args) {
-      var submit = function() {
+      var submit = function(e) {
         ctrl.saving = true;
         m.startComputation();
-        $.post({
-            url: "/api/v1/users",
-            data: ctrl.user,
+        ctrl.user.save({
             success: function() {
               $("#user-edit-modal").modal("hide");
-              args.endEdit();
+              args.endEdit(true);
             },
             error: function(jqxhr) {
               if (jqxhr.status == 400) {
@@ -217,6 +198,8 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
             }
           }
         );
+        e.preventDefault();
+        return false;
       };
       return m(".modal.fade#user-edit-modal", {
           config: function() {
@@ -247,29 +230,35 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
               ),
               m(".form-group",
                 m("label.col-md-2.control-label[for=user-modal-email]", "Email"),
-                m(".alert.alert-warning", {
-                  style: (ctrl.warnEmail ? "" : "display: none;")
-                },
-                  "There is already a user with this email address."
-                ),
                 m("div.col-md-10",
                   m("input.form-control#user-modal-email", {
                     value: ctrl.user.email,
                     oninput: function(el) {
                       ctrl.user.email = el.target.value;
                     }
-                  })
+                  }),
+                  m("div", {
+                      style: (ctrl.warnEmail ? "" : "display: none;")
+                    },
+                    m("br"),
+                    m(".alert.alert-warning",
+                      "There is already a user with this email address."
+                    )
+                  )
                 )
               ),
               m(".form-group",
                 m("label.col-md-2.control-label[for=user-modal-type]", "User Type"),
                 m("div.col-md-10",
-                  m("input.form-control#user-modal-type", {
-                    value: ctrl.user.type,
-                    oninput: function(el) {
-                      ctrl.user.type = el.target.value;
-                    }
-                  })
+                  m("select.form-control#user-modal-type",
+                    ["administrator", "teacher"].map(function(type) {
+                      return m("option", {
+                        onclick: function() {
+                          ctrl.user.type = type;
+                        }
+                      }, type);
+                    })
+                  )
                 )
               ),
               m("input[type=submit]", {
@@ -280,10 +269,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
           m(".modal-footer",
             m("button.btn.btn-default", {
               disabled: ctrl.saving,
+              onclick: args.endEdit.bind(null, false),
               "data-dismiss": "modal"
             }, "Cancel"),
             m("button.btn.btn-primary", {
-              disabled: ctrl.saving,
+              disabled: ctrl.saving || ctrl.user.name.length === 0 || ctrl.user.email.length === 0,
               onclick: submit
             }, "Save")
           )
@@ -311,19 +301,17 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
           ),
           m(".modal-footer",
             m("button.btn.btn-default", {
+              onclick: args.endDelete.bind(null, false),
               "data-dismiss": "modal"
             }, "Cancel"),
             m("button.btn.btn-danger", {
               "data-dismiss": "modal",
               onclick: function() {
                 m.startComputation();
-                $.ajax({
-                  type: "DELETE",
-                  data: args.user,
-                  url: "/api/v1/users",
+                args.user.delete({
                   success: function() {
                     $("#user-delete-modal").modal("hide");
-                    args.endDelete();
+                    args.endDelete(true);
                   },
                   error: function(jqxhr) {
                     if (jqxhr.status == 401) {
@@ -333,7 +321,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "bootstrap"], func
                     }
                     args.endDelete();
                   }
-                })
+                });
               }
             }, "Delete!")
           )

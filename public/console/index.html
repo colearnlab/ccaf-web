@@ -2,12 +2,12 @@
 <html>
 <head>
   <link rel="stylesheet" href="/lib/bootstrap.css" />
-  <link rel="stylesheet" href="/console/styles.css" />
-  <link href='https://fonts.googleapis.com/css?family=Raleway:400,700' rel='stylesheet' type='text/css'>
-  <body oncontextmenu="return false">
-    <div id="root">Connected!</div>
-    <script src="/lib/jquery.js"></script>
-    <script src="/lib/bootstrap.js"></script>
-    <script data-main="/console/modules/main.js" src="/lib/require.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+  <body>
+    <script src="/lib/require.js"></script>
+    <script src="modules/main.js"></script>
+    <script>
+      require(['/shared/rjsConfig.js'], require.bind(null, ['main']));
+    </script>
   </body>
 </html>
