@@ -1,6 +1,7 @@
 exports.initialize = function(app, userdb) {
   var passport = require("passport");
   var session = require('express-session');
+  var cookieSession = require("cookie-session");
   var GoogleStrategy = require("passport-google-oauth").OAuth2Strategy;
   var googleConfig = {
     CLIENT_ID: process.env.CLIENT_ID,
@@ -8,7 +9,13 @@ exports.initialize = function(app, userdb) {
     CALLBACK_URL: "http://localhost:3000/oauth2callback"
   };
 
-  app.use(session({ secret: Math.random().toString() }));
+  //app.use(session({ secret: Math.random().toString() }));
+  app.use(cookieSession({
+    name: 'session',
+    keys: ["testingOnly"],
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }));
+
   app.use(passport.initialize());
   app.use(passport.session());
 
@@ -46,7 +53,7 @@ exports.initialize = function(app, userdb) {
   });
 
   passport.deserializeUser(function(_id, done) {
-      userdb.find({_id: _id}, function(err, user) {
+      userdb.findOne({_id: _id}, function(err, user) {
           done(err, user);
       });
   });

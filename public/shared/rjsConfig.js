@@ -7,7 +7,10 @@ requirejs.config({
     'pdf': '/lib/pdf',
     'jquery': '/lib/jquery',
     'bootstrap': '/lib/bootstrap',
-    "models": "/shared/models"
+
+    "models": "/shared/models",
+    "userPicker": "/shared/userPicker",
+    "css": "/shared/css"
   },
   'shim': {
     'underscore': {

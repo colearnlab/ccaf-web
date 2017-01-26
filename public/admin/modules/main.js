@@ -250,7 +250,12 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
               m(".form-group",
                 m("label.col-md-2.control-label[for=user-modal-type]", "User Type"),
                 m("div.col-md-10",
-                  m("select.form-control#user-modal-type",
+                  m("select.form-control#user-modal-type", {
+                      value: ctrl.user.type,
+                      onchange: function(e) {
+                        ctrl.user.type = e.target.value;
+                      }
+                    },
                     ["administrator", "teacher"].map(function(type) {
                       return m("option", {
                         onclick: function() {

@@ -31,45 +31,134 @@ auth.initialize(app, userdb);
 app.all("/api/*", auth.ensureAuthenticated);
 
 /* === API === */
-/* Classrooms */
+/* Classrooms
+ *  {
+ *    title: the name of the classroom.
+ *    users: an array of user references and access levels
+ *      {
+ *        _id: the users _id
+ *        role: one of "owner", "sharedWith", "student"
+ *      }
+ *  }
+ */
 app.route("/api/v1/classrooms")
-.get(function(req, res) {
-  classroomdb.find({}, function(err, docs) {
-    if (err) {
-      console.log(err);
-      res.sendStatus(500);
-      return;
+  // GET classrooms
+  // administrator: return a list of all classrooms
+  // teacher: return a list of classrooms owned or shared with this teacher
+  // student: return a list of classrooms the student is a member of, stripped of sensitive data
+  .get(function(req, res) {
+    var query;
+
+    if (req.user.type == "administrator") {
+      query = {};
+    } else if (req.user.type == "teacher" || req.user.type == "student") {
+      query = {
+        users: {
+          $elemMatch: {_id: req.user._id}
+        }
+      };
+    } else {
+      return res.sendStatus(404);
     }
 
-    res.json({data: docs});
-  });
-})
-.post(function(req, res) {
-  classroomdb.update({_id: req.body._id}, {$set: req.body}, {returnUpdatedDocs: true, upsert: true}, function(err, numAffected, affectedDoc) {
-    if (err) {
-      console.log(err);
-      res.sendStatus(500);
-      return;
+    classroomdb.find(query, function(err, docs) {
+      if (err) {
+        console.log(err);
+        res.sendStatus(500);
+        return;
+      }
+
+      if (req.user.type == "student") {
+        docs = docs.map(function(doc) {
+          return {
+            _id: doc._id,
+            title: doc.title
+          };
+        });
+      }
+
+      res.json({data: docs});
+    });
+  })
+  // POST classrooms
+  // create a new classroom.
+  .post(function(req, res) {
+    if (req.user.type != "administrator" && req.user.type != "teacher")
+      return res.sendStatus(404);
+
+    req.body.users = req.body.users || [];
+    delete req.body._id;
+
+    classroomdb.insert(req.body, function(err, doc) {
+      if (err) {
+        console.log(err);
+        res.sendStatus(500);
+        return;
+      }
+
+      res.json({data: doc});
+    });
+  })
+  .put(function(req, res) {
+    var query = {
+      _id: req.body._id
+    };
+
+    if (req.user.type == "teacher") {
+      query.users = {
+        $elemMatch: {
+          _id: req.user._id
+        }
+      };
+    } else if (req.user.type != "administrator") {
+      return res.sendStatus(404);
     }
 
-    res.json({data: affectedDoc});
-  });
-})
-.delete(function(req, res) {
-  userdb.remove({_id: req.body._id}, function(err) {
-    if (err) {
-      console.log(err);
-      res.sendStatus(500);
-      return;
+    classroomdb.update(query, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numChanged, updatedDoc) {
+      if (err) {
+        console.log(err);
+        return res.sendStatus(500);
+      } else if (numChanged === 0) {
+        return res.sendStatus(404);
+      }
+
+      res.json({data: updatedDoc});
+    });
+  })
+  .delete(function(req, res) {
+    var query = {
+      _id: req.body._id
+    };
+
+    if (req.user.type == "teacher") {
+      query.users = {
+        $elemMatch: {
+          _id: req.user._id,
+          role: "owner"
+        }
+      };
+    } else if (req.user.type != "administrator") {
+      return res.sendStatus(404);
     }
 
-    res.sendStatus(200);
+    classroomdb.remove(query, {}, function(err, numRemoved) {
+      if (err) {
+        console.log(err);
+        return res.sendStatus(500);
+      } else if (numRemoved === 0) {
+        return res.sendStatus(404);
+      }
+
+      res.sendStatus(200);
+    });
   });
-});
 
 /* Users */
 app.route("/api/v1/users")
   .get(function(req, res) {
+    if (req.user.type != "administrator" && req.user.type != "teacher")
+      return res.sendStatus(404);
+
     userdb.find({}, function(err, docs) {
       if (err) {
         console.log(err);
@@ -81,17 +170,41 @@ app.route("/api/v1/users")
     });
   })
   .post(function(req, res) {
-    userdb.update({_id: req.body._id}, {$set: req.body}, {returnUpdatedDocs: true, upsert: true}, function(err, numAffected, affectedDoc) {
+    if (req.user.type != "administrator" && req.user.type != "teacher")
+      return res.sendStatus(404);
+
+    if (req.user.type == "teacher" && req.body.type != "student")
+      return res.sendStatus(400);
+
+    userdb.insert(req.body, function(err, doc) {
       if (err) {
         console.log(err);
-        res.sendStatus(err.errorType === "uniqueViolated" ? 400 : 500);
+        res.sendStatus(500);
         return;
       }
 
-      res.json({data: affectedDoc});
+      res.json({data: doc});
+    });
+  })
+  .put(function(req, res) {
+    if (req.user.type != "administrator" && req.user._id != req.body._id)
+      return res.sendStatus(400);
+
+    userdb.update({_id: req.body._id}, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numReplaced, updatedDoc) {
+      if (err) {
+        console.log(err);
+        return res.sendStatus(500);
+      } else if (numChanged === 0) {
+        return res.sendStatus(404);
+      }
+
+      res.json({data: updatedDoc});
     });
   })
   .delete(function(req, res) {
+    if (req.user.type != "administrator")
+      return res.sendStatus(400);
+
     userdb.remove({_id: req.body._id}, function(err) {
       if (err) {
         console.log(err);

@@ -1,0 +1,10 @@
+.user-listing > span {
+  margin: 3px 5px;
+  padding: 3px 7px;
+  border-radius: 3px;
+  float: left;
+}
+
+.user-listing {
+  margin-bottom: 3em;
+}

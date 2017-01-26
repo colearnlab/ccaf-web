@@ -3,7 +3,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   // User methods.
   var User = function User(name, email, type) {
-    this.name = name || "New user";
+    this.name = name || "";
     this.email = email || "";
     this.type = type || "";
   };
@@ -43,23 +43,18 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   var Classroom = function(title, owner) {
     this.title = title;
-    this.owner = owner;
+    this.users = [];
   };
 
-  Classroom.listAll = function() {
+  Classroom.list = function() {
     return m.request({
       method: "GET",
       url: apiPrefix + "classrooms"
+    }).then(function(classrooms) {
+      return classrooms.data;
     });
   };
 
-  Classroom.listByOwner = function(owner) {
-
-  };
-
-  Classroom.listBySharedWith = function(sharedWith) {
-
-  };
-
   exports.User = User;
+  exports.Classroom = Classroom;
 });
