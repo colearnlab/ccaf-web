@@ -42,7 +42,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   };
 
   var Classroom = function(title, owner) {
-    this.title = title;
+    this.title = title || "";
     this.users = [];
   };
 

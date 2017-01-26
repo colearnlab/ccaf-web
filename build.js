@@ -42,6 +42,14 @@ mkdirSync(path.resolve(__dirname, 'public', 'lib'));
 
 // copy dependencies to lib
 copy(
+  path.resolve(require.resolve('bootstrap-3-typeahead')),
+  path.resolve(__dirname, 'public', 'lib', 'bootstrap3-typeahead.js'),
+  function(err) {
+    if (err) console.error(err);
+    else console.log('copied pdfjs');
+  });
+
+copy(
   path.resolve(path.dirname(path.dirname(require.resolve('pdfjs-dist'))), 'build', 'pdf.combined.js'),
   path.resolve(__dirname, 'public', 'lib', 'pdf.js'),
   function(err) {

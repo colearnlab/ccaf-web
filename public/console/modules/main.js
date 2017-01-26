@@ -66,7 +66,12 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
   };
 
   var ClassroomEditModal = {
-    view: function(__, args) {
+    controller: function(args) {
+      return {
+        classroom: args.classroom
+      };
+    },
+    view: function(ctrl, args) {
       return m(".modal.fade#classroom-edit-modal", {
           config: function(el) {
             $("#classroom-edit-modal").modal("show");
@@ -77,10 +82,27 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
             m("h4.modal-title", "Edit classroom")
           ),
           m(".modal-body",
-            m.component(UserPicker, {
-                userList: [],
-                type: "student"
-              })
+            m("form",
+              m(".form-group",
+                m("label.control-label[for=classroom-modal-title]", "Title"),
+                m("div",
+                  m("input.input-sm.form-control#classroom-modal-title", {
+                    value: ctrl.classroom.title,
+                    oninput: function(el) {
+                      ctrl.classroom.title = el.target.value;
+                    }
+                  })
+                )
+              ),
+              m(".form-group",
+                m("label.control-label", "Shared with these teachers: "),
+                m.component(UserPicker, {
+                    userList: ctrl.classroom.users.filter(function(user) { return user.role === "sharedWith"; }),
+                    type: void 0
+                  }
+                )
+              )
+            )
           )
         )
       );

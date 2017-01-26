@@ -7,6 +7,7 @@ requirejs.config({
     'pdf': '/lib/pdf',
     'jquery': '/lib/jquery',
     'bootstrap': '/lib/bootstrap',
+    "typeahead": "/lib/bootstrap3-typeahead",
 
     "models": "/shared/models",
     "userPicker": "/shared/userPicker",
@@ -21,6 +22,9 @@ requirejs.config({
     },
     'bootstrap': {
       deps: ["jquery"]
+    },
+    "bootstrap3-typeahead": {
+      deps: ["jquery", "bootstrap"]
     }
   }
 });
