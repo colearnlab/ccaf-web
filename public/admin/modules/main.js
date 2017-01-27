@@ -7,7 +7,8 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
       return {
         links: {
           "administrators": "Manage administrators",
-          "teachers": "Manage teachers"
+          "teachers": "Manage teachers",
+          "students": "Manage students"
         }
       };
     },
@@ -153,7 +154,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
           args.user.name)
         ),
         m("td",
-          args.user.email
+          m("a", {
+              onclick: args.triggerEdit
+            },
+            args.user.email
+          )
         ),
         m("td",
           args.user.type,
@@ -254,9 +259,10 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                       value: ctrl.user.type,
                       onchange: function(e) {
                         ctrl.user.type = e.target.value;
-                      }
+                      },
+                      "disabled": typeof ctrl.user._id !== "undefined"
                     },
-                    ["administrator", "teacher"].map(function(type) {
+                    ["administrator", "teacher", "student"].map(function(type) {
                       return m("option", {
                         onclick: function() {
                           ctrl.user.type = type;
@@ -339,7 +345,8 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
   m.route(document.body, "/", {
     "/": m.component(Shell, Placeholder),
     "/administrators": m.component(Shell, m.component(UserListing, {type: "administrator"})),
-    "/teachers": m.component(Shell, m.component(UserListing, {type: "teacher"}))
+    "/teachers": m.component(Shell, m.component(UserListing, {type: "teacher"})),
+    "/students": m.component(Shell, m.component(UserListing, {type: "student"}))
   });
 
 });

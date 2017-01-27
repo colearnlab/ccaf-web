@@ -1,12 +1,18 @@
 define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPicker", "bootstrap"], function(exports, m, $, _, models, userPicker) {
   var Classroom = models.Classroom;
+  var User = models.User;
 
   var UserPicker = userPicker.userPicker;
 
   var Shell = {
-    view: function(__, component) {
+    controller: function(args) {
+      return {
+        me: User.me()
+      };
+    },
+    view: function(ctrl, component) {
       return m("div.container#main",
-        m.component(component)
+        m.component(component, {me: ctrl.me})
       );
     }
   };
@@ -32,6 +38,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
     'view': function(ctrl, args) {
       return m("div",
         (ctrl.editingClassroom ? m.component(ClassroomEditModal, {
+            me: args.me,
             classroom: ctrl.editingClassroom,
             endEdit: function(reload) {
               ctrl.editingClassroom = null;
@@ -45,7 +52,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
           m('.panel-heading',
             m('.panel-title', "Classes",
               m('span.glyphicon.glyphicon-plus.pull-right', {
-                'onclick': function() {
+                onclick: function() {
                   ctrl.editingClassroom = new Classroom();
                 }
               })
@@ -55,7 +62,20 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
             m(".list-group",
               ctrl.classrooms().map(function(classroom) {
                 return m(".list-group-item",
-                  m(".list-group-heading", classroom.title)
+                  m(".list-group-heading", {
+                      onclick: function() {
+                        alert("hi");
+                      }
+                    },
+                    classroom.title,
+                    m("span.glyphicon.glyphicon-edit.pull-right", {
+                      style: "color: gray",
+                      onclick: function(e) {
+                        ctrl.editingClassroom = classroom;
+                        e.stopPropagation();
+                      }
+                    })
+                  )
                 );
               })
             )
@@ -68,12 +88,18 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
   var ClassroomEditModal = {
     controller: function(args) {
       return {
+        notOwner: typeof args.classroom._id !== "undefined" && args.classroom.users[args.classroom.users.map(function(user) { return user._id; }).indexOf(args.me()._id)].role !== "owner",
+        students: args.classroom.users.filter(function(user) { return user.role === "student"; }),
+        sharedWith: args.classroom.users.filter(function(user) { return user.role === "sharedWith"; }),
         classroom: args.classroom
       };
     },
     view: function(ctrl, args) {
       return m(".modal.fade#classroom-edit-modal", {
           config: function(el) {
+            $("#classroom-edit-modal").modal({
+              backdrop: "static"
+            });
             $("#classroom-edit-modal").modal("show");
           }
         },
@@ -95,13 +121,73 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
                 )
               ),
               m(".form-group",
-                m("label.control-label", "Shared with these teachers: "),
+                m("label.control-label", "Students: "),
                 m.component(UserPicker, {
-                    userList: ctrl.classroom.users.filter(function(user) { return user.role === "sharedWith"; }),
+                    userList: ctrl.students,
+                    restrictTo: ["student"],
+                    type: "student"
+                  }
+                )
+              ),
+              m(".form-group",
+                m("label.control-label", "Shared with (teachers): "),
+                m.component(UserPicker, {
+                    userList: ctrl.sharedWith,
+                    onchange: function(user) {
+                      if (user._id === args.me()._id)
+                        ctrl.sharedWith.splice(ctrl.sharedWith.indexOf(user), 1);
+                    },
+                    restrictTo: ["teacher"],
                     type: void 0
                   }
                 )
               )
+            )
+          ),
+          m(".modal-footer",
+            m("button.btn.btn-danger.pull-left", {
+              style: (typeof ctrl.classroom._id === "undefined" || ctrl.notOwner ? "display: none;" : ""),
+            }, "Delete"),
+            m("button.btn.btn-default", {
+                onclick: function(e) {
+                  args.endEdit();
+                },
+                "data-dismiss": "modal"
+              }, "Cancel"
+            ),
+            m("button.btn.btn-primary", {
+                onclick: function() {
+                  m.startComputation();
+
+                  ctrl.students.forEach(function(student) {
+                    ctrl.classroom.users.push({_id: student._id, role: "student"});
+                  });
+
+                  ctrl.sharedWith.forEach(function(teacher) {
+                    ctrl.classroom.users.push({_id: teacher._id, role: "sharedWith"});
+                  });
+
+                  ctrl.classroom.users = ctrl.classroom.users.filter(function(user) {
+                    var studentsIndex = ctrl.students.map(function(student) { return student._id; }).indexOf(user._id);
+                    var sharedWithIndex = ctrl.sharedWith.map(function(sharedWith) { return sharedWith._id; }).indexOf(user._id);
+
+                    return studentsIndex >= 0 || sharedWithIndex >= 0 || user.role === "owner";
+                  });
+
+                  if (typeof ctrl.classroom._id === "undefined")
+                    ctrl.classroom.users.push({_id: args.me()._id, role: "owner"});
+
+                  ctrl.classroom.save({
+                    success: function() {
+                      args.endEdit(true);
+                    },
+                    error: function() {
+                      alert("Error.");
+                    }
+                  });
+                },
+                "data-dismiss": "modal"
+              }, "Save"
             )
           )
         )

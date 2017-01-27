@@ -154,6 +154,11 @@ app.route("/api/v1/classrooms")
   });
 
 /* Users */
+app.route("/api/v1/users/me")
+  .get(function(req, res) {
+    res.json({data: req.user});
+  });
+
 app.route("/api/v1/users")
   .get(function(req, res) {
     if (req.user.type != "administrator" && req.user.type != "teacher")
@@ -190,7 +195,7 @@ app.route("/api/v1/users")
     if (req.user.type != "administrator" && req.user._id != req.body._id)
       return res.sendStatus(400);
 
-    userdb.update({_id: req.body._id}, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numReplaced, updatedDoc) {
+    userdb.update({_id: req.body._id}, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numChanged, updatedDoc) {
       if (err) {
         console.log(err);
         return res.sendStatus(500);
