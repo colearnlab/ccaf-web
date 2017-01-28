@@ -32,7 +32,8 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
     controller: function(args) {
       return {
         classrooms: Classroom.list(),
-        editingClassroom: null
+        editingClassroom: null,
+        deletingClassroom: null
       };
     },
     'view': function(ctrl, args) {
@@ -40,8 +41,24 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
         (ctrl.editingClassroom ? m.component(ClassroomEditModal, {
             me: args.me,
             classroom: ctrl.editingClassroom,
+            triggerDelete: function() {
+              ctrl.deletingClassroom = ctrl.editingClassroom;
+            },
             endEdit: function(reload) {
               ctrl.editingClassroom = null;
+              if (reload)
+                ctrl.classrooms = Classroom.list();
+              m.endComputation();
+            }
+          })
+          : ""),
+        (ctrl.deletingClassroom ? m.component(ClassroomDeleteModal, {
+            classroom: ctrl.deletingClassroom,
+            endDelete: function(reload) {
+              ctrl.deletingClassroom = null;
+              ctrl.editingClassroom = null;
+              $("#classroom-delete-modal").modal("hide");
+              $("#classroom-edit-modal").modal("hide");
               if (reload)
                 ctrl.classrooms = Classroom.list();
               m.endComputation();
@@ -71,7 +88,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
                     m("span.glyphicon.glyphicon-edit.pull-right", {
                       style: "color: gray",
                       onclick: function(e) {
-                        ctrl.editingClassroom = classroom;
+                        ctrl.editingClassroom = Object.assign(new Classroom(), JSON.parse(JSON.stringify(classroom)));
                         e.stopPropagation();
                       }
                     })
@@ -146,6 +163,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
           ),
           m(".modal-footer",
             m("button.btn.btn-danger.pull-left", {
+              onclick: args.triggerDelete,
               style: (typeof ctrl.classroom._id === "undefined" || ctrl.notOwner ? "display: none;" : ""),
             }, "Delete"),
             m("button.btn.btn-default", {
@@ -160,11 +178,13 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
                   m.startComputation();
 
                   ctrl.students.forEach(function(student) {
-                    ctrl.classroom.users.push({_id: student._id, role: "student"});
+                    if (ctrl.classroom.users.map(function(u) { return u._id; }).indexOf(student._id) < 0)
+                      ctrl.classroom.users.push({_id: student._id, role: "student"});
                   });
 
                   ctrl.sharedWith.forEach(function(teacher) {
-                    ctrl.classroom.users.push({_id: teacher._id, role: "sharedWith"});
+                    if (ctrl.classroom.users.map(function(u) { return u._id; }).indexOf(teacher._id) < 0)
+                      ctrl.classroom.users.push({_id: teacher._id, role: "sharedWith"});
                   });
 
                   ctrl.classroom.users = ctrl.classroom.users.filter(function(user) {
@@ -189,6 +209,54 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
                 "data-dismiss": "modal"
               }, "Save"
             )
+          )
+        )
+      );
+    }
+  };
+
+  var ClassroomDeleteModal = {
+    view: function(ctrl, args) {
+      return m(".modal.fade#classroom-delete-modal", {
+          config: function() {
+            $("#classroom-delete-modal").modal({
+              backdrop: "static"
+            });
+            $("#classroom-delete-modal").modal("show");
+          }
+        },
+        m(".modal-content.col-md-6.col-md-offset-3",
+          m(".modal-header",
+            m("h4.modal-title", "Delete classroom?")
+          ),
+          m(".modal-body",
+            "Are you sure you want to delete this classroom? This cannot be undone."
+          ),
+          m(".modal-footer",
+            m("button.btn.btn-default", {
+              onclick: args.endDelete.bind(null, false),
+              "data-dismiss": "modal"
+            }, "Cancel"),
+            m("button.btn.btn-danger", {
+              "data-dismiss": "modal",
+              onclick: function() {
+                m.startComputation();
+                args.classroom.delete({
+                  success: function() {
+                    $("#classroom-delete-modal").modal("hide");
+                    args.endDelete(true);
+                  },
+                  error: function(jqxhr) {
+                    if (jqxhr.status == 401) {
+                      alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
+                    } else {
+                      alert("Server error. Try your request again later.");
+                    }
+                    args.endDelete();
+                  }
+                });
+              }
+            }, "Delete!")
           )
         )
       );

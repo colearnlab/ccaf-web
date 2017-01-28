@@ -1,6 +1,22 @@
 define(["exports", "mithril", "jquery"], function(exports, m, $) {
   var apiPrefix = "/api/v1/";
 
+  function basicSave(url, settings) {
+    settings = settings || {};
+    settings.type = (typeof this._id !== "undefined" ? "PUT" : "POST");
+    settings.url = apiPrefix + url;
+    settings.data = JSON.parse(JSON.stringify(this));
+    $.ajax(settings);
+  }
+
+  function basicDelete(url, settings) {
+    settings = settings || {};
+    settings.type = "DELETE";
+    settings.url = apiPrefix + url;
+    settings.data = JSON.parse(JSON.stringify(this));
+    $.ajax(settings);
+  }
+
   // User methods.
   var User = function User(name, email, type) {
     this.name = name || "";
@@ -38,19 +54,11 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   };
 
   User.prototype.save = function(settings) {
-    settings = settings || {};
-    settings.type = (typeof this._id !== "undefined" ? "PUT" : "POST");
-    settings.url = apiPrefix + "users";
-    settings.data = JSON.parse(JSON.stringify(this));
-    $.ajax(settings);
+    return basicSave.call(this, "users", settings);
   };
 
   User.prototype.delete = function(settings) {
-    settings = settings || {};
-    settings.type = "DELETE";
-    settings.url = apiPrefix + "users";
-    settings.data = JSON.parse(JSON.stringify(this));
-    $.ajax(settings);
+    return basicDelete.call(this, "users", settings);
   };
 
   var Classroom = function(title, owner) {
@@ -68,11 +76,12 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   };
 
   Classroom.prototype.save = function(settings) {
-    settings = settings || {};
-    settings.type = (typeof this._id !== "undefined" ? "PUT" : "POST");
-    settings.url = apiPrefix + "classrooms";
-    settings.data = JSON.parse(JSON.stringify(this));
-    $.ajax(settings);
+    return basicSave.call(this, "classrooms", settings);
+  };
+
+  Classroom.prototype.delete = function(settings) {
+    return basicDelete.call(this, "classrooms", settings);
+
   };
 
   exports.User = User;
