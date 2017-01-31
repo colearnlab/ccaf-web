@@ -80,7 +80,14 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
       method: "GET",
       url: apiPrefix + "classrooms/" + classroomId
     }).then(function(classroom) {
-      return Object.assign(new Classroom(), classroom.data);
+      classroom = classroom.data;
+
+      classroom.groups = classroom.groups || [];
+      classroom.groups = classroom.groups.map(function(group) {
+        return Object.assign(new Group(), group);
+      });
+      
+      return Object.assign(new Classroom(), classroom);
     });
   };
 
@@ -95,7 +102,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   var Group = function(title) {
     this.title = title;
-    this.students = [];
+    this.users = [];
   };
 
   exports.User = User;
