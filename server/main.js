@@ -41,7 +41,7 @@ app.all("/api/*", auth.ensureAuthenticated);
  *      }
  *  }
  */
-app.route("/api/v1/classrooms")
+app.route("/api/v1/classrooms/:classroomId?")
   // GET classrooms
   // administrator: return a list of all classrooms
   // teacher: return a list of classrooms owned or shared with this teacher
@@ -61,6 +61,9 @@ app.route("/api/v1/classrooms")
       return res.sendStatus(404);
     }
 
+    if (typeof req.params.classroomId !== "undefined")
+      query._id = req.params.classroomId;
+
     classroomdb.find(query, function(err, docs) {
       if (err) {
         console.log(err);
@@ -77,7 +80,26 @@ app.route("/api/v1/classrooms")
         });
       }
 
-      res.json({data: docs});
+      if (typeof req.params.classroomId !== "undefined") {
+        if (docs.length === 0)
+          res.sendStatus(404);
+        else {
+          docs = docs[0];
+          async.map(docs.users, function(item, callback) {
+            userdb.findOne({_id: item._id}, function(err, user) {
+              user.role = item.role;
+              callback(err, user);
+            });
+          }, function(err, results) {
+            docs.users = results;
+            res.json({data: docs});
+            return;
+          });
+        }
+      } else {
+        res.json({data: docs});
+      }
+
     });
   })
   // POST classrooms

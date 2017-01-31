@@ -1,9 +1,46 @@
-html, body, .stretch {
+/* colors */
+.bg-color-offwhite {
+  background-color: rgb(250, 250, 250) !important;
+}
+
+.bg-color-medgray {
+  background-color: #E2E4E7 !important;
+}
+
+.bg-color-darkblue {
+  background-color: blue !important;
+}
+
+.bg-color-green {
+  background-color: #44968C !important;
+}
+
+/* main */
+
+.stretch {
+  height: 100%;
+  overflow: hidden;
+}
+
+html, body {
   height: 100%;
   overflow: hidden;
   font-family: 'Raleway', sans-serif;
   -webkit-user-select: none;
-  background-color: #E2E4E7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#main {
+  padding: 25px 0 0 0;
+  margin: 0 !important;
+}
+
+#toolbar {
+  position: absolute;
+  height: 25px;
+  width: 100vw;
+  margin-top: -25px;
 }
 
 .underline {
@@ -11,12 +48,7 @@ html, body, .stretch {
 }
 
 .menu-holder > .panel-heading {
-  background-color: #44968C !important;
   font-weight: bold !important;
-}
-
-.menu-holder > .panel-body {
-  background-color: rgb(250, 250, 250);
 }
 
 .modal {
@@ -49,4 +81,76 @@ html, body, .stretch {
 .menu-body-holder > .list-group > div {
   border-left: 0;
   border-right: 0;
+  border-radius: 0px;
+}
+
+/* groupeditor */
+
+#sidebar {
+  padding-right: 0;
+  width: 175px;
+  float:  left;
+}
+
+#groups-holder {
+  position: relative;
+}
+
+#close-button {
+  height: 100%;
+  position: absolute;
+  width: 5px;
+  background-color: darkgray;
+  left: 0;
+  overflow: hidden;
+}
+
+#close-button > span {
+  top: calc(50vh - 25px)
+}
+
+.student > div {
+  padding-left: 15px;
+}
+
+#groups {
+  padding-left: 15px;
+  overflow-y: scroll;
+}
+
+.group {
+  height: 250px;
+  width: 175px;
+  float: left;
+  margin: 15px;
+  border-radius: 10px;
+}
+
+.group-header {
+  height: 25px;
+  width: 100%;
+  border-radius: 10px 10px 0px 0px;
+  color: white;
+  line-height: 25px;
+  padding-left: 1em;
+  font-weight: bold;
+}
+
+.group-body {
+  height: 175px;
+  width: 100%;
+}
+
+.drop-active {
+  border: 2px dashed gray;
+}
+
+.drop-possible {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+#add-group {
+  position: absolute;
+  right: 25px;
+  top: calc(100vh - 50px);
 }

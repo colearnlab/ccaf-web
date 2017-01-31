@@ -1,8 +1,9 @@
-define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPicker", "bootstrap"], function(exports, m, $, _, models, userPicker) {
+define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPicker", "modules/groupEditor", "bootstrap"], function(exports, m, $, _, models, userPicker, groupEditor) {
   var Classroom = models.Classroom;
   var User = models.User;
 
   var UserPicker = userPicker.userPicker;
+  var GroupEditor = groupEditor.groupEditor;
 
   var Shell = {
     controller: function(args) {
@@ -11,7 +12,8 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
       };
     },
     view: function(ctrl, component) {
-      return m("div.container#main",
+      return m("div.container-fluid.bg-color-medgray#main.stretch",
+        m("#toolbar.bg-color-darkblue", " "),
         m.component(component, {me: ctrl.me})
       );
     }
@@ -66,7 +68,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
           })
           : ""),
         m('.panel.panel-default.menu-holder',
-          m('.panel-heading',
+          m('.panel-heading.bg-color-green',
             m('.panel-title', "Classes",
               m('span.glyphicon.glyphicon-plus.pull-right', {
                 onclick: function() {
@@ -81,7 +83,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
                 return m(".list-group-item",
                   m(".list-group-heading", {
                       onclick: function() {
-                        alert("hi");
+                        m.route("/classroom/" + classroom._id);
                       }
                     },
                     classroom.title,
@@ -266,5 +268,6 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
   m.route.mode = "hash";
   m.route(document.body, "/", {
     "/": m.component(Shell, Menu),
+    "/classroom/:classroomId": m.component(Shell, GroupEditor)
   });
 });

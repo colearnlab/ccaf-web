@@ -75,6 +75,15 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     });
   };
 
+  Classroom.get = function(classroomId) {
+    return m.request({
+      method: "GET",
+      url: apiPrefix + "classrooms/" + classroomId
+    }).then(function(classroom) {
+      return Object.assign(new Classroom(), classroom.data);
+    });
+  };
+
   Classroom.prototype.save = function(settings) {
     return basicSave.call(this, "classrooms", settings);
   };
@@ -84,6 +93,12 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   };
 
+  var Group = function(title) {
+    this.title = title;
+    this.students = [];
+  };
+
   exports.User = User;
   exports.Classroom = Classroom;
+  exports.Group = Group;
 });
