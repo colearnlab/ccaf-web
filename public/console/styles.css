@@ -109,6 +109,10 @@ html, body {
   top: calc(50vh - 25px)
 }
 
+.student {
+  border-radius: 0 !important;
+}
+
 .student > div {
   padding-left: 15px;
 }
@@ -142,15 +146,19 @@ html, body {
 }
 
 .drop-active {
-  border: 2px dashed gray;
+  border: 2px dashed rgba(0, 0, 0, 0.2);;
 }
 
 .drop-possible {
-  background-color: rgba(0, 0, 0, 0.25);
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 #add-group {
   position: absolute;
   right: 25px;
   top: calc(100vh - 50px);
+}
+
+#ghost {
+  opacity: 0.5;
 }

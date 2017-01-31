@@ -49,18 +49,10 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
 
   // A component that represents a draggable student.
   var Student = {
-    controller: function(args) {
-      return {
-        user: args.user,
-        classroom: args.classroom,
-        groupId: args.groupId,
-        interactable: null
-      };
-    },
-    view: function(ctrl, args) {
+    view: function(__, args) {
       return m(".list-group-item.student", {
           config: function(el) {
-            ctrl.interactable = interact(el).draggable(createStudentDraggable(ctrl, args));
+            interact(el).draggable(createStudentDraggable(args));
           }
         },
         m(".list-group-heading", args.user.name || args.user.email)
@@ -128,23 +120,26 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
     }
   };
 
-  function createStudentDraggable(ctrl, args) {
+  function createStudentDraggable(args) {
     return {
       onstart: function(e) {
         var target = e.target;
         var rect = target.getBoundingClientRect();
 
-        target.originalParentNode = target.parentNode;
-        target.originalNextElementSibling = target.nextElementSibling;
+        var ghost = target.cloneNode(true);
+        ghost.id = "ghost";
 
-        document.getElementById("main").appendChild(target);
-        target.style.position = "absolute";
-        target.style.top = rect.top + "px";
-        target.style.left = rect.left + "px";
-        target.style.width = (rect.right - rect.left) + "px";
+        target.style.opacity = 0.5;
+
+        ghost.style.position = "absolute";
+        ghost.style.top = rect.top + "px";
+        ghost.style.left = rect.left + "px";
+        ghost.style.width = (rect.right - rect.left) + "px";
+
+        document.getElementById("main").appendChild(ghost);
       },
       onmove: function(e) {
-        var target = e.target,
+        var target = document.getElementById("ghost"),
             x = (parseFloat(target.getAttribute("data-x")) || 0) + e.dx,
             y = (parseFloat(target.getAttribute("data-y")) || 0) + e.dy;
 
@@ -155,21 +150,13 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         target.setAttribute("data-y", y);
       },
       onend: function(e) {
-        var dropped = e.target;
-        dropped.style.position =
-          dropped.style.transform =
-          dropped.style.top =
-          dropped.style.left = "";
+        var classroom = args.classroom();
+        var oldGroup = parseInt(args.groupId);
+        var newGroup = parseInt(document.getElementById("ghost").getAttribute("data-new-group"));
+        var userId = args.user._id;
 
-        dropped.setAttribute("data-x", 0);
-        dropped.setAttribute("data-y", 0);
-
-        dropped.originalParentNode.insertBefore(dropped, dropped.originalNextElementSibling);
-
-        var classroom = ctrl.classroom();
-        var oldGroup = parseInt(ctrl.groupId);
-        var newGroup = parseInt(dropped.getAttribute("data-new-group"));
-        var userId = ctrl.user._id;
+        var ghost = document.getElementById("ghost");
+        ghost.parentNode.removeChild(ghost);
 
         if (!isNaN(newGroup)) {
           if (!isNaN(oldGroup)) {
@@ -184,13 +171,14 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
             success: function() {
               classroom.save({
                 success: function(classroom) {
-                  dropped.style.display = "";
                   args.triggerReload();
                 }
               });
             }
           });
         }
+
+        e.target.style.opacity = 1;
       }
     };
   }
@@ -211,12 +199,12 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
       },
       ondrop: function(e) {
         var dropzone = e.target,
-            dropped = e.relatedTarget;
-        dropzone.classList.remove("drop-possible");
-        dropzone.classList.remove("drop-active");
-        dropped.setAttribute("data-new-group", dropzone.getAttribute("data-group") || -1);
+            dropped = document.getElementById("ghost");
 
-        dropped.style.display = "none";
+        e.target.classList.remove("drop-active");
+        e.target.classList.remove("drop-possible");
+
+        dropped.setAttribute("data-new-group", dropzone.getAttribute("data-group") || -1);
       }
     });
 });
