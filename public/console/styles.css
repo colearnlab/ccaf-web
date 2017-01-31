@@ -1,19 +1,41 @@
 /* colors */
-.bg-color-offwhite {
-  background-color: rgb(250, 250, 250) !important;
+.bg-color-white {
+  background-color: #ffffff !important;
 }
 
-.bg-color-medgray {
-  background-color: #E2E4E7 !important;
+.bg-color-light {
+  background-color: #e2e4e7 !important;
 }
 
-.bg-color-darkblue {
-  background-color: blue !important;
+.bg-color-med {
+  background-color: #d4d5d7 !important;
 }
 
-.bg-color-green {
-  background-color: #44968C !important;
+.bg-color-dark {
+  background-color: #444545 !important;
 }
+
+.text-color-primary {
+  color: #333333;
+}
+
+.text-color-secondary {
+  color: #ffffff;
+}
+
+.primary-color-blue {
+  background-color: #06354f !important;
+}
+
+.primary-color-green {
+  background-color: #44968c !important;
+}
+
+.primary-color-orange {
+  background-color: #e06b47 !important;
+}
+
+
 
 /* main */
 
@@ -24,6 +46,7 @@
 
 html, body {
   height: 100%;
+  color: #333333;
   overflow: hidden;
   font-family: 'Raleway', sans-serif;
   -webkit-user-select: none;
@@ -32,23 +55,19 @@ html, body {
 }
 
 #main {
-  padding: 25px 0 0 0;
+  padding: 20px 0 0 0;
   margin: 0 !important;
 }
 
 #toolbar {
   position: absolute;
-  height: 25px;
+  height: 20px;
   width: 100vw;
-  margin-top: -25px;
+  margin-top: -20px;
 }
 
 .underline {
   text-decoration: underline;
-}
-
-.menu-holder > .panel-heading {
-  font-weight: bold !important;
 }
 
 .modal {
@@ -56,32 +75,32 @@ html, body {
 }
 
 .call-to-action {
+  color: lightgray;
   text-align: center;
   position: relative;
   top: 45%;
   transform: translateY(-50%);
-  font-size: 20px;
+  font-size: 2rem;
+  position: absolute;
 }
 
-.menu-holder {
+.main-menu-section {
+  border-radius: 3px;
+}
+
+.main-menu-header {
+  padding: 0;
+  height: 30px;
+  overflow: hidden;
   margin-top: 10vh;
 }
 
-.menu-body-holder {
+.main-menu-header > span {
+  line-height: 30px;
+}
+
+.main-menu-body {
   padding: 0;
-  height: 20vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.menu-body-holder > .list-group {
-  margin-bottom: 0;
-}
-
-.menu-body-holder > .list-group > div {
-  border-left: 0;
-  border-right: 0;
-  border-radius: 0px;
 }
 
 /* groupeditor */
@@ -90,6 +109,7 @@ html, body {
   padding-right: 0;
   width: 175px;
   float:  left;
+  margin-left: 15px;
 }
 
 #groups-holder {
@@ -109,12 +129,14 @@ html, body {
   top: calc(50vh - 25px)
 }
 
-.student {
+.student, .classroom {
   border-radius: 0 !important;
-}
-
-.student > div {
+  height: 25px;
+  line-height: 15px;
+  padding: 5px;
   padding-left: 15px;
+  border-right: 0;
+  border-left: 0;
 }
 
 #groups {
@@ -123,26 +145,36 @@ html, body {
 }
 
 .group {
-  height: 250px;
+  height: 200px;
   width: 175px;
   float: left;
   margin: 15px;
-  border-radius: 10px;
+  border-radius: 3px;
+  box-shadow: 1px 1px 1px gray;
 }
 
-.group-header {
-  height: 25px;
+.group-header, .main-menu-header {
+  height: 30px;
   width: 100%;
-  border-radius: 10px 10px 0px 0px;
-  color: white;
-  line-height: 25px;
-  padding-left: 1em;
-  font-weight: bold;
+  border-radius: 3px 3px 0px 0px;
+  line-height: 30px;
+  padding-left: 0.5em;
+  padding-right: 0.25em;
+  font-size: 1.75rem;
+  border-bottom: 1px solid lightgray;
 }
 
-.group-body {
-  height: 175px;
+.group-body, .main-menu-body {
+  height: 140px;
   width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.group-footer {
+  height: 30px;
+  width: 100%;
+  border-radius: 0px 0px 3px 3px;
 }
 
 .drop-active {
@@ -161,4 +193,8 @@ html, body {
 
 #ghost {
   opacity: 0.5;
+}
+
+.list-group-item:first-child {
+  border-top: 0 !important;
 }

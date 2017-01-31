@@ -23,7 +23,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
     view: function(ctrl, args) {
       return m(".row.stretch",
         // The sidebar: show it if mode is edit.
-        m("#sidebar.stretch.bg-color-offwhite", {
+        m("#sidebar.stretch.bg-color-white", {
             style: ctrl.sidebarState === "open" ? "" : "display: none;"
           },
           m.component(Sidebar, {triggerReload: ctrl.triggerReload, classroom: ctrl.classroom})
@@ -63,7 +63,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
   var Sidebar = {
     view: function(__, args) {
       return m(".stretch",
-        m(".list-group.dropzone.stretch",
+        m(".list-group.dropzone.stretch.sidebar-body",
           // We only want to show students that are not in a group.
           args.classroom().users.filter(function(user) {
             // Iterate groups:
@@ -89,11 +89,16 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
   var Groups = {
     view: function(__, args) {
       args.classroom().groups = args.classroom().groups || [];
-      return m(".stretch#groups",
+      return m(".stretch#groups.bg-color-light",
         args.classroom().groups.map(function(group, i) {
-          return m(".group.bg-color-offwhite",
-            m(".group-header.bg-color-green", group.title),
-            m(".group-body.menu-body-holder",
+          return m(".group.bg-color-white",
+            m(".group-header.primary-color-green", group.title),
+            m(".group-body",
+              m(".call-to-action", {
+                  style: group.users.length > 0 ? "display: none" : ""
+                },
+                "Drag to add a student"
+              ),
               m(".list-group.dropzone.stretch", {
                   "data-group": i
                 },
@@ -103,7 +108,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
                 })
               )
             ),
-            m(".group-footer")
+            m(".group-footer.bg-color-med")
           );
         }),
         m("span.glyphicon.glyphicon-plus#add-group", {

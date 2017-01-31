@@ -12,8 +12,8 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
       };
     },
     view: function(ctrl, component) {
-      return m("div.container-fluid.bg-color-medgray#main.stretch",
-        m("#toolbar.bg-color-darkblue", " "),
+      return m("div.container-fluid.bg-color-med#main.stretch",
+        m("#toolbar.primary-color-blue", " "),
         m.component(component, {me: ctrl.me})
       );
     }
@@ -67,20 +67,19 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
             }
           })
           : ""),
-        m('.panel.panel-default.menu-holder',
-          m('.panel-heading.bg-color-green',
-            m('.panel-title', "Classes",
-              m('span.glyphicon.glyphicon-plus.pull-right', {
-                onclick: function() {
-                  ctrl.editingClassroom = new Classroom();
-                }
-              })
-            )
+        m('.main-menu-section.bg-color-white',
+          m('.main-menu-header.primary-color-blue.text-color-secondary',
+            "Classes",
+            m('span.glyphicon.glyphicon-plus.pull-right', {
+              onclick: function() {
+                ctrl.editingClassroom = new Classroom();
+              }
+            })
           ),
-          m('.panel-body.menu-body-holder',
+          m('.main-menu-body',
             m(".list-group",
               ctrl.classrooms().map(function(classroom) {
-                return m(".list-group-item",
+                return m(".list-group-item.classroom",
                   m(".list-group-heading", {
                       onclick: function() {
                         m.route("/classroom/" + classroom._id);
