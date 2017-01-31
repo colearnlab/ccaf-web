@@ -14,7 +14,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         triggerReload: function(classroom) {
           Classroom.get(m.route.param("classroomId")).then(function(newClassroom) {
             that.classroom = m.prop(newClassroom);
-            m.redraw.strategy("all");
+            m.redraw.strategy("diff");
             m.redraw();
           });
         }
@@ -134,6 +134,9 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         var target = e.target;
         var rect = target.getBoundingClientRect();
 
+        target.originalParentNode = target.parentNode;
+        target.originalNextElementSibling = target.nextElementSibling;
+
         document.getElementById("main").appendChild(target);
         target.style.position = "absolute";
         target.style.top = rect.top + "px";
@@ -161,31 +164,33 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         dropped.setAttribute("data-x", 0);
         dropped.setAttribute("data-y", 0);
 
+        dropped.originalParentNode.insertBefore(dropped, dropped.originalNextElementSibling);
+
         var classroom = ctrl.classroom();
         var oldGroup = parseInt(ctrl.groupId);
         var newGroup = parseInt(dropped.getAttribute("data-new-group"));
         var userId = ctrl.user._id;
 
-        if (!isNaN(newGroup) || !isNaN(oldGroup)) {
+        if (!isNaN(newGroup)) {
           if (!isNaN(oldGroup)) {
             var oldGroupUserIndex = classroom.groups[oldGroup].users.map(function(user) { return user._id; }).indexOf(userId);
             classroom.groups[oldGroup].users.splice(oldGroupUserIndex, 1);
           }
 
-          if (!isNaN(newGroup))
+          if (!isNaN(newGroup) && newGroup >= 0)
             classroom.groups[newGroup].users.push({_id: userId, role: "student"});
 
           classroom.save({
             success: function() {
               classroom.save({
                 success: function(classroom) {
+                  dropped.style.display = "";
                   args.triggerReload();
                 }
               });
             }
           });
         }
-
       }
     };
   }
@@ -209,8 +214,9 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
             dropped = e.relatedTarget;
         dropzone.classList.remove("drop-possible");
         dropzone.classList.remove("drop-active");
+        dropped.setAttribute("data-new-group", dropzone.getAttribute("data-group") || -1);
+
         dropped.style.display = "none";
-        dropped.setAttribute("data-new-group", dropzone.getAttribute("data-group"));
       }
     });
 });
