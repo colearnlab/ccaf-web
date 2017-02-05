@@ -63,7 +63,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   var Classroom = function(title, owner) {
     this.title = title || "";
-    this.users = [];
+    this.users = [{_id: owner, role: "owner"}];
   };
 
   Classroom.list = function() {
@@ -86,7 +86,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
       classroom.groups = classroom.groups.map(function(group) {
         return Object.assign(new Group(), group);
       });
-      
+
       return Object.assign(new Classroom(), classroom);
     });
   };
@@ -97,12 +97,35 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   Classroom.prototype.delete = function(settings) {
     return basicDelete.call(this, "classrooms", settings);
-
   };
 
   var Group = function(title) {
     this.title = title;
     this.users = [];
+  };
+
+  var Activity = function(title, owner) {
+    this.title = title;
+    this.users = [{_id: owner, role: "owner"}];
+  };
+
+  Activity.list = function() {
+    Classroom.list = function() {
+      return m.request({
+        method: "GET",
+        url: apiPrefix + "activties"
+      }).then(function(activities) {
+        return activities.data.map(function(activity) { return Object.assign(new Activity(), activity); });
+      });
+    };
+  };
+
+  Activity.prototype.save = function(settings) {
+    return basicSave.call(this, "activities", settings);
+  };
+
+  Activity.prototype.delete = function(settings) {
+    return basicDelete.call(this, "activities", settings);
   };
 
   exports.User = User;

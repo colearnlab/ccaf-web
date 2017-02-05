@@ -72,7 +72,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
             "Classes",
             m('span.glyphicon.glyphicon-plus.pull-right', {
               onclick: function() {
-                ctrl.editingClassroom = new Classroom();
+                ctrl.editingClassroom = new Classroom("", args.me()._id);
               }
             })
           ),
@@ -106,7 +106,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
   var ClassroomEditModal = {
     controller: function(args) {
       return {
-        notOwner: typeof args.classroom._id !== "undefined" && args.classroom.users[args.classroom.users.map(function(user) { return user._id; }).indexOf(args.me()._id)].role !== "owner",
+        notOwner: typeof args.classroom._id !== "undefined" && (args.classroom.users[args.classroom.users.map(function(user) { return user._id; }).indexOf(args.me()._id)] || {role: "owner"}).role !== "owner",
         students: args.classroom.users.filter(function(user) { return user.role === "student"; }),
         sharedWith: args.classroom.users.filter(function(user) { return user.role === "sharedWith"; }),
         classroom: args.classroom
@@ -195,9 +195,6 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
                     return studentsIndex >= 0 || sharedWithIndex >= 0 || user.role === "owner";
                   });
 
-                  if (typeof ctrl.classroom._id === "undefined")
-                    ctrl.classroom.users.push({_id: args.me()._id, role: "owner"});
-
                   ctrl.classroom.save({
                     success: function() {
                       args.endEdit(true);
@@ -226,7 +223,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
             $("#classroom-delete-modal").modal("show");
           }
         },
-        m(".modal-content.col-md-6.col-md-offset-3",
+        m(".modal-content" + widthClasses,
           m(".modal-header",
             m("h4.modal-title", "Delete classroom?")
           ),

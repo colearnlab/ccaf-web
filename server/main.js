@@ -17,6 +17,26 @@ var classroomdb = new Datastore({
   autoload: true
 });
 
+var activitydb = new Datastore({
+  filename: path.resolve(__dirname, "..", "db", "activities.db"),
+  autoload: true
+});
+
+var classroomSessiondb = new Datastore({
+  filename: path.resolve(__dirname, "..", "db", "classroomsessions.db"),
+  autoload: true
+});
+
+var groupSessiondb = new Datastore({
+  filename: path.resolve(__dirname, "..", "db", "groupsessions.db"),
+  autoload: true
+});
+
+var userSessiondb = new Datastore({
+  filename: path.resolve(__dirname, "..", "db", "usersessions.db"),
+  autoload: true
+});
+
 var express = require("express");
 var app = express();
 
@@ -31,6 +51,147 @@ auth.initialize(app, userdb);
 app.all("/api/*", auth.ensureAuthenticated);
 
 /* === API === */
+/* Activities
+ *  {
+ *    title: the name of the activity,
+ *    users: an array of user references and access levels
+ *      {
+ *        _id: the users _id
+ *        role: one of "owner", "sharedWith"
+ *      }
+ *  }
+ */
+
+app.route("/api/v1/activities")
+  // GET activities
+  // administrator: return all activities
+  // teacher: return activities belonging to or shared with this teacher
+  // student: 404
+  .get(function(req, res) {
+    var query;
+
+    if (req.user.type == "administrator") {
+      query = {};
+    } else if (req.user.type == "teacher") {
+      query = {
+        users: {
+          $elemMatch: {_id: req.user._id}
+        }
+      };
+    } else {
+      return res.sendStatus(404);
+    }
+
+    activitiesdb.find(query, function(err, docs) {
+      if (err) {
+        console.log(err);
+        res.sendStatus(500);
+        return;
+      }
+
+      res.json({data: docs});
+    });
+  })
+  .post(function(req, res) {
+    if (req.user.type != "administrator" && req.user.type != "teacher")
+      return res.sendStatus(404);
+
+    req.body.users = req.body.users || [];
+    delete req.body._id;
+
+    activitiesdb.insert(req.body, function(err, doc) {
+      if (err) {
+        console.log(err);
+        res.sendStatus(500);
+        return;
+      }
+
+      res.json({data: doc});
+    });
+  })
+  .put(function(req, res) {
+    var query = {
+      _id: req.body._id
+    };
+
+    if (req.user.type == "teacher") {
+      query.users = {
+        $elemMatch: {
+          _id: req.user._id
+        }
+      };
+    } else if (req.user.type != "administrator") {
+      return res.sendStatus(404);
+    }
+
+    activitiesdb.update(query, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numChanged, updatedDoc) {
+      if (err) {
+        console.log(err);
+        return res.sendStatus(500);
+      } else if (numChanged === 0) {
+        return res.sendStatus(404);
+      }
+
+      res.json({data: updatedDoc});
+    });
+  })
+  .delete(function(req, res) {
+    var query = {
+      _id: req.body._id
+    };
+
+    if (req.user.type == "teacher") {
+      query.users = {
+        $elemMatch: {
+          _id: req.user._id,
+          role: "owner"
+        }
+      };
+    } else if (req.user.type != "administrator") {
+      return res.sendStatus(404);
+    }
+
+    activitiesdb.remove(query, {}, function(err, numRemoved) {
+      if (err) {
+        console.log(err);
+        return res.sendStatus(500);
+      } else if (numRemoved === 0) {
+        return res.sendStatus(404);
+      }
+
+      res.sendStatus(200);
+    });
+  });
+
+/*
+ * ClassroomSession
+ *  {
+ *    title: the title of this recording,
+ *    classroom: the classroom this recording belongs to,
+ *    start: start time,
+ *    end: end time (or null if not ended yet)
+ *  }
+ */
+
+/*
+ * GroupSession
+ *  {
+ *    title: the title of this session,
+ *    start: the start time of this session,
+ *    end: the end time of this session (or null if not ended yet)
+ *  }
+ */
+
+/*
+ * UserSession
+ *  {
+ *    user: the users id,
+ *    recording: which recording this session is part of,
+ *    start: the time this session connected,
+ *    end: the time this session disconnected (or null if not ended yet)
+ *  }
+ */
+
 /* Classrooms
  *  {
  *    title: the name of the classroom.
@@ -38,6 +199,11 @@ app.all("/api/*", auth.ensureAuthenticated);
  *      {
  *        _id: the users _id
  *        role: one of "owner", "sharedWith", "student"
+ *      },
+ *    groups: an array of group object
+ *      {
+ *        title: title of the group,
+ *        users: an array of user _ids that belong to this group
  *      }
  *  }
  */
@@ -99,7 +265,6 @@ app.route("/api/v1/classrooms/:classroomId?")
       } else {
         res.json({data: docs});
       }
-
     });
   })
   // POST classrooms
@@ -287,4 +452,4 @@ app.get("/api/v1/apps", function(req, res) {
 });
 
 app.use("/", [auth.ensureAuthenticated, express.static("public")]);
-app.listen(3000);
+app.listen(4000);
