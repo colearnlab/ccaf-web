@@ -1,4 +1,4 @@
-exports.initialize = function(app, userdb) {
+exports.initialize = function(app, db) {
   var passport = require("passport");
   var session = require('express-session');
   var cookieSession = require("cookie-session");
@@ -9,10 +9,9 @@ exports.initialize = function(app, userdb) {
     CALLBACK_URL: "http://localhost:3000/oauth2callback"
   };
 
-  //app.use(session({ secret: Math.random().toString() }));
   app.use(cookieSession({
     name: 'session',
-    keys: ["testingOnly"],
+    keys: ["testing"],
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }));
 
@@ -31,17 +30,25 @@ exports.initialize = function(app, userdb) {
         profile.emails.forEach(function(email) {
           if (email.type === "account") {
             // If we find the account email, check if it's in our database.
-            userdb.findOne({email: email.value}, function(err, user) {
-              // If the user is in our database and their name is not set, we retrieve and set their name.
-              if (user && typeof user.name === "undefined") {
-                userdb.update({email: email.value}, {$set: {name: profile.displayName}}, {}, function(err) {
-                  done(null, user);
-                });
-              } else {
-                // Otherwise, we return an error if the user is not in the system or continue if they are.
-                return done(user ? null : "User not in system.", user);
-              }
+            var stmt = db.prepare("SELECT * FROM users WHERE email=:email", {
+              ":email": email.value
             });
+
+            if (!stmt.step()) {
+              stmt.free();
+              done("User not in system.", null);
+              return;
+            }
+
+            console.log(user);
+
+            var user = stmt.getAsObject();
+            stmt.free();
+
+            if (!user.name)
+              db.run("UPDATE users SET name=:name WHERE id=:id", {":id": user.id, ":name": profile.displayName});
+
+            done(null, user);
           }
         });
       });
@@ -49,13 +56,16 @@ exports.initialize = function(app, userdb) {
   ));
 
   passport.serializeUser(function(user, done) {
-      done(null, user._id);
+    done(null, user.id);
   });
 
-  passport.deserializeUser(function(_id, done) {
-      userdb.findOne({_id: _id}, function(err, user) {
-          done(err, user);
-      });
+  passport.deserializeUser(function(id, done) {
+    var stmt = db.prepare("SELECT * FROM users WHERE id=:id", {
+      ":id": id
+    });
+
+    stmt.step();
+    done(null, stmt.getAsObject());
   });
 
   app.get("/login", function(req, res) {

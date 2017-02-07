@@ -2,40 +2,36 @@ require('dotenv').config();
 
 var fs = require("fs");
 var path = require("path");
-var async = require("async");
 
-var Datastore = require("nedb");
+var sql = require("sql.js");
 
-var userdb = new Datastore({
-  filename: path.resolve(__dirname, "..", "db", "users.db"),
-  autoload: true
-});
-userdb.ensureIndex({fieldName: "email", unique: true});
+var dbPath = path.resolve(__dirname, "..", "embedded.sqlite");
 
-var classroomdb = new Datastore({
-  filename: path.resolve(__dirname, "..", "db", "classrooms.db"),
-  autoload: true
-});
+if (true && fs.existsSync(dbPath)) {
+  var newdb = new sql.Database();
 
-var activitydb = new Datastore({
-  filename: path.resolve(__dirname, "..", "db", "activities.db"),
-  autoload: true
-});
+  var sqlstr = [
+    "PRAGMA foreign_keys = ON",
+    "CREATE TABLE user_types(type_id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT)",
+      "INSERT INTO user_types VALUES(0, 'administrator')",
+      "INSERT INTO user_types VALUES(1, 'teacher')",
+      "INSERT INTO user_types VALUES(2, 'student')",
+    "CREATE TABLE users(id INTEGER UNIQUE PRIMARY KEY NOT NULL, name TEXT, email TEXT UNIQUE NOT NULL, type INTEGER NOT NULL, FOREIGN KEY(type) REFERENCES user_types(type_id))",
+      "INSERT INTO users VALUES(0, '" + process.env.ADMIN_NAME + "', '" + process.env.ADMIN_EMAIL + "', 0)",
+    "CREATE TABLE classrooms(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, owner INTEGER NOT NULL, FOREIGN KEY(owner) REFERENCES users(id))",
+    "CREATE TABLE classroom_user_mapping(classroom INTEGER, user INTEGER, FOREIGN KEY(classroom) REFERENCES classrooms(id), FOREIGN KEY(user) REFERENCES users(id), UNIQUE(classroom, user) ON CONFLICT REPLACE)",
+    "CREATE TABLE recordings(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT)",
+    "CREATE TABLE group_session(id INTEGER UNIQUE PRIMARY KEY NOT NULL, recording INTEGER, FOREIGN KEY(recording) REFERENCES recordings(id))",
+    "CREATE TABLE user_session(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER, FOREIGN KEY(group_session) REFERENCES group_session(id))"
+  ].join("; ") + "; ";
 
-var classroomSessiondb = new Datastore({
-  filename: path.resolve(__dirname, "..", "db", "classroomsessions.db"),
-  autoload: true
-});
+  newdb.exec(sqlstr);
 
-var groupSessiondb = new Datastore({
-  filename: path.resolve(__dirname, "..", "db", "groupsessions.db"),
-  autoload: true
-});
+  fs.writeFileSync(dbPath, new Buffer(newdb.export()));
+}
 
-var userSessiondb = new Datastore({
-  filename: path.resolve(__dirname, "..", "db", "usersessions.db"),
-  autoload: true
-});
+var dbBuffer = fs.readFileSync(dbPath);
+var db = new sql.Database(dbBuffer);
 
 var express = require("express");
 var app = express();
@@ -46,410 +42,246 @@ app.use(bodyParser.urlencoded({
 }));
 
 var auth = require('./authentication');
-auth.initialize(app, userdb);
+auth.initialize(app, db);
 
 app.all("/api/*", auth.ensureAuthenticated);
 
-/* === API === */
-/* Activities
- *  {
- *    title: the name of the activity,
- *    users: an array of user references and access levels
- *      {
- *        _id: the users _id
- *        role: one of "owner", "sharedWith"
- *      }
- *  }
- */
-
-app.route("/api/v1/activities")
-  // GET activities
-  // administrator: return all activities
-  // teacher: return activities belonging to or shared with this teacher
-  // student: 404
-  .get(function(req, res) {
-    var query;
-
-    if (req.user.type == "administrator") {
-      query = {};
-    } else if (req.user.type == "teacher") {
-      query = {
-        users: {
-          $elemMatch: {_id: req.user._id}
-        }
-      };
-    } else {
-      return res.sendStatus(404);
-    }
-
-    activitiesdb.find(query, function(err, docs) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
-
-      res.json({data: docs});
-    });
-  })
-  .post(function(req, res) {
-    if (req.user.type != "administrator" && req.user.type != "teacher")
-      return res.sendStatus(404);
-
-    req.body.users = req.body.users || [];
-    delete req.body._id;
-
-    activitiesdb.insert(req.body, function(err, doc) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
-
-      res.json({data: doc});
-    });
-  })
-  .put(function(req, res) {
-    var query = {
-      _id: req.body._id
-    };
-
-    if (req.user.type == "teacher") {
-      query.users = {
-        $elemMatch: {
-          _id: req.user._id
-        }
-      };
-    } else if (req.user.type != "administrator") {
-      return res.sendStatus(404);
-    }
-
-    activitiesdb.update(query, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numChanged, updatedDoc) {
-      if (err) {
-        console.log(err);
-        return res.sendStatus(500);
-      } else if (numChanged === 0) {
-        return res.sendStatus(404);
-      }
-
-      res.json({data: updatedDoc});
-    });
-  })
-  .delete(function(req, res) {
-    var query = {
-      _id: req.body._id
-    };
-
-    if (req.user.type == "teacher") {
-      query.users = {
-        $elemMatch: {
-          _id: req.user._id,
-          role: "owner"
-        }
-      };
-    } else if (req.user.type != "administrator") {
-      return res.sendStatus(404);
-    }
-
-    activitiesdb.remove(query, {}, function(err, numRemoved) {
-      if (err) {
-        console.log(err);
-        return res.sendStatus(500);
-      } else if (numRemoved === 0) {
-        return res.sendStatus(404);
-      }
-
-      res.sendStatus(200);
-    });
-  });
-
-/*
- * ClassroomSession
- *  {
- *    title: the title of this recording,
- *    classroom: the classroom this recording belongs to,
- *    start: start time,
- *    end: end time (or null if not ended yet)
- *  }
- */
-
-/*
- * GroupSession
- *  {
- *    title: the title of this session,
- *    start: the start time of this session,
- *    end: the end time of this session (or null if not ended yet)
- *  }
- */
-
-/*
- * UserSession
- *  {
- *    user: the users id,
- *    recording: which recording this session is part of,
- *    start: the time this session connected,
- *    end: the time this session disconnected (or null if not ended yet)
- *  }
- */
-
-/* Classrooms
- *  {
- *    title: the name of the classroom.
- *    users: an array of user references and access levels
- *      {
- *        _id: the users _id
- *        role: one of "owner", "sharedWith", "student"
- *      },
- *    groups: an array of group object
- *      {
- *        title: title of the group,
- *        users: an array of user _ids that belong to this group
- *      }
- *  }
- */
-app.route("/api/v1/classrooms/:classroomId?")
-  // GET classrooms
-  // administrator: return a list of all classrooms
-  // teacher: return a list of classrooms owned or shared with this teacher
-  // student: return a list of classrooms the student is a member of, stripped of sensitive data
-  .get(function(req, res) {
-    var query;
-
-    if (req.user.type == "administrator") {
-      query = {};
-    } else if (req.user.type == "teacher" || req.user.type == "student") {
-      query = {
-        users: {
-          $elemMatch: {_id: req.user._id}
-        }
-      };
-    } else {
-      return res.sendStatus(404);
-    }
-
-    if (typeof req.params.classroomId !== "undefined")
-      query._id = req.params.classroomId;
-
-    classroomdb.find(query, function(err, docs) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
-
-      if (req.user.type == "student") {
-        docs = docs.map(function(doc) {
-          return {
-            _id: doc._id,
-            title: doc.title
-          };
-        });
-      }
-
-      if (typeof req.params.classroomId !== "undefined") {
-        if (docs.length === 0)
-          res.sendStatus(404);
-        else {
-          docs = docs[0];
-          async.map(docs.users, function(item, callback) {
-            userdb.findOne({_id: item._id}, function(err, user) {
-              user.role = item.role;
-              callback(err, user);
-            });
-          }, function(err, results) {
-            docs.users = results;
-            res.json({data: docs});
-            return;
-          });
-        }
-      } else {
-        res.json({data: docs});
-      }
-    });
-  })
-  // POST classrooms
-  // create a new classroom.
-  .post(function(req, res) {
-    if (req.user.type != "administrator" && req.user.type != "teacher")
-      return res.sendStatus(404);
-
-    req.body.users = req.body.users || [];
-    delete req.body._id;
-
-    classroomdb.insert(req.body, function(err, doc) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
-
-      res.json({data: doc});
-    });
-  })
-  .put(function(req, res) {
-    var query = {
-      _id: req.body._id
-    };
-
-    if (req.user.type == "teacher") {
-      query.users = {
-        $elemMatch: {
-          _id: req.user._id
-        }
-      };
-    } else if (req.user.type != "administrator") {
-      return res.sendStatus(404);
-    }
-
-    classroomdb.update(query, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numChanged, updatedDoc) {
-      if (err) {
-        console.log(err);
-        return res.sendStatus(500);
-      } else if (numChanged === 0) {
-        return res.sendStatus(404);
-      }
-
-      res.json({data: updatedDoc});
-    });
-  })
-  .delete(function(req, res) {
-    var query = {
-      _id: req.body._id
-    };
-
-    if (req.user.type == "teacher") {
-      query.users = {
-        $elemMatch: {
-          _id: req.user._id,
-          role: "owner"
-        }
-      };
-    } else if (req.user.type != "administrator") {
-      return res.sendStatus(404);
-    }
-
-    classroomdb.remove(query, {}, function(err, numRemoved) {
-      if (err) {
-        console.log(err);
-        return res.sendStatus(500);
-      } else if (numRemoved === 0) {
-        return res.sendStatus(404);
-      }
-
-      res.sendStatus(200);
-    });
-  });
-
 /* Users */
-app.route("/api/v1/users/me")
-  .get(function(req, res) {
-    res.json({data: req.user});
-  });
-
 app.route("/api/v1/users")
   .get(function(req, res) {
-    if (req.user.type != "administrator" && req.user.type != "teacher")
-      return res.sendStatus(404);
+    var users = [];
 
-    userdb.find({}, function(err, docs) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
-
-      res.json({data: docs});
-    });
+    db.each("SELECT * FROM users",
+      {},
+      function(user) {
+        users.push(user);
+      },
+      function() {
+        res.json({data: users});
+      });
   })
   .post(function(req, res) {
-    if (req.user.type != "administrator" && req.user.type != "teacher")
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("INSERT INTO users VALUES(NULL, :name, :email, :type)", {
+        ":name": req.body.name,
+        ":email": req.body.email,
+        ":type": req.body.type
+      });
+
+      res.json({
+        data: {
+          id: db.exec("SELECT last_insert_rowid()")[0].values[0][0]
+        }
+      });
+    } catch(e) {
+      res.sendStatus(400);
+    }
+  });
+app.route("/api/v1/users/:userId")
+  .get(function(req, res) {
+    var stmt = db.prepare("SELECT * FROM users WHERE id=:id", {
+      ":id": req.params.userId
+    });
+
+    if (!stmt.step())
       return res.sendStatus(404);
 
-    if (req.user.type == "teacher" && req.body.type != "student")
-      return res.sendStatus(400);
-
-    userdb.insert(req.body, function(err, doc) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
-
-      res.json({data: doc});
-    });
+    res.json({data: stmt.getAsObject()});
+    stmt.free();
   })
   .put(function(req, res) {
-    if (req.user.type != "administrator" && req.user._id != req.body._id)
-      return res.sendStatus(400);
-
-    userdb.update({_id: req.body._id}, {$set: req.body}, {returnUpdatedDocs: true}, function(err, numChanged, updatedDoc) {
-      if (err) {
-        console.log(err);
-        return res.sendStatus(500);
-      } else if (numChanged === 0) {
-        return res.sendStatus(404);
-      }
-
-      res.json({data: updatedDoc});
-    });
-  })
-  .delete(function(req, res) {
-    if (req.user.type != "administrator")
-      return res.sendStatus(400);
-
-    userdb.remove({_id: req.body._id}, function(err) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
-
-      res.sendStatus(200);
-    });
-  });
-
-/* Apps */
-app.get("/api/v1/apps", function(req, res) {
-  var appsPath = path.resolve(__dirname, "public", "apps");
-
-  // Read the contents of the apps directory.
-  fs.readdir(appsPath, function(err, files) {
-    if (err) {
-      console.log(err);
-      res.sendStatus(500);
-      return;
-    }
-
-    // processApp will take the folder name and read the package.json file within.
-    var processApp = function(file, callback) {
-      var fullPath = path.resolve(__dirname, "public", "apps", file, "package.json");
-      fs.readFile(fullPath, function(err, contents) {
-        if (err) {
-          console.log(err);
-          return;
-        }
-
-        // Parse the contents of the package.json file and append it to the array.
-        var package = JSON.parse(contents);
-        package.name = file;
-
-        callback(null, package);
-      });
+    var params = {
+      ":id": req.params.userId,
+      ":name": req.body.name,
+      ":email": req.body.email,
+      ":type": req.body.type
     };
 
-    // Retrieve package.json files and append them to the array.
-    async.map(files, processApp, function(err, apps) {
-      if (err) {
-        console.log(err);
-        res.sendStatus(500);
-        return;
-      }
+    var insertString = [];
+    for (var p in params) {
+      if (p === "id")
+        continue;
+      else if (typeof params[p] !== "undefined")
+        insertString.push(p.slice(1) + "=" + p);
+      else
+        delete params[p];
+    }
 
-      // Return our array.
-      res.json(apps);
-    });
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("UPDATE users SET " + insertString.join(", ") + " WHERE id=:id", params);
+      if (db.getRowsModified() === 1)
+        res.sendStatus(200);
+      else
+        res.sendStatus(404);
+    } catch (e) {
+      res.sendStatus(400);
+    }
+  })
+  .delete(function(req, res) {
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("DELETE FROM users WHERE id=:id", {
+        ":id": req.params.userId
+      });
+
+      if (db.getRowsModified() === 1)
+        res.sendStatus(200);
+      else
+        res.sendStatus(404);
+    } catch (e) {
+      res.sendStatus(400);
+    }
   });
-});
 
-app.use("/", [auth.ensureAuthenticated, express.static("public")]);
-app.listen(4000);
+app.route("/api/v1/classrooms")
+  .get(function(req, res) {
+    var classrooms = [];
+
+    db.each("SELECT * FROM classrooms",
+      {},
+      function(classroom) {
+        classrooms.push(classroom);
+      },
+      function() {
+        res.json({data: classrooms});
+      });
+  })
+  .post(function(req, res) {
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("INSERT INTO classrooms VALUES(NULL, :title, :owner)", {
+        ":title": req.body.title,
+        ":owner": req.body.owner
+      });
+
+      res.json({
+        data: {
+          id: db.exec("SELECT last_insert_rowid()")[0].values[0][0]
+        }
+      });
+    } catch(e) {
+      res.sendStatus(400);
+    }
+  });
+app.route("/api/v1/classrooms/:classroomId")
+  .get(function(req, res) {
+    var stmt = db.prepare("SELECT * FROM classrooms WHERE id=:id", {
+      ":id": req.params.classroomId
+    });
+
+    if (!stmt.step())
+      return res.sendStatus(404);
+
+    res.json({data: stmt.getAsObject()});
+    stmt.free();
+  })
+  .put(function(req, res) {
+    var params = {
+      ":id": req.params.classroomId,
+      ":title": req.body.title,
+      ":owner": req.body.owner
+    };
+
+    var insertString = [];
+    for (var p in params) {
+      if (p === "id")
+        continue;
+      else if (typeof params[p] !== "undefined")
+        insertString.push(p.slice(1) + "=" + p);
+      else
+        delete params[p];
+    }
+
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("UPDATE classrooms SET " + insertString.join(", ") + " WHERE id=:id", params);
+      if (db.getRowsModified() === 1)
+        res.sendStatus(200);
+      else
+        res.sendStatus(404);
+    } catch (e) {
+      res.sendStatus(400);
+    }
+  })
+  .delete(function(req, res) {
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("DELETE FROM classrooms WHERE id=:id", {
+        ":id": req.params.classroomId
+      });
+
+      if (db.getRowsModified() === 1)
+        res.sendStatus(200);
+      else
+        res.sendStatus(404);
+    } catch (e) {
+      res.sendStatus(400);
+    }
+  });
+
+app.route("/api/v1/classrooms/:classroomId/users")
+  .get(function(req, res) {
+    var users = [];
+
+    db.each("SELECT id, name, email, type FROM classroom_user_mapping LEFT JOIN users ON classroom_user_mapping.user = users.id WHERE classroom=:classroom ", {
+        ":classroom": req.params.classroomId
+      },
+      function(user) {
+        users.push(user);
+      },
+      function() {
+        res.json({data: users});
+      });
+  });
+app.route("/api/v1/users/:userId/classrooms")
+  .get(function(req, res) {
+    var classrooms = [];
+
+    db.each("SELECT id, title FROM classroom_user_mapping LEFT JOIN classrooms ON classroom_user_mapping.classroom = classrooms.id WHERE user=:user ", {
+        ":user": req.params.userId
+      },
+      function(classroom) {
+        classrooms.push(classroom);
+      },
+      function() {
+        res.json({data: classrooms});
+      });
+  });
+app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:userId/classrooms/:classroomId"])
+  .put(function(req, res) {
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("INSERT INTO classroom_user_mapping VALUES(:classroom, :user)", {
+        ":classroom": req.params.classroomId,
+        ":user": req.params.userId
+      });
+      if (db.getRowsModified() === 1)
+        res.sendStatus(200);
+      else
+        res.sendStatus(404);
+    } catch (e) {
+      res.sendStatus(400);
+    }
+  })
+  .delete(function(req, res) {
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("DELETE FROM classroom_user_mapping WHERE classroom=:classroom and user=:user", {
+        ":classroom": req.params.classroomId,
+        ":user": req.params.userId
+      });
+
+      if (db.getRowsModified() === 1)
+        res.sendStatus(200);
+      else
+        res.sendStatus(404);
+    } catch (e) {
+      console.log(e);
+      res.sendStatus(400);
+    }
+  });
+
+app.use("/", [express.static("public")]);
+app.listen(3000);
