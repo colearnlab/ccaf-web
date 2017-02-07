@@ -16,12 +16,12 @@ if (!fs.existsSync(dbPath)) {
       "INSERT INTO user_types VALUES(0, 'administrator')",
       "INSERT INTO user_types VALUES(1, 'teacher')",
       "INSERT INTO user_types VALUES(2, 'student')",
-    "CREATE TABLE users(id INTEGER UNIQUE PRIMARY KEY NOT NULL, name TEXT, email TEXT UNIQUE NOT NULL, type INTEGER NOT NULL, FOREIGN KEY(type) REFERENCES user_types(type_id))",
+    "CREATE TABLE users(id INTEGER UNIQUE PRIMARY KEY NOT NULL, name TEXT, email TEXT UNIQUE NOT NULL, type INTEGER NOT NULL REFERENCES user_types(type_id))",
       "INSERT INTO users VALUES(0, '" + process.env.ADMIN_NAME + "', '" + process.env.ADMIN_EMAIL + "', 0)",
-    "CREATE TABLE classrooms(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, owner INTEGER NOT NULL, FOREIGN KEY(owner) REFERENCES users(id))",
-    "CREATE TABLE classroom_user_mapping(classroom INTEGER NOT NULL, user INTEGER NOT NULL, FOREIGN KEY(classroom) REFERENCES classrooms(id), FOREIGN KEY(user) REFERENCES users(id), UNIQUE(classroom, user) ON CONFLICT REPLACE)",
-    "CREATE TABLE groups(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER NOT NULL, FOREIGN KEY(classroom) REFERENCES classrooms(id))",
-    "CREATE TABLE group_user_mapping(group INTEGER NOT NULL, user INTEGER NOT NULL, FOREIGN KEY(group) REFERENCES groups(id), FOREIGN KEY(user) REFERENCES users(id))"
+    "CREATE TABLE classrooms(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
+    "CREATE TABLE classroom_user_mapping(classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(classroom, user) ON CONFLICT REPLACE)",
+    "CREATE TABLE groups(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)",
+//    "CREATE TABLE group_user_mapping(group INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
 //    "CREATE TABLE recordings(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT)",
 //    "CREATE TABLE group_session(id INTEGER UNIQUE PRIMARY KEY NOT NULL, recording INTEGER, FOREIGN KEY(recording) REFERENCES recordings(id))",
 //    "CREATE TABLE user_session(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER, FOREIGN KEY(group_session) REFERENCES group_session(id))"
@@ -257,6 +257,7 @@ app.route("/api/v1/classrooms/:classroomId")
       else
         res.sendStatus(404);
     } catch (e) {
+      console.log(e);
       res.sendStatus(400);
     }
   });

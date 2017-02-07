@@ -1,21 +1,6 @@
 define(["exports", "mithril", "jquery"], function(exports, m, $) {
   var apiPrefix = "/api/v1/";
 
-  function basicSave(url, settings) {
-    settings = settings || {};
-    settings.type = (typeof this.id !== "undefined" ? "PUT" : "POST");
-    settings.url = apiPrefix + url + (typeof this.id !== "undefined" ? "/" + this.id : "");
-    settings.data = JSON.parse(JSON.stringify(this));
-    $.ajax(settings);
-  }
-
-  function basicDelete(url, settings) {
-    settings = settings || {};
-    settings.type = "DELETE";
-    settings.url = apiPrefix + url + (typeof this.id !== "undefined" ? "/" + this.id : "");
-    $.ajax(settings);
-  }
-
   // User methods.
   var User = function User(name, email, type) {
     this.name = name;
@@ -34,13 +19,22 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
       });
     });
   };
-  
+
+  User.get = function(id) {
+    return m.request({
+      method: "GET",
+      url: apiPrefix + "users/" + id
+    }).then(function(user) {
+      return Object.assign(new User(), user.data);
+    });
+  };
+
   User.me = function() {
     return m.request({
       method: "GET",
       url: apiPrefix + "users/me"
     }).then(function(user) {
-      return user.data;
+      return Object.assign(new User(), user.data);
     });
   };
 
@@ -69,7 +63,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   User.prototype.addClassroom = function(classroom) {
     var classroomId = (classroom instanceof Classroom ? classroom.id : classroom);
-    m.request({
+    return m.request({
       method: "PUT",
       url: apiPrefix + "users/" + this.id + "/classrooms/" + classroomId,
       deserialize: function(){}
@@ -78,7 +72,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   User.prototype.removeClassroom = function(classroom) {
     var classroomId = (classroom instanceof Classroom ? classroom.id : classroom);
-    m.request({
+    return m.request({
       method: "DELETE",
       url: apiPrefix + "users/" + this.id + "/classrooms/" + classroomId,
       deserialize: function(){}
@@ -109,6 +103,20 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     });
   };
 
+  Classroom.prototype.users = function() {
+    if (typeof this.id === "undefined")
+      return m.prop([]);
+
+    return m.request({
+      method: "GET",
+      url: apiPrefix + "classrooms/" + this.id + "/users"
+    }).then(function(users) {
+      return users.data.map(function(user) {
+        return Object.assign(new User(), user);
+      });
+    });
+  };
+
   Classroom.prototype.save = function(settings) {
     return basicSave.call(this, "classrooms", settings);
   };
@@ -116,6 +124,34 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   Classroom.prototype.delete = function(settings) {
     return basicDelete.call(this, "classrooms", settings);
   };
+
+  function basicSave(url) {
+    return m.request({
+      method: (typeof this.id !== "undefined" ? "PUT" : "POST"),
+      url: apiPrefix + url + (typeof this.id !== "undefined" ? "/" + this.id : ""),
+      data: JSON.parse(JSON.stringify(this)),
+      serialize: function(data) { return m.route.buildQueryString(data); },
+      deserialize: function() {},
+      config: function(xhr) {
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+      }
+    });
+  }
+
+  function basicDelete(url, settings) {
+    return m.request({
+      method: "DELETE",
+      url: apiPrefix + url + (typeof this.id !== "undefined" ? "/" + this.id : ""),
+      data: JSON.parse(JSON.stringify(this)),
+      serialize: function(data) { return m.route.buildQueryString(data); },
+      deserialize: function() {},
+      config: function(xhr) {
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+      }
+    });
+  }
 
   exports.User = User;
   exports.Classroom = Classroom;

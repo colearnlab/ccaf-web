@@ -1,8 +1,8 @@
 node_modules
 public/lib
-db
 .env
 .remote-sync.json
+embedded.sqlite
 
 # Windows image file caches
 Thumbs.db

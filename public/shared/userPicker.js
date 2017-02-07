@@ -10,7 +10,8 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
     controller: function(args) {
       return {
         currentUser: "",
-        userList: args.userList,
+        classroom: args.classroom,
+        currentUsers: args.classroom.users(),
         availableUsers: User.list()
       };
     },
@@ -24,8 +25,7 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
         },
         m.component(CannotAddUserModal),
         m(".user-listing",
-          ctrl.userList.map(function(user) {
-              user = ctrl.availableUsers()[ctrl.availableUsers().map(function(u) { return u._id; }).indexOf(user._id)];
+          ctrl.currentUsers().map(function(user) {
               return m("div", {
                   style: "background-color: " + (user.name.length === 0 ? "lightgray" : "lightblue")
                 },
@@ -48,7 +48,7 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
                 value: ctrl.currentUser,
                 config: function(el) {
                   $(el).typeahead({
-                    source: ctrl.availableUsers().filter(function(user) { return (args.restrictTo ? args.restrictTo.indexOf(user.type) >= 0 : true); }),
+                    source: ctrl.availableUsers(),
                     displayText: function(user) {
                       return (user.name.length !== 0 ? user.name : "") + " <" + user.email + ">";
                     },
@@ -71,41 +71,27 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
                   onclick: function(e) {
                     ctrl.currentUser = ctrl.currentUser.toLowerCase();
 
-                    m.startComputation();
-                    var indexOfExistingUser = ctrl.userList.map(function(user) { return user.email; }).indexOf(ctrl.currentUser);
-                    var indexOfUserToAdd = ctrl.availableUsers().map(function(user) { return user.email; }).indexOf(ctrl.currentUser);
 
-                    if (indexOfExistingUser >= 0) {
-                      // do nothing.
-                    } else if (indexOfUserToAdd < 0 && args.type) {
-                      m.startComputation();
-                      var newUser = new User("", ctrl.currentUser, args.type);
-                      newUser.save({
-                        success: function(user) {
-                          if (args.onchange)
-                            args.onchange(user.data);
+                    var userIdx = ctrl.availableUsers().map(function(user) {
+                      return user.email;
+                    }).indexOf(ctrl.currentUser);
 
-                          ctrl.userList.push(user.data);
-                          ctrl.availableUsers = User.list();
-                          m.endComputation();
-                        },
-                        error: function() {
-                          alert("Error.");
-                        }
-                      });
-                    } else if (indexOfUserToAdd < 0 && !args.type) {
+                    if (userIdx < 0 && typeof args.type === "undefined") {
                       $("#cannot-add-user-restricted-modal").modal("show");
-                    } else if (!(args.restrictTo && args.restrictTo.indexOf(ctrl.availableUsers()[indexOfUserToAdd].type) < 0)) {
-                      var toAdd = ctrl.availableUsers()[indexOfUserToAdd];
-                      ctrl.userList.push(toAdd);
-                      if (args.onchange)
-                        args.onchange(toAdd);
                     } else {
-                      $("#cannot-add-user-type-modal").modal("show");
+                      m.startComputation();
+
+                      var userId = ctrl.availableUsers()[userIdx].id;
+                      User.get(userId).then(function(user) {
+                        user.addClassroom(ctrl.classroom.id).then(function() {
+                          ctrl.currentUser = "";
+                          ctrl.classroom.users().then(ctrl.currentUsers).then(function() {
+                            m.redraw(true);
+                          });
+                        });
+                      });
                     }
 
-                    ctrl.currentUser = "";
-                    m.endComputation();
                     e.preventDefault();
                     return false;
                   }

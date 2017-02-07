@@ -1,5 +1,5 @@
 define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPicker", "modules/groupEditor", "bootstrap"], function(exports, m, $, _, models, userPicker, groupEditor) {
-return console.log(models);  var Classroom = models.Classroom;
+  var Classroom = models.Classroom;
   var User = models.User;
 
   var UserPicker = userPicker.userPicker;
@@ -49,8 +49,9 @@ return console.log(models);  var Classroom = models.Classroom;
             endEdit: function(reload) {
               ctrl.editingClassroom = null;
               if (reload)
-                ctrl.classrooms = Classroom.list();
-              m.endComputation();
+                Classroom.list().then(ctrl.classrooms).then(function() {
+                  m.redraw(true);
+                });
             }
           })
           : ""),
@@ -58,12 +59,14 @@ return console.log(models);  var Classroom = models.Classroom;
             classroom: ctrl.deletingClassroom,
             endDelete: function(reload) {
               ctrl.deletingClassroom = null;
-              ctrl.editingClassroom = null;
               $("#classroom-delete-modal").modal("hide");
-              $("#classroom-edit-modal").modal("hide");
-              if (reload)
-                ctrl.classrooms = Classroom.list();
-              m.endComputation();
+              if (reload) {
+                ctrl.editingClassroom = null;
+                $("#classroom-edit-modal").modal("hide");
+                Classroom.list().then(ctrl.classrooms).then(function() {
+                  m.redraw(true);
+                });
+              }
             }
           })
           : ""),
@@ -72,7 +75,7 @@ return console.log(models);  var Classroom = models.Classroom;
             "Classes",
             m('span.glyphicon.glyphicon-plus.pull-right', {
               onclick: function() {
-                ctrl.editingClassroom = new Classroom("", args.me()._id);
+                ctrl.editingClassroom = new Classroom("", args.me().id);
               }
             })
           ),
@@ -106,9 +109,7 @@ return console.log(models);  var Classroom = models.Classroom;
   var ClassroomEditModal = {
     controller: function(args) {
       return {
-        notOwner: typeof args.classroom._id !== "undefined" && (args.classroom.users[args.classroom.users.map(function(user) { return user._id; }).indexOf(args.me()._id)] || {role: "owner"}).role !== "owner",
-        students: args.classroom.users.filter(function(user) { return user.role === "student"; }),
-        sharedWith: args.classroom.users.filter(function(user) { return user.role === "sharedWith"; }),
+        notOwner: args.classroom.owner !== args.me().id,
         classroom: args.classroom
       };
     },
@@ -138,24 +139,13 @@ return console.log(models);  var Classroom = models.Classroom;
                   })
                 )
               ),
-              m(".form-group",
-                m("label.control-label", "Students: "),
-                m.component(UserPicker, {
-                    userList: ctrl.students,
-                    restrictTo: ["student"],
-                    type: "student"
-                  }
-                )
-              ),
-              m(".form-group",
+              m(".form-group", {
+                  style: typeof ctrl.classroom.id === "undefined" ? "display: none;" : ""
+                },
                 m("label.control-label", "Shared with (teachers): "),
                 m.component(UserPicker, {
-                    userList: ctrl.sharedWith,
-                    onchange: function(user) {
-                      if (user._id === args.me()._id)
-                        ctrl.sharedWith.splice(ctrl.sharedWith.indexOf(user), 1);
-                    },
-                    restrictTo: ["teacher"],
+                    classroom: ctrl.classroom,
+                    restrictTo: ["administrator", "teacher"],
                     type: void 0
                   }
                 )
@@ -165,7 +155,7 @@ return console.log(models);  var Classroom = models.Classroom;
           m(".modal-footer",
             m("button.btn.btn-danger.pull-left", {
               onclick: args.triggerDelete,
-              style: (typeof ctrl.classroom._id === "undefined" || ctrl.notOwner ? "display: none;" : ""),
+              style: (typeof ctrl.classroom.id === "undefined" || ctrl.notOwner ? "display: none;" : ""),
             }, "Delete"),
             m("button.btn.btn-default", {
                 onclick: function(e) {
@@ -176,32 +166,8 @@ return console.log(models);  var Classroom = models.Classroom;
             ),
             m("button.btn.btn-primary", {
                 onclick: function() {
-                  m.startComputation();
-
-                  ctrl.students.forEach(function(student) {
-                    if (ctrl.classroom.users.map(function(u) { return u._id; }).indexOf(student._id) < 0)
-                      ctrl.classroom.users.push({_id: student._id, role: "student"});
-                  });
-
-                  ctrl.sharedWith.forEach(function(teacher) {
-                    if (ctrl.classroom.users.map(function(u) { return u._id; }).indexOf(teacher._id) < 0)
-                      ctrl.classroom.users.push({_id: teacher._id, role: "sharedWith"});
-                  });
-
-                  ctrl.classroom.users = ctrl.classroom.users.filter(function(user) {
-                    var studentsIndex = ctrl.students.map(function(student) { return student._id; }).indexOf(user._id);
-                    var sharedWithIndex = ctrl.sharedWith.map(function(sharedWith) { return sharedWith._id; }).indexOf(user._id);
-
-                    return studentsIndex >= 0 || sharedWithIndex >= 0 || user.role === "owner";
-                  });
-
-                  ctrl.classroom.save({
-                    success: function() {
-                      args.endEdit(true);
-                    },
-                    error: function() {
-                      alert("Error.");
-                    }
+                  ctrl.classroom.save().then(function() {
+                    args.endEdit(true);
                   });
                 },
                 "data-dismiss": "modal"
@@ -233,25 +199,12 @@ return console.log(models);  var Classroom = models.Classroom;
           m(".modal-footer",
             m("button.btn.btn-default", {
               onclick: args.endDelete.bind(null, false),
-              "data-dismiss": "modal"
             }, "Cancel"),
             m("button.btn.btn-danger", {
               "data-dismiss": "modal",
               onclick: function() {
-                m.startComputation();
-                args.classroom.delete({
-                  success: function() {
-                    $("#classroom-delete-modal").modal("hide");
-                    args.endDelete(true);
-                  },
-                  error: function(jqxhr) {
-                    if (jqxhr.status == 401) {
-                      alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
-                    } else {
-                      alert("Server error. Try your request again later.");
-                    }
-                    args.endDelete();
-                  }
+                args.classroom.delete().then(function() {
+                  args.endDelete(true);
                 });
               }
             }, "Delete!")
