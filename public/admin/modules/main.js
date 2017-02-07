@@ -55,7 +55,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
   var UserListing = {
     controller: function(args) {
       return {
-        users: User.list(args.type),
+        users: User.list().then(function(users) {
+          return users.filter(function(user) {
+            return user.type === args.type;
+          });
+        }),
         // editingUser is the user that is currently being edited. When a user
         // is selected to be edited this property is filled in.
         editingUser: null,
@@ -73,7 +77,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                   // currently edited user, and end the asynchronous process
                   // to trigger a redraw.
                   if (reload)
-                    ctrl.users = User.list(args.type);
+                    ctrl.users = User.list().then(function(users) {
+                      return users.filter(function(user) {
+                        return user.type === args.type;
+                      });
+                    });
                   ctrl.editingUser = null;
                   m.endComputation();
                 }
@@ -85,7 +93,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                 endDelete: function(reload) {
                   // Similar to endEdit.
                   if (reload)
-                    ctrl.users = User.list(args.type);
+                    ctrl.users = User.list().then(function(users) {
+                      return users.filter(function(user) {
+                        return user.type === args.type;
+                      });
+                    });
                   ctrl.deletingUser = null;
                   m.endComputation();
                 }
@@ -127,7 +139,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                 // to a new user.
                 m("a", {
                     onclick: function() {
-                      ctrl.editingUser = new User(null, null, args.type);
+                      ctrl.editingUser = new User("", "", args.type);
                     }
                   },
                   "Click to add"
@@ -161,10 +173,10 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
           )
         ),
         m("td",
-          args.user.type,
+          User.prettyPrintTypes[args.user.type],
           m.trust("&nbsp;&nbsp;&nbsp;"),
           m("span.glyphicon.glyphicon-remove", {
-              style: (args.lastUser && args.user.type == "administrator" ? "display: none;" : ""),
+              style: (args.lastUser && args.user.type == User.types.administrator ? "display: none;" : ""),
               onclick: args.triggerDelete
             }
           )
@@ -260,13 +272,11 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                       onchange: function(e) {
                         ctrl.user.type = e.target.value;
                       },
-                      "disabled": typeof ctrl.user._id !== "undefined"
+                      "disabled": typeof ctrl.user.id !== "undefined"
                     },
                     ["administrator", "teacher", "student"].map(function(type) {
                       return m("option", {
-                        onclick: function() {
-                          ctrl.user.type = type;
-                        }
+                        value: User.types[type]
                       }, type);
                     })
                   )
@@ -344,9 +354,9 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
   m.route.mode = "hash";
   m.route(document.body, "/", {
     "/": m.component(Shell, Placeholder),
-    "/administrators": m.component(Shell, m.component(UserListing, {type: "administrator"})),
-    "/teachers": m.component(Shell, m.component(UserListing, {type: "teacher"})),
-    "/students": m.component(Shell, m.component(UserListing, {type: "student"}))
+    "/administrators": m.component(Shell, m.component(UserListing, {type: User.types.administrator})),
+    "/teachers": m.component(Shell, m.component(UserListing, {type: User.types.teacher})),
+    "/students": m.component(Shell, m.component(UserListing, {type: User.types.student}))
   });
 
 });

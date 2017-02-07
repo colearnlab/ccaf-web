@@ -3,8 +3,8 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
 
   function basicSave(url, settings) {
     settings = settings || {};
-    settings.type = (typeof this._id !== "undefined" ? "PUT" : "POST");
-    settings.url = apiPrefix + url;
+    settings.type = (typeof this.id !== "undefined" ? "PUT" : "POST");
+    settings.url = apiPrefix + url + (typeof this.id !== "undefined" ? "/" + this.id : "");
     settings.data = JSON.parse(JSON.stringify(this));
     $.ajax(settings);
   }
@@ -12,44 +12,76 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   function basicDelete(url, settings) {
     settings = settings || {};
     settings.type = "DELETE";
-    settings.url = apiPrefix + url;
-    settings.data = JSON.parse(JSON.stringify(this));
+    settings.url = apiPrefix + url + (typeof this.id !== "undefined" ? "/" + this.id : "");
     $.ajax(settings);
   }
 
   // User methods.
   var User = function User(name, email, type) {
-    this.name = name || "";
-    this.email = email || "";
-    this.type = type || "";
+    this.name = name;
+    this.email = email;
+    this.type = type;
   };
 
   // Return a list of all users of a certain type.
-  User.list = function(type) {
+  User.list = function() {
     return m.request({
       method: "GET",
       url: apiPrefix + "users"
     }).then(function(users) {
-        if (typeof type === "undefined")
-          return users.data;
-        else if (type instanceof Array)
-          return users.data.filter(function(user) { return type.indexOf(user.type) >= 0; });
-        else
-          return users.data.filter(function(user) { return user.type === type; });
-      }
-    ).then(function(users) {
-      return users.map(function(user) {
+      return users.data.map(function(user) {
         return Object.assign(new User(), user);
       });
     });
   };
-
+  
   User.me = function() {
     return m.request({
       method: "GET",
       url: apiPrefix + "users/me"
     }).then(function(user) {
       return user.data;
+    });
+  };
+
+  User.types = {
+    "administrator": 0,
+    "teacher": 1,
+    "student": 2
+  };
+
+  User.prettyPrintTypes = {
+    0: "Administrator",
+    1: "Teacher",
+    2: "Student"
+  };
+
+  User.prototype.classrooms = function() {
+    return m.request({
+      method: "GET",
+      url: apiPrefix + "users/" + this.id + "/classrooms"
+    }).then(function(classrooms) {
+      return classrooms.data.map(function(classroom) {
+        return Object.assign(new Classroom(), classroom);
+      });
+    });
+  };
+
+  User.prototype.addClassroom = function(classroom) {
+    var classroomId = (classroom instanceof Classroom ? classroom.id : classroom);
+    m.request({
+      method: "PUT",
+      url: apiPrefix + "users/" + this.id + "/classrooms/" + classroomId,
+      deserialize: function(){}
+    });
+  };
+
+  User.prototype.removeClassroom = function(classroom) {
+    var classroomId = (classroom instanceof Classroom ? classroom.id : classroom);
+    m.request({
+      method: "DELETE",
+      url: apiPrefix + "users/" + this.id + "/classrooms/" + classroomId,
+      deserialize: function(){}
     });
   };
 
@@ -62,8 +94,8 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   };
 
   var Classroom = function(title, owner) {
-    this.title = title || "";
-    this.users = [{_id: owner, role: "owner"}];
+    this.title = title;
+    this.owner = owner;
   };
 
   Classroom.list = function() {
@@ -71,23 +103,9 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
       method: "GET",
       url: apiPrefix + "classrooms"
     }).then(function(classrooms) {
-      return classrooms.data.map(function(classroom) { return Object.assign(new Classroom(), classroom); });
-    });
-  };
-
-  Classroom.get = function(classroomId) {
-    return m.request({
-      method: "GET",
-      url: apiPrefix + "classrooms/" + classroomId
-    }).then(function(classroom) {
-      classroom = classroom.data;
-
-      classroom.groups = classroom.groups || [];
-      classroom.groups = classroom.groups.map(function(group) {
-        return Object.assign(new Group(), group);
+      return classrooms.data.map(function(classroom) {
+        return Object.assign(new Classroom(), classroom);
       });
-
-      return Object.assign(new Classroom(), classroom);
     });
   };
 
@@ -99,36 +117,6 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     return basicDelete.call(this, "classrooms", settings);
   };
 
-  var Group = function(title) {
-    this.title = title;
-    this.users = [];
-  };
-
-  var Activity = function(title, owner) {
-    this.title = title;
-    this.users = [{_id: owner, role: "owner"}];
-  };
-
-  Activity.list = function() {
-    Classroom.list = function() {
-      return m.request({
-        method: "GET",
-        url: apiPrefix + "activties"
-      }).then(function(activities) {
-        return activities.data.map(function(activity) { return Object.assign(new Activity(), activity); });
-      });
-    };
-  };
-
-  Activity.prototype.save = function(settings) {
-    return basicSave.call(this, "activities", settings);
-  };
-
-  Activity.prototype.delete = function(settings) {
-    return basicDelete.call(this, "activities", settings);
-  };
-
   exports.User = User;
   exports.Classroom = Classroom;
-  exports.Group = Group;
 });
