@@ -34,7 +34,8 @@
     "pdfjs-dist": "~1.5.454",
     "requirejs": "^2.1.20",
     "sql.js": "^0.4.0",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "ws": "^2.0.3"
   },
   "scripts": {
     "install": "node build"

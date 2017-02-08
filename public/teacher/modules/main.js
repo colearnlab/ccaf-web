@@ -1,4 +1,4 @@
-define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPicker", "modules/groupEditor", "bootstrap"], function(exports, m, $, _, models, userPicker, groupEditor) {
+define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor) {
   var Classroom = models.Classroom;
   var User = models.User;
 

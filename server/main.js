@@ -509,11 +509,10 @@ app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:user
       else
         res.status(404).json({data:{status:404}});
     } catch (e) {
-      console.log(e);
       res.sendStatus(400);
     }
   });
 
 
 app.use("/", [express.static("public")]);
-app.listen(3000);
+require("./synchronizedState").server(app.listen(80), path.resolve(__dirname, "..", "stores"));

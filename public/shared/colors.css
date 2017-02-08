@@ -1,0 +1,36 @@
+/* colors */
+.bg-color-white {
+  background-color: #ffffff !important;
+}
+
+.bg-color-light {
+  background-color: #e2e4e7 !important;
+}
+
+.bg-color-med {
+  background-color: #d4d5d7 !important;
+}
+
+.bg-color-dark {
+  background-color: #444545 !important;
+}
+
+.text-color-primary {
+  color: #333333 !important;
+}
+
+.text-color-secondary {
+  color: #ffffff !important;
+}
+
+.primary-color-blue {
+  background-color: #06354f !important;
+}
+
+.primary-color-green {
+  background-color: #44968c !important;
+}
+
+.primary-color-orange {
+  background-color: #e06b47 !important;
+}
