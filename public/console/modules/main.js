@@ -85,7 +85,7 @@ define('main', ["exports", "mithril", "jquery", "underscore", "models", "userPic
                 return m(".list-group-item.classroom",
                   m(".list-group-heading", {
                       onclick: function() {
-                        m.route("/classroom/" + classroom._id);
+                        m.route("/classroom/" + classroom.id);
                       }
                     },
                     classroom.title,

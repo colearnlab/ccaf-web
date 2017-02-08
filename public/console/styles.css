@@ -105,6 +105,19 @@ html, body {
 
 /* groupeditor */
 
+.sidebar-title {
+  height: 25px;
+  border-bottom: 1px solid lightgray;
+  font-weight: bold;
+  line-height: 25px;
+  padding-left: 5px;
+}
+
+.sidebar-title > span {
+  line-height: 25px;
+  padding-right: 5px;
+}
+
 #sidebar {
   padding-right: 0;
   width: 175px;

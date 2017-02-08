@@ -21,7 +21,7 @@ if (!fs.existsSync(dbPath)) {
     "CREATE TABLE classrooms(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
     "CREATE TABLE classroom_user_mapping(classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(classroom, user) ON CONFLICT REPLACE)",
     "CREATE TABLE groups(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)",
-//    "CREATE TABLE group_user_mapping(group INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
+    "CREATE TABLE group_user_mapping(groupId INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(groupId, user) ON CONFLICT REPLACE)"
 //    "CREATE TABLE recordings(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT)",
 //    "CREATE TABLE group_session(id INTEGER UNIQUE PRIMARY KEY NOT NULL, recording INTEGER, FOREIGN KEY(recording) REFERENCES recordings(id))",
 //    "CREATE TABLE user_session(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER, FOREIGN KEY(group_session) REFERENCES group_session(id))"
@@ -81,7 +81,14 @@ app.route("/api/v1/users")
         }
       });
     } catch(e) {
-      res.sendStatus(400);
+      var stmt = db.prepare("SELECT * FROM users WHERE email=:email", {
+        ":email": req.body.email
+      });
+      if (!stmt.step())
+        res.status(400).json({data: {status: 400}});
+      else
+        res.status(400).json({data: {status: 409, supplement: stmt.getAsObject()}});
+      stmt.free();
     }
   });
 app.route("/api/v1/users/me")
@@ -95,7 +102,7 @@ app.route("/api/v1/users/:userId")
     });
 
     if (!stmt.step())
-      return res.sendStatus(404);
+      return res.status(404).json({data:{status:404}});
 
     res.json({data: stmt.getAsObject()});
     stmt.free();
@@ -122,11 +129,11 @@ app.route("/api/v1/users/:userId")
       db.run("PRAGMA foreign_keys = ON");
       db.run("UPDATE users SET " + insertString.join(", ") + " WHERE id=:id", params);
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   })
   .delete(function(req, res) {
@@ -137,11 +144,11 @@ app.route("/api/v1/users/:userId")
       });
 
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   });
 app.route("/api/v1/users/:userId/classrooms")
@@ -153,7 +160,7 @@ app.route("/api/v1/users/:userId/classrooms")
     });
 
     if (!stmt.step())
-      return res.sendStatus(404);
+      return res.status(404).json({data:{status:404}});
 
     var user = stmt.getAsObject();
     stmt.free();
@@ -202,7 +209,7 @@ app.route("/api/v1/classrooms")
         }
       });
     } catch(e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   });
 app.route("/api/v1/classrooms/:classroomId")
@@ -212,7 +219,7 @@ app.route("/api/v1/classrooms/:classroomId")
     });
 
     if (!stmt.step())
-      return res.sendStatus(404);
+      return res.status(404).json({data:{status:404}});
 
     res.json({data: stmt.getAsObject()});
     stmt.free();
@@ -238,11 +245,11 @@ app.route("/api/v1/classrooms/:classroomId")
       db.run("PRAGMA foreign_keys = ON");
       db.run("UPDATE classrooms SET " + insertString.join(", ") + " WHERE id=:id", params);
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   })
   .delete(function(req, res) {
@@ -253,12 +260,12 @@ app.route("/api/v1/classrooms/:classroomId")
       });
 
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
       console.log(e);
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   });
 app.route("/api/v1/classrooms/:classroomId/users")
@@ -282,7 +289,7 @@ app.route("/api/v1/classrooms/:classroomId/owner")
       });
 
       if (!stmt.step())
-        return res.sendStatus(404);
+        return res.status(404).json({data:{status:404}});
 
       var owner = stmt.getAsObject().owner;
       stmt.free();
@@ -292,7 +299,7 @@ app.route("/api/v1/classrooms/:classroomId/owner")
       });
 
       if (!stmt.step())
-        return res.sendStatus(404);
+        return res.status(404).json({data:{status:404}});
 
       res.json({data: stmt.getAsObject()});
       stmt.free();
@@ -339,7 +346,7 @@ app.route("/api/v1/groups")
         }
       });
     } catch(e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   });
 app.route("/api/v1/groups/:groupId")
@@ -349,7 +356,7 @@ app.route("/api/v1/groups/:groupId")
     });
 
     if (!stmt.step())
-      return res.sendStatus(404);
+      return res.status(404).json({data:{status:404}});
 
     res.json({data: stmt.getAsObject()});
     stmt.free();
@@ -375,11 +382,11 @@ app.route("/api/v1/groups/:groupId")
       db.run("PRAGMA foreign_keys = ON");
       db.run("UPDATE groups SET " + insertString.join(", ") + " WHERE id=:id", params);
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   })
   .delete(function(req, res) {
@@ -390,18 +397,18 @@ app.route("/api/v1/groups/:groupId")
       });
 
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   });
 app.route("/api/v1/groups/:groupId/users")
   .get(function(req, res) {
     var users = [];
 
-    db.each("SELECT id, name, email, type FROM group_user_mapping LEFT JOIN users ON group_user_mapping.user = users.id WHERE group=:group ", {
+    db.each("SELECT id, name, email, type FROM group_user_mapping LEFT JOIN users ON group_user_mapping.user = users.id WHERE groupId=:group", {
         ":group": req.params.groupId
       },
       function(user) {
@@ -416,33 +423,61 @@ app.route(["/api/v1/groups/:groupId/users/:userId", "/api/v1/users/:userId/group
   .put(function(req, res) {
     try {
       db.run("PRAGMA foreign_keys = ON");
+
+      var stmt = db.prepare("SELECT * FROM groups WHERE id=:id", {
+        ":id": req.params.groupId
+      });
+
+      if (!stmt.step())
+        res.status(404).json({data: {status: 404}});
+
+      var group = stmt.getAsObject();
+      var classroom = group.classroom;
+
+      stmt.free();
+      stmt = db.prepare("SELECT * FROM group_user_mapping JOIN groups ON group_user_mapping.groupId = groups.id WHERE groups.classroom=:classroom and user=:user", {
+        ":classroom": classroom,
+        ":user": req.params.userId
+      });
+
+      if (stmt.step()) {
+        var oldGroup = stmt.getAsObject().groupId;
+        db.run("DELETE FROM group_user_mapping WHERE user=:user and groupId=:groupId", {
+          ":user": req.params.userId,
+          ":groupId": oldGroup
+        });
+      }
+
+      stmt.free();
+
       db.run("INSERT INTO group_user_mapping VALUES(:group, :user)", {
         ":group": req.params.groupId,
         ":user": req.params.userId
       });
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
-      res.sendStatus(400);
+      console.log(e);
+      res.status(400).json({data:{status:400}});
     }
   })
   .delete(function(req, res) {
     try {
       db.run("PRAGMA foreign_keys = ON");
-      db.run("DELETE FROM group_user_mapping WHERE group=:group and user=:user", {
+      db.run("DELETE FROM group_user_mapping WHERE groupId=:group and user=:user", {
         ":group": req.params.groupId,
         ":user": req.params.userId
       });
 
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
       console.log(e);
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   });
 app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:userId/classrooms/:classroomId"])
@@ -454,11 +489,11 @@ app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:user
         ":user": req.params.userId
       });
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
-      res.sendStatus(400);
+      res.status(400).json({data:{status:400}});
     }
   })
   .delete(function(req, res) {
@@ -470,9 +505,9 @@ app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:user
       });
 
       if (db.getRowsModified() === 1)
-        res.sendStatus(200);
+        res.status(200).json({data:{status:200}});
       else
-        res.sendStatus(404);
+        res.status(404).json({data:{status:404}});
     } catch (e) {
       console.log(e);
       res.sendStatus(400);

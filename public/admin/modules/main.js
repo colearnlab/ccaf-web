@@ -77,13 +77,14 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                   // currently edited user, and end the asynchronous process
                   // to trigger a redraw.
                   if (reload)
-                    ctrl.users = User.list().then(function(users) {
+                    User.list().then(function(users) {
                       return users.filter(function(user) {
                         return user.type === args.type;
                       });
+                    }).then(ctrl.users).then(function() {
+                      m.redraw(true);
                     });
                   ctrl.editingUser = null;
-                  m.endComputation();
                 }
               }
             )
@@ -93,13 +94,14 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                 endDelete: function(reload) {
                   // Similar to endEdit.
                   if (reload)
-                    ctrl.users = User.list().then(function(users) {
+                    User.list().then(function(users) {
                       return users.filter(function(user) {
                         return user.type === args.type;
                       });
+                    }).then(ctrl.users).then(function() {
+                      m.redraw(true);
                     });
                   ctrl.deletingUser = null;
-                  m.endComputation();
                 }
               }
             )
@@ -196,25 +198,15 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
     view: function(ctrl, args) {
       var submit = function(e) {
         ctrl.saving = true;
-        m.startComputation();
-        ctrl.user.save({
-            success: function() {
-              $("#user-edit-modal").modal("hide");
-              args.endEdit(true);
-            },
-            error: function(jqxhr) {
-              if (jqxhr.status == 400) {
-                ctrl.saving = false;
-                ctrl.warnEmail = true;
-              } else if (jqxhr.status == 401) {
-                alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
-              } else {
-                alert("Server error. Try your request again later.");
-              }
-              m.endComputation();
-            }
-          }
-        );
+        ctrl.user.save().then(function success() {
+            $("#user-edit-modal").modal("hide");
+          args.endEdit(true);
+        }, function error() {
+            ctrl.saving = false;
+            ctrl.warnEmail = true;
+            m.redraw(true);
+        });
+
         e.preventDefault();
         return false;
       };
@@ -328,20 +320,8 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
             m("button.btn.btn-danger", {
               "data-dismiss": "modal",
               onclick: function() {
-                m.startComputation();
-                args.user.delete({
-                  success: function() {
-                    $("#user-delete-modal").modal("hide");
-                    args.endDelete(true);
-                  },
-                  error: function(jqxhr) {
-                    if (jqxhr.status == 401) {
-                      alert("Authentication error: you have probably been logged out. Refresh the page to try again.");
-                    } else {
-                      alert("Server error. Try your request again later.");
-                    }
-                    args.endDelete();
-                  }
+                args.user.delete().then(function() {
+                  args.endDelete(true);
                 });
               }
             }, "Delete!")
