@@ -2,9 +2,8 @@ requirejs.config({
   'paths': {
     'interact': '/lib/interact',
     'mithril': '/lib/mithril',
-    'checkerboard': '/lib/checkerboard',
     'underscore': '/lib/underscore',
-    'pdf': '/lib/pdf',
+    'pdfjs-dist/build/pdf.combined': '/lib/pdf',
     'jquery': '/lib/jquery',
     'bootstrap': '/lib/bootstrap',
     "typeahead": "/lib/bootstrap3-typeahead",
@@ -17,9 +16,6 @@ requirejs.config({
   'shim': {
     'underscore': {
       'exports': '_'
-    },
-    'pdf': {
-      'exports': 'PDFJS'
     },
     'bootstrap': {
       deps: ["jquery"]

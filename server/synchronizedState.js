@@ -73,7 +73,7 @@ Server.prototype.processReceive = function(connection, envelope) {
         if (!(id in this.stores))
           this.stores[id] = {};
         this.subscriptions[id] = [];
-        this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id), {
+        this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
           flags: "a",
           encoding: "utf8"
         });

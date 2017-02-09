@@ -1,159 +1,103 @@
-* {
-  /*cursor: none;*/
-}
-
-html, body {
-  background-color: #ffffff !important;
+#main {
+  width: 100vw;
+  height: 100vh;
+  padding: 0;
+  margin: 0;
   overflow: hidden;
-  height: 100%;
-  padding: 0pt;
-}
-
-#app {
-  min-height: 100%;
-}
-
-canvas {
-  position: absolute;
-  width: 100%;
-  top: 0;
-  margin-top: 50px;
+  background-color: #999;
 }
 
 #controls {
   position: absolute;
-  -webkit-user-select: none;
-  display: inline-block;
-  z-index: 1;
-  right: 20px;
-  top: 6px;
+  height: 35px;
+  background-color: #ddd;
+  width: 100%;
+  border-bottom: 1px solid gray;
 }
 
-.controlComponent {
-  display: inline-block;
-  vertical-align: top;
-  margin-left: 12px;
-  width: 48px;
-  text-align: center;
-}
-
-.colorIndicator {
-  position: relative;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  margin: auto;
-}
-
-.line {
-  opacity: 0.75;
-  background-color: black;
-  width: 24px;
-  margin: auto;
-  border-radius: 90%;
-}
-
-.buttonLabel {
-  color: white;
-  opacity: 0.75;
-}
-
-.spacer {
-  height: 18.5px;
-}
-
-.controlIcon {
-  -webkit-filter: invert(1);
-  filter: invert(1);
-  height: 20px;
-}
-
-.icon-select {
-  height: 20px;
-  margin-top: 10px;
-}
-
-#slidercontainer {
+#pdf-container {
+  padding: 0;
+  padding-top: 37px;
   margin: 0;
-  padding-left: 5px;
-  padding-right: 5px;
-  border-radius: 5px;
   position: absolute;
-  right: 1.25vw;
-  top: 5vh;
-  background-color: rgba(0, 0, 0, 0.15);
-  transform:  rotate(-90deg);
-  transform-origin: right;
-  width: 85vh;
-  height: 40px;
-}
-#slider {
-  -webkit-appearance: none;
-  margin: 18px 0;
-}
-#slider:focus {
-  outline: none;
-}
-#slider::-webkit-slider-runnable-track {
-  height: 0px;
-  background: #3071a9;
+  transform-origin: 0 0;
 }
 
-#slider::-webkit-slider-thumb {
-  height: 32px;
-  width: 32px;
-  border-radius: 50%;
-  background: #000000;
-  cursor: pointer;
-  -webkit-appearance: none;
-  margin-top: -14px;
-  opacity: 0;
+.scroll-open > #pdf-container {
+  width:90vw;
 }
-#slider:focus::-webkit-slider-runnable-track {
-  background: #367ebd;
+
+.scroll-closed > #pdf-container {
+  width: 90vw;
+  margin-left: calc(10vw / 2);
+  margin-right: calc(10vw / 2);
 }
-.cursor {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+
+.pdf-page-holder {
+  box-sizing: content-box;
+    display: block;
+    width: 100%;
+}
+
+.pdf-page {
+  width: 100%;
+  border: 1px solid black;
+}
+
+.scroll-open > #pdf-container > .pdf-page-holder {
+  border-right: 0;
+  border-left: 0;
+}
+
+#pdf-container > .pdf-page-holder{
+  margin-bottom: 8px;
+}
+
+#minimap > .pdf-page-holder {
+  width: 96%;
+  margin-left: 2%;
+  margin-top: -2px;
+}
+
+#minimap {
+  padding: 0;
+  padding-top: 2px;
+  margin: 0;
+  top: 0;
+  margin-top: 35px;
+  position: fixed;
+  right: 0;
+  background-color: #ddd;
+}
+
+.scroll-open > #minimap {
+  width: 10vw;
+}
+
+.scroll-closed > #minimap {
+  width: 0vw;
+  display: none;
+}
+
+.minimap-screen {
+  width: 10vw;
   position: absolute;
-  top: 4px;
-  left: 0%;
-  opacity: 0.5;
+  background-color: blue;
+  opacity: 0.2;
+  z-index: 100;
 }
 
-.my-cursor {
-  border: 2px dashed black;
-}
-
-#pointers {
+#minimap-overlay {
   position: absolute;
   width: 100%;
-  top: 50px;
-  height: 5000px;
+  height: 100%;
+  background-color: black;
+  opacity: 0.05;
   pointer-events: none;
 }
 
-.pointer {
+.drawing-surface {
   position: absolute;
-  height: 15px;
-  width: 15px;
-  border-radius: 50%;
-  background-color: red;
-  box-shadow: 0px 0px 10px white;
-}
-
-#pdf-button {
-  position: absolute;
-  z-index: 100;
-  top: 12px;
-  left: 10px;
-  width: 100px;
-}
-
-#clear-button {
-  position: absolute;
-  z-index: 100;
-  top: 12px;
-  left: 120px;
+  width: 100%;
+  height: 100%;
 }

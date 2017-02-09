@@ -1,5 +1,6 @@
 node_modules
 public/lib
+public/fonts
 .env
 .remote-sync.json
 embedded.sqlite

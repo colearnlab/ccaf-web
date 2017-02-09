@@ -6,7 +6,7 @@ exports.initialize = function(app, db) {
   var googleConfig = {
     CLIENT_ID: process.env.CLIENT_ID,
     CLIENT_SECRET: process.env.CLIENT_SECRET,
-    CALLBACK_URL: "http://localhost:3000/oauth2callback"
+    CALLBACK_URL: "http://localhost/oauth2callback"
   };
 
   app.use(cookieSession({

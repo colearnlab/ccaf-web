@@ -1,25 +1,18 @@
-define("main", ["exports", "mithril", "synchronizedStateClient"], function(exports, m, synchronizedStateClient) {
+define("main", ["exports", "mithril", "synchronizedStateClient", "models"], function(exports, m, synchronizedStateClient, models) {
+  var User = models.User;
   var wsAddress = 'ws://' + window.location.host;
 
-  // Prevent multitouch zoom in Google Chrome.
-  document.addEventListener('mousewheel', function(e) {
-    return e.preventDefault(), false;
+  var appPath = "whiteboard";
+  var groupSession = 0;
+  User.me().then(function(user) {
+    require(["/apps/" + appPath + "/main.js"], function(app) {
+      var connection = synchronizedStateClient.connect(wsAddress, function() {
+        connection.sync(groupSession);
+        app.load(connection, document.body, {
+          pdf: "/media/sample.pdf",
+          user: user
+        });
+      });
+    });
   });
-
-  // Prevent back/forward gestures in Google Chrome.
-  document.addEventListener('touchmove', function(e) {
-    if (e.target.tagName !== 'INPUT')
-      return e.preventDefault(), false;
-  });
-
-  var Shell = {
-    controller: function() {
-      return {
-
-      };
-    },
-    view: function() {
-      return m("#main");
-    }
-  };
 });
