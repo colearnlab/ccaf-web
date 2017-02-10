@@ -35,8 +35,8 @@
 
 .pdf-page-holder {
   box-sizing: content-box;
-    display: block;
-    width: 100%;
+  display: block;
+  width: 100%;
 }
 
 .pdf-page {
@@ -56,15 +56,15 @@
 #minimap > .pdf-page-holder {
   width: 96%;
   margin-left: 2%;
-  margin-top: -2px;
+  margin-bottom: -3px;
+  pointer-events: none;
 }
 
 #minimap {
   padding: 0;
-  padding-top: 2px;
   margin: 0;
   top: 0;
-  margin-top: 35px;
+  margin-top: 37px;
   position: fixed;
   right: 0;
   background-color: #ddd;
