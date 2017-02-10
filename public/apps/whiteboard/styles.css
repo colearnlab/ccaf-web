@@ -9,15 +9,81 @@
 
 #controls {
   position: absolute;
-  height: 35px;
+  height: 50px;
   background-color: #ddd;
   width: 100%;
   border-bottom: 1px solid gray;
+  line-height: 35px;
+}
+
+#controls span {
+  position: absolute;
+  font-size: 30px;
+  line-height: 50px;
+}
+
+#clear-screen {
+  right: calc(8vw + 50px);
+}
+
+.scroll-open > #controls > #minimap-chevron {
+    right: 8vw;
+}
+
+.scroll-closed > #controls > #minimap-chevron {
+    right: 1vw;
+}
+
+#tools {
+  position: absolute;
+  right: calc(8vw + 150px);
+  top: 5px;
+}
+
+.tool-button {
+  display: inline-block;
+  top: calc(calc(50px - 40px) / 2);
+  height: 40px;
+  width: 40px;
+  margin: 0;
+  margin-right: 10px;
+  padding: 0;
+}
+
+.color-swatch-holder {
+  border: 2px solid rgba(0, 0, 0, 0);
+  border-radius: 2px;
+}
+
+.tool-button > .color-swatch-holder {
+  height: 40px;
+}
+
+.tray-closed {
+  display: none;
+}
+
+.tray-open {
+  height: 300px;
+  width: 40px;
+}
+
+.selected {
+  border: 2px solid black;
+  border-radius: 2px;
+}
+
+.color-swatch {
+  margin-left: 3px;
+  margin-top: 3px;
+  height: 30px;
+  width: 30px;
+  border-radius: 50%;
 }
 
 #pdf-container {
   padding: 0;
-  padding-top: 37px;
+  padding-top: 52px;
   margin: 0;
   position: absolute;
   transform-origin: 0 0;
@@ -64,7 +130,7 @@
   padding: 0;
   margin: 0;
   top: 0;
-  margin-top: 37px;
+  margin-top: 52px;
   position: fixed;
   right: 0;
   background-color: #ddd;
@@ -100,4 +166,8 @@
   position: absolute;
   width: 100%;
   height: 100%;
+}
+
+.drawing-surface-highlighter, .currently-drawing-surface-pen, .currently-drawing-surface-highlighter {
+  pointer-events: none;
 }

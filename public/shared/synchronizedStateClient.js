@@ -188,7 +188,7 @@ define(["exports"], function(exports) {
     }
   };
 
-  var arrayHelpers = exports.array = {
+  var arrayHelpers = Connection.prototype.array = {
     length: function(arr) {
       return Object.keys(arr).length  -
         ("_id" in arr ? 1 : 0);
