@@ -166,8 +166,13 @@
   position: absolute;
   width: 100%;
   height: 100%;
+  opacity: 0.8;
 }
 
 .drawing-surface-highlighter, .currently-drawing-surface-pen, .currently-drawing-surface-highlighter {
   pointer-events: none;
+}
+
+.drawing-surface-highlighter, .currently-drawing-surface-highlighter {
+  opacity: 0.5;
 }

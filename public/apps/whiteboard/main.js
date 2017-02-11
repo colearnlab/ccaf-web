@@ -24,7 +24,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     0: "#000000",
     1: "#FF0000",
     2: "#00FF00",
-    3: "#0000FF"
+    3: "#0000FF",
+    4: "#FFFFFF"
   };
 
   var Main = {
@@ -42,7 +43,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         pdf: m.prop(null),
         tool: m.prop(0),
         color: {0: 0, 1: 0},
-        size: m.prop(5),
+        size: m.prop(25),
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
             scrollPositions[4] = pos;
@@ -118,7 +119,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         }),
         m("#tools",
           m.component(Tool, {tool: args.tool, color: args.color, toolId: 0, hasTray: true}),
-          m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true})
+          m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true}),
+          m.component(Tool, {tool: args.tool, color: {2: 4}, toolId: 2, hasTray: false})
         )
       );
     }
@@ -132,6 +134,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     },
     view: function(ctrl, args) {
       return m("div.tool-button", {
+          config: function(el, isInit) {
+            document.addEventListener("mousedown", function() {
+              ctrl.open(false);
+            });
+
+            document.addEventListener("touchstart", function() {
+              ctrl.open(false);
+            });
+          }
         },
         m("div.color-swatch-holder", {
           class: (args.tool() === args.toolId ? "selected" : "")
@@ -142,11 +153,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               if (isInit)
                 return;
             },
-            onclick: function() {
+            onmousedown: function(e) {
               if (args.tool() !== args.toolId)
                 args.tool(args.toolId);
               else
                 ctrl.open(!ctrl.open());
+
+              e.stopPropagation();
             },
             ontouchend: function() {
               if (args.tool() !== args.toolId)
@@ -309,7 +322,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         virtualDimensions: {height: 2500, width: parseInt(11 / 8.5 * 2500)},
         width: 0,
         redrawing: false,
-        drawn: {}
+        drawnLayer1: {},
+        drawnLayer2: {},
+        scale1: 0,
+        scale2: 0
       };
     },
     view: function(ctrl, args) {
@@ -352,22 +368,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             if (!args.page || !ctrl.canvasDimensions)
               return;
 
-            var numDrawn = 0, p;
-
-            if (args.drawn()[args.pageNum]) {
-              for (p in args.drawn()[args.pageNum])
-                if (args.drawn()[args.pageNum][p][ctrl.canvasDimensions.height])
-                  numDrawn++;
-            }
-
-            if (numDrawn > array.length(args.page.paths)) {
+            if (Object.keys(ctrl.drawnLayer1).length > array.length(args.page.paths) || ctrl.scale1 !== ctrl.canvasDimensions.width) {
               ctx.clearRect(0, 0, ctrl.canvasDimensions.width, ctrl.canvasDimensions.height);
-              for (p in args.drawn()[args.pageNum])
-                args.drawn()[args.pageNum][p][ctrl.canvasDimensions.height] = false;
+              ctrl.scale1 = ctrl.canvasDimensions.width;
+              ctrl.drawnLayer1 = {};
             }
 
             array.forEach(args.page.paths, function(path, i) {
-              if (path[0].currentlyDrawing || args.drawn()[args.pageNum] && args.drawn()[args.pageNum][i] && args.drawn()[args.pageNum][i][ctrl.canvasDimensions.height])
+              if (path[0].currentlyDrawing || path[0].tool !== 0 || ctrl.drawnLayer1[i])
                 return;
 
               ctx.strokeStyle = path[0].color;
@@ -386,13 +394,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               }
 
               ctx.stroke();
-              if (!args.drawn()[args.pageNum])
-                args.drawn()[args.pageNum] = {};
 
-              if (!args.drawn()[args.pageNum][i])
-                args.drawn()[args.pageNum][i] = {};
-
-              args.drawn()[args.pageNum][i][ctrl.canvasDimensions.height] = true;
+              ctrl.drawnLayer1[i] = true;
             });
           },
           onmousedown: function(e) {
@@ -435,7 +438,92 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             array.forEach(args.page.paths, function(path) {
-              if (!path[0].currentlyDrawing)
+              if (!path[0].currentlyDrawing || path[0].tool !== 0)
+                return;
+
+              ctx.strokeStyle = path[0].color;
+              ctx.lineWidth = path[0].size * ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 1;
+
+              ctx.beginPath();
+              var xM = ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 1;
+              var yM = ctrl.canvasDimensions.height / ctrl.virtualDimensions.height / 1;
+
+              ctx.moveTo(path[1].x * xM, path[1].y * yM);
+
+              for (j = 2; j < array.length(path) - 2; j += 2 ) {
+                var xc = (path[j].x * xM + path[j + 2].x * xM) / 2;
+                var yc = (path[j].y * yM + path[j + 2].y * yM) / 2;
+                ctx.quadraticCurveTo(path[j].x * xM, path[j].y * yM, xc, yc);
+              }
+
+              ctx.stroke();
+            });
+          },
+          style:  "margin-left: " + (ctrl.styleDimensions ? -ctrl.styleDimensions.width : 0) + "px; " +
+                  "height: " + (ctrl.styleDimensions ? ctrl.styleDimensions.height : 0) + "px; " +
+                  "width: " + (ctrl.styleDimensions ? ctrl.styleDimensions.width : 0) + "px; "
+        }),
+        m("canvas.drawing-surface.drawing-surface-highlighter", {
+          height: (ctrl.canvasDimensions ? ctrl.canvasDimensions.height : 0),
+          width: (ctrl.canvasDimensions ? ctrl.canvasDimensions.width : 0),
+          config: function(canvas) {
+            var ctx = canvas.getContext("2d");
+
+            ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+
+            if (!args.page || !ctrl.canvasDimensions)
+              return;
+
+            if (Object.keys(ctrl.drawnLayer2).length > array.length(args.page.paths) || ctrl.scale2 !== ctrl.canvasDimensions.width) {
+              ctx.clearRect(0, 0, ctrl.canvasDimensions.width, ctrl.canvasDimensions.height);
+              ctrl.scale2 = ctrl.canvasDimensions.width;
+              ctrl.drawnLayer2 = {};
+            }
+
+            array.forEach(args.page.paths, function(path, i) {
+              if (path[0].currentlyDrawing || path[0].tool !== 1 || ctrl.drawnLayer2[i])
+                return;
+
+              ctx.strokeStyle = path[0].color;
+              ctx.lineWidth = path[0].size * ctrl.canvasDimensions.width / ctrl.virtualDimensions.width;
+
+              ctx.beginPath();
+              var xM = ctrl.canvasDimensions.width / ctrl.virtualDimensions.width;
+              var yM = ctrl.canvasDimensions.height / ctrl.virtualDimensions.height;
+
+              ctx.moveTo(path[1].x * xM, path[1].y * yM);
+
+              for (j = 2; j < array.length(path) - 2; j += 2 ) {
+                var xc = (path[j].x * xM + path[j + 2].x * xM) / 2;
+                var yc = (path[j].y * yM + path[j + 2].y * yM) / 2;
+                ctx.quadraticCurveTo(path[j].x * xM, path[j].y * yM, xc, yc);
+              }
+
+              ctx.stroke();
+
+              ctrl.drawnLayer2[i] = true;
+            });
+          },
+          style:  "margin-left: " + (ctrl.styleDimensions ? -ctrl.styleDimensions.width : 0) + "px; " +
+                  "height: " + (ctrl.styleDimensions ? ctrl.styleDimensions.height : 0) + "px; " +
+                  "width: " + (ctrl.styleDimensions ? ctrl.styleDimensions.width : 0) + "px; "
+        }),
+        m("canvas.drawing-surface.currently-drawing-surface-highlighter", {
+          height: (ctrl.canvasDimensions ? ctrl.canvasDimensions.height : 0) / 1,
+          width: (ctrl.canvasDimensions ? ctrl.canvasDimensions.width : 0) / 1,
+          config: function(canvas) {
+            var ctx = canvas.getContext("2d");
+
+            ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+
+            if (!args.page || !ctrl.canvasDimensions)
+              return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            array.forEach(args.page.paths, function(path) {
+              if (!path[0].currentlyDrawing || path[0].tool !== 1)
                 return;
 
               ctx.strokeStyle = path[0].color;
