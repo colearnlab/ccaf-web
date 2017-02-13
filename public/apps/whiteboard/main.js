@@ -28,6 +28,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     4: "#FFFFFF"
   };
 
+  function dist(x1, y1, x2, y2) {
+    var d = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+
+    return d;
+  }
+
   var Main = {
     controller: function(args) {
       var ctrl = {
@@ -49,28 +55,65 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             scrollPositions[4] = pos;
           });
         },
-        startStroke: function(page, size, x, y) {
-          args.connection.transaction([["pages", page, "paths", "+"]], function(path) {
-            ctrl.currentPath2 = this.props[0].slice(-1);
-            ctrl.currentPage = page;
+        startStroke: function(page, x, y) {
+          ctrl.currentPage = page;
 
-            path[0] = {tool: ctrl.tool(), color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
-            path[1] = path[3] = {x: x, y: y};
-            path[2] = path[4] = {x: x - 1, y: y};
-          });
+          if (ctrl.tool() === 0 || ctrl.tool() === 1) {
+            args.connection.transaction([["pages", page, "paths", "+"]], function(path) {
+              ctrl.currentPath2 = this.props[0].slice(-1);
+
+              path[0] = {tool: ctrl.tool(), color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
+              path[1] = path[3] = {x: x, y: y};
+              path[2] = path[4] = {x: x - 1, y: y};
+            });
+          } else if (ctrl.tool() === 2) {
+
+          }
         },
         addPoint: function(x, y) {
-          if (ctrl.currentPath2 === null) return;
-          args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath2]], function(path) {
-            args.connection.array.push(path, {x: x, y: y});
-          });
+          if (ctrl.tool() === 0 || ctrl.tool() === 1) {
+            if (ctrl.currentPath2 === null) return;
+
+            args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath2]], function(path) {
+              args.connection.array.push(path, {x: x, y: y});
+            });
+          } else if (ctrl.tool() === 2) {
+            if (ctrl.currentPage === null)
+              return;
+
+            args.connection.transaction([["pages", ctrl.currentPage]], function(page) {
+              array.forEach(page.paths, function(path) {
+                var erased = false;
+                array.forEach(path, function(point, i) {
+                  if (i === 0) return;
+
+                  if (dist(point.x, point.y, x, y) < ctrl.size()) {
+                      console.log("at", x, y, "erased", point.x, point.y);
+                      point.x = point.y = -1;
+                      erased = true;
+                  }
+                });
+                if (erased) {
+                  if (!path[0].erased)
+                    path[0].erased = 0;
+                  path[0].erased++;
+                }
+              });
+            });
+          }
         },
         endStroke: function() {
-          if (ctrl.currentPath2 === null) return;
-          args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath2]], function(path) {
-            ctrl.currentPath2 = null;
-            path[0].currentlyDrawing = false;
-          });
+          if (ctrl.tool() === 0 || ctrl.tool() === 1) {
+            if (ctrl.currentPath2 === null) return;
+            args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath2]], function(path) {
+              ctrl.currentPath2 = null;
+              ctrl.currentPage = null;
+
+              path[0].currentlyDrawing = false;
+            });
+          } else if (ctrl.tool() === 2) {
+            ctrl.currentPage = null;
+          }
         },
         clear: function() {
           args.connection.transaction([["pages"]], function(pages) {
@@ -325,7 +368,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         drawnLayer1: {},
         drawnLayer2: {},
         scale1: 0,
-        scale2: 0
+        scale2: 0,
+        lastErased1: {}
       };
     },
     view: function(ctrl, args) {
@@ -368,7 +412,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             if (!args.page || !ctrl.canvasDimensions)
               return;
 
-            if (Object.keys(ctrl.drawnLayer1).length > array.length(args.page.paths) || ctrl.scale1 !== ctrl.canvasDimensions.width) {
+            var canvasRect = canvas.getBoundingClientRect();
+            var onScreen =  canvasRect.top <= 0 && canvasRect.bottom >= 0 ||
+                            canvasRect.top <= window.innerHeight && canvasRect.bottom >= window.innerHeight ||
+                            canvasRect.top >= 0 && canvasRect.top <= window.innerHeight;
+
+            if (!onScreen) {
+              return;
+            }
+
+            var wasErased = false;
+            for (var p in args.page.paths) {
+              if (args.page.paths[p][0].erased !== ctrl.lastErased1[p]) {
+                wasErased = true;
+                break;
+              }
+            }
+
+            if (wasErased || Object.keys(ctrl.drawnLayer1).length > array.length(args.page.paths) || ctrl.scale1 !== ctrl.canvasDimensions.width) {
               ctx.clearRect(0, 0, ctrl.canvasDimensions.width, ctrl.canvasDimensions.height);
               ctrl.scale1 = ctrl.canvasDimensions.width;
               ctrl.drawnLayer1 = {};
@@ -385,16 +446,29 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               var xM = ctrl.canvasDimensions.width / ctrl.virtualDimensions.width;
               var yM = ctrl.canvasDimensions.height / ctrl.virtualDimensions.height;
 
-              ctx.moveTo(path[1].x * xM, path[1].y * yM);
+              var j = 1;
+              while (path[j].x < 0) {
+                j++;
+                if (!path[j])
+                  return;
+              }
+
+              ctx.moveTo(path[j].x * xM, path[j].y * yM);
 
               for (j = 2; j < array.length(path) - 2; j += 2 ) {
+                if (path[j].x === -1 || path[j + 1].x === -1) {
+                  ctx.stroke();
+                  ctx.beginPath();
+                  ctx.moveTo(path[j + 1].x * xM, path[j + 1].y * yM);
+                  continue;
+                }
                 var xc = (path[j].x * xM + path[j + 2].x * xM) / 2;
                 var yc = (path[j].y * yM + path[j + 2].y * yM) / 2;
                 ctx.quadraticCurveTo(path[j].x * xM, path[j].y * yM, xc, yc);
               }
 
               ctx.stroke();
-
+              ctrl.lastErased1[i] = path[0].erased;
               ctrl.drawnLayer1[i] = true;
             });
           },
@@ -425,8 +499,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
                   "width: " + (ctrl.styleDimensions ? ctrl.styleDimensions.width : 0) + "px; "
         }),
         m("canvas.drawing-surface.currently-drawing-surface-pen", {
-          height: (ctrl.canvasDimensions ? ctrl.canvasDimensions.height : 0) / 1,
-          width: (ctrl.canvasDimensions ? ctrl.canvasDimensions.width : 0) / 1,
+          height: (ctrl.canvasDimensions ? ctrl.canvasDimensions.height : 0) / 2,
+          width: (ctrl.canvasDimensions ? ctrl.canvasDimensions.width : 0) / 2,
           config: function(canvas) {
             var ctx = canvas.getContext("2d");
 
@@ -436,17 +510,29 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             if (!args.page || !ctrl.canvasDimensions)
               return;
 
+            var canvasRect = canvas.getBoundingClientRect();
+            var onScreen =  canvasRect.top <= 0 && canvasRect.bottom >= 0 ||
+                            canvasRect.top <= window.innerHeight && canvasRect.bottom >= window.innerHeight ||
+                            canvasRect.top >= 0 && canvasRect.top <= window.innerHeight;
+
+            if (!onScreen) {
+              canvas.style.display = "none";
+              return;
+            } else {
+              canvas.style.display = "";
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             array.forEach(args.page.paths, function(path) {
               if (!path[0].currentlyDrawing || path[0].tool !== 0)
                 return;
 
               ctx.strokeStyle = path[0].color;
-              ctx.lineWidth = path[0].size * ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 1;
+              ctx.lineWidth = path[0].size * ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 2;
 
               ctx.beginPath();
-              var xM = ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 1;
-              var yM = ctrl.canvasDimensions.height / ctrl.virtualDimensions.height / 1;
+              var xM = ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 2;
+              var yM = ctrl.canvasDimensions.height / ctrl.virtualDimensions.height / 2;
 
               ctx.moveTo(path[1].x * xM, path[1].y * yM);
 
@@ -474,6 +560,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
 
             if (!args.page || !ctrl.canvasDimensions)
               return;
+
+            var canvasRect = canvas.getBoundingClientRect();
+            var onScreen =  canvasRect.top <= 0 && canvasRect.bottom >= 0 ||
+                            canvasRect.top <= window.innerHeight && canvasRect.bottom >= window.innerHeight ||
+                            canvasRect.top >= 0 && canvasRect.top <= window.innerHeight;
+
+            if (!onScreen && canvas.style.display != "none") {
+              canvas.style.display = "none";
+              canvas.width = canvas.height = 0;
+              return;
+            } else if (parseInt(canvas.width) != ctrl.canvasDimensions.width) {
+
+              console.log("redraw", args.pageNum);
+              canvas.style.display = "";
+              canvas.width = ctrl.canvasDimensions.width;
+              canvas.height = ctrl.canvasDimensions.height;
+              ctrl.drawnLayer2 = {};
+            }
 
             if (Object.keys(ctrl.drawnLayer2).length > array.length(args.page.paths) || ctrl.scale2 !== ctrl.canvasDimensions.width) {
               ctx.clearRect(0, 0, ctrl.canvasDimensions.width, ctrl.canvasDimensions.height);
@@ -510,8 +614,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
                   "width: " + (ctrl.styleDimensions ? ctrl.styleDimensions.width : 0) + "px; "
         }),
         m("canvas.drawing-surface.currently-drawing-surface-highlighter", {
-          height: (ctrl.canvasDimensions ? ctrl.canvasDimensions.height : 0) / 1,
-          width: (ctrl.canvasDimensions ? ctrl.canvasDimensions.width : 0) / 1,
+          height: (ctrl.canvasDimensions ? ctrl.canvasDimensions.height : 0) / 2,
+          width: (ctrl.canvasDimensions ? ctrl.canvasDimensions.width : 0) / 2,
           config: function(canvas) {
             var ctx = canvas.getContext("2d");
 
@@ -521,17 +625,29 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             if (!args.page || !ctrl.canvasDimensions)
               return;
 
+            var canvasRect = canvas.getBoundingClientRect();
+            var onScreen =  canvasRect.top <= 0 && canvasRect.bottom >= 0 ||
+                            canvasRect.top <= window.innerHeight && canvasRect.bottom >= window.innerHeight ||
+                            canvasRect.top >= 0 && canvasRect.top <= window.innerHeight;
+
+            if (!onScreen) {
+              canvas.style.display = "none";
+              return;
+            } else if (canvas.style.display == "none") {
+              canvas.style.display = "";
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             array.forEach(args.page.paths, function(path) {
               if (!path[0].currentlyDrawing || path[0].tool !== 1)
                 return;
 
               ctx.strokeStyle = path[0].color;
-              ctx.lineWidth = path[0].size * ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 1;
+              ctx.lineWidth = path[0].size * ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 2;
 
               ctx.beginPath();
-              var xM = ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 1;
-              var yM = ctrl.canvasDimensions.height / ctrl.virtualDimensions.height / 1;
+              var xM = ctrl.canvasDimensions.width / ctrl.virtualDimensions.width / 2;
+              var yM = ctrl.canvasDimensions.height / ctrl.virtualDimensions.height / 2;
 
               ctx.moveTo(path[1].x * xM, path[1].y * yM);
 
