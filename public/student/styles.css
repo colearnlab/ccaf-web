@@ -6,7 +6,5 @@
 html, body {
   padding: 0;
   margin: 0;
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
 }

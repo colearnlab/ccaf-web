@@ -1,18 +1,28 @@
+html, body {
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
 #main {
   width: 100vw;
-  height: 100vh;
+  height: 100%;
   padding: 0;
   margin: 0;
-  overflow: hidden;
   background-color: #999;
+  overflow-x: auto;
 }
 
 #controls {
-  position: absolute;
+  position: fixed;
+  top: 0;
+  left: 0;
   height: 50px;
   background-color: #ddd;
   width: 100%;
-  border-bottom: 1px solid gray;
+  border-bottom: 1px solid black;
   line-height: 35px;
 }
 
@@ -85,8 +95,6 @@
   padding: 0;
   padding-top: 52px;
   margin: 0;
-  position: absolute;
-  transform-origin: 0 0;
 }
 
 .scroll-open > #pdf-container {
@@ -116,13 +124,13 @@
 }
 
 #pdf-container > .pdf-page-holder{
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 #minimap > .pdf-page-holder {
   width: 96%;
   margin-left: 2%;
-  margin-bottom: -3px;
+  margin-bottom: 1px;
   pointer-events: none;
 }
 

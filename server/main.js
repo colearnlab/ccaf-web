@@ -50,7 +50,7 @@ app.use(bodyParser.urlencoded({
 var auth = require('./authentication');
 auth.initialize(app, db);
 
-app.all("/api/*", auth.ensureAuthenticated);
+//app.all("/api/*", auth.ensureAuthenticated);
 
 /* Users */
 app.route("/api/v1/users")
