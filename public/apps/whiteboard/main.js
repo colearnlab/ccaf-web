@@ -46,7 +46,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         pdf: m.prop(null),
         tool: m.prop(0),
         color: {0: 0, 1: 0},
-        size: m.prop(25),
+        size: m.prop(10),
         fireScrollEvent: true,
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
@@ -54,17 +54,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           });
         },
         startStroke: function(page, x, y) {
-
           if (ctrl.tool() === 0 || ctrl.tool() === 1) {
             ctrl.currentPage = page;
 
             args.connection.transaction([["pages", page, "paths", "+"]], function(path) {
               ctrl.currentPath = this.props[0].slice(-1);
-
-              path[0] = {tool: ctrl.tool(), color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
+              var opacity = ctrl.tool() === 0 ? 1 : 0.5;
+              path[0] = {opacity: opacity, color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
               path[1] = path[3] = {x: x, y: y};
-              path[2] = path[4] = {x: x - 1, y: y};
+              path[2] = path[4] = {x: x - 0.005, y: y};
             });
+          } else if (ctrl.tool() === 2) {
+            ctrl.currentPage = page;
           }
         },
         addPoint: function(x, y) {
@@ -74,19 +75,32 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
               args.connection.array.push(path, {x: x, y: y});
             });
+          } else if (ctrl.tool() === 2) {
+            if (ctrl.currentPage === null) return;
+
+            args.connection.transaction([["pages", ctrl.currentPage, "paths"]], function(paths) {
+              array.forEach(paths, function(path) {
+                array.forEach(path, function(point) {
+                  if (dist(point.x, point.y, x, y) < ctrl.size()) {
+                    point.x = point.y = -1;
+                    path[0].lastErased = (path[0].lastErased || 0) + 1;
+                  }
+                });
+              });
+            });
           }
         },
         endStroke: function() {
           if (ctrl.tool() === 0 || ctrl.tool() === 1) {
             if (ctrl.currentPath === null) return;
 
-            ctrl.currentPath = null;
-            ctrl.currentPage = null;
-
             args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
               path[0].currentlyDrawing = false;
             });
           }
+
+          ctrl.currentPath = null;
+          ctrl.currentPage = null;
         },
         clear: function() {
           args.connection.transaction([["pages"]], function(pages) {
@@ -167,15 +181,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     },
     view: function(ctrl, args) {
       return m("div.tool-button", {
-          config: function(el, isInit) {
-            document.addEventListener("mousedown", function() {
-              ctrl.open(false);
-            });
-
-            document.addEventListener("touchstart", function() {
-              ctrl.open(false);
-            });
-          }
+          onmousedown: ctrl.open.bind(null, false),
+          ontouchstart: ctrl.open.bind(null, false)
         },
         m("div.color-swatch-holder", {
           class: (args.tool() === args.toolId ? "selected" : "")
@@ -212,7 +219,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             };
 
             return m("div.color-swatch", {
-              onclick: handler,
+              onmousedown: handler,
               ontouchend: handler,
               style: "background-color: " + colors[colorId] + "; " + (args.color[args.toolId] == colorId ? "display: none; " : ""),
             });
@@ -270,6 +277,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           if (isInit)
             return;
 
+          console.log("set interactable");
           ctrl.interactable = interact(el).draggable({
             onmove: function(e) {
               console.log(e);
@@ -306,7 +314,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
   var PDFPageHolder = {
     controller: function(args) {
       return {
-        redrawing: false
+        virtualWidth: 1000,
+        virtualHeight: 1000 * 11 / 8.5,
+        redrawing: false,
+        target: null
       };
     },
     view: function(ctrl, args) {
@@ -321,7 +332,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
 
             ctrl.redrawing = true;
             args.pdf.getPage(args.pageNum + 1).then(function(page) {
-              var viewport = page.getViewport(1920 / page.getViewport(1).width * 1);
+              var viewport = page.getViewport(1000 / page.getViewport(1).width * 1);
               canvas.height = viewport.height;
               canvas.width = viewport.width;
 
@@ -331,8 +342,96 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               });
             });
           }
-        })
+        }),
+        m("svg.drawing-surface", {
+          config: function(el) {
+            var h = el.parentNode.children[0].getBoundingClientRect().height;
+            el.style.marginTop = (-h) + "px";
+            el.style.transform = "scale(" + (h / ctrl.virtualHeight) + ")";
+            ctrl.target = el;
+          },
+          onmousedown: function(e) {
+            var targetRect = ctrl.target.getBoundingClientRect();
+            var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
+            var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
+            //console.log("down", x, y);
+            args.startStroke(args.pageNum, parseInt(x), parseInt(y));
+            m.redraw.strategy("none");
+          },
+          onmousemove: function(e) {
+            var targetRect = ctrl.target.getBoundingClientRect();
+            var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
+            var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
+            //console.log("move", x, y);
+            args.addPoint(parseInt(x), parseInt(y));
+            m.redraw.strategy("none");
+          },
+          onmouseup: function(e) {
+            //var targetRect = ctrl.target.getBoundingClientRect();
+            //var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
+            //var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
+            //console.log("up", x, y);
+            args.endStroke();
+          }
+        }, array.map(args.page.paths, function(path) { return m.component(Path, path); })
+        )
       );
+    }
+  };
+
+  var Path = {
+    controller: function() {
+      return {
+        drawn: false,
+        lastErased: null
+      };
+    },
+    view: function(ctrl, path) {
+      if (ctrl.drawn && path[0].lastErased === ctrl.lastErased)
+        return {subtree: "retain"};
+      else if (path[0].currentlyDrawing === false) {
+        ctrl.drawn = true;
+      }
+
+      var xM = 1;
+      var yM = 1;
+
+      var dStr = "";
+      var a;
+      for (var i = 1; i < array.length(path) - 2; i += a) {
+        a = 1;
+
+        var cont = false;
+        for (var j = i; j <= i + a; j++) {
+          if (path[j].x == -1) {
+            cont = true;
+          }
+        }
+
+        if (cont)
+          continue;
+
+        if (i - 1 !== 0 && path[i - 1].x === -1 || !path[i - 1].x) {
+            dStr += " M " + path[i].x * xM + " " + path[i].y * yM;
+            continue;
+        }
+
+        var xc = (path[i].x * xM + path[i + a].x * xM) / 2;
+        var yc = (path[i].y * yM + path[i + a].y * yM) / 2;
+        dStr += " Q " + (path[i].x * xM) + " " + (path[i].y * yM) + ", " + xc + " " + yc;
+      }
+
+      ctrl.lastErased = path[0].lastErased;
+
+      return m("path", {
+        stroke: path[0].color,
+        "stroke-opacity": path[0].opacity,
+        fill: "transparent",
+        "stroke-width": path[0].size,
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        d: dStr
+      });
     }
   };
 });

@@ -190,7 +190,7 @@ define(["exports"], function(exports) {
 
   var arrayHelpers = Connection.prototype.array = {
     length: function(arr) {
-      return Object.keys(arr).length  -
+      return Object.keys(arr).length -
         ("_id" in arr ? 1 : 0);
     },
     forEach: function(arr, callback, thisArg) {
@@ -200,7 +200,7 @@ define(["exports"], function(exports) {
     },
     map: function(arr, callback, thisArg) {
       var length = arrayHelpers.length(arr);
-      var toReturn = {};
+      var toReturn = [];
 
       arrayHelpers.forEach(arr, function(item, i) {
         toReturn[i] = callback.call(thisArg, item, i, arr);
