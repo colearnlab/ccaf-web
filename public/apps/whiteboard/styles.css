@@ -1,5 +1,6 @@
 html, body {
   overflow: hidden;
+  user-select: none;
 }
 
 ::-webkit-scrollbar {
@@ -177,4 +178,11 @@ html, body {
   height: 1294px;
   display: block;
   transform-origin: 0 0;
+}
+
+.eraser {
+  position: absolute;
+  border: 2px solid black;
+  border-radius: 50%;
+  pointer-events: none;
 }

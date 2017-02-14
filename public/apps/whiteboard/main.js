@@ -46,7 +46,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         pdf: m.prop(null),
         tool: m.prop(0),
         color: {0: 0, 1: 0},
-        size: m.prop(10),
+        size: m.prop(15),
         fireScrollEvent: true,
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
@@ -78,14 +78,96 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           } else if (ctrl.tool() === 2) {
             if (ctrl.currentPage === null) return;
 
+            var pow2 = function(x) {
+              return Math.pow(x, 2);
+            };
+
+            var sgn = function(x) {
+              return (x < 0 ? -1 : 1);
+            };
+
+            var sqrt = Math.sqrt;
             args.connection.transaction([["pages", ctrl.currentPage, "paths"]], function(paths) {
               array.forEach(paths, function(path) {
-                array.forEach(path, function(point) {
-                  if (dist(point.x, point.y, x, y) < ctrl.size()) {
-                    point.x = point.y = -1;
-                    path[0].lastErased = (path[0].lastErased || 0) + 1;
+                var len = array.length(path) - 1;
+                for (var i = 1; i < len; i++) {
+                  var x1 = path[i].x,
+                      y1 = path[i].y,
+                      x2 = path[i + 1].x,
+                      y2 = path[i + 1].y,
+                      r = ctrl.size();
+
+                  if (x1 === null || y1 === null || x2 === null || y2 === null) {
+                    continue;
                   }
-                });
+
+                  //console.log("initial", x1, y1, x2, y2);
+                  x1 -= x;
+                  y1 -= y;
+                  x2 -= x;
+                  y2 -= y;
+                  //console.log("final", x1, y1, x2, y2);
+
+                  var dx = x2 - x1,
+                      dy = y2 - y1,
+                      dr = sqrt(pow2(dx) + pow2(dy)),
+                      D = x1 * y2 - x2 * y1;
+
+                  var delta = pow2(r) * pow2(dr) - pow2(D);
+                  //console.log(delta);
+                  if (delta <= 0)
+                    continue;
+
+                  var xp = sgn(dy) * dx * sqrt(delta),
+                      yp = Math.abs(dy) * sqrt(delta),
+                      dr2 = pow2(dr);
+
+                  var ix1 = (D * dy + xp)/dr2,
+                      iy1 = (-D * dx + yp)/dr2,
+                      ix2 = (D * dy - xp)/dr2,
+                      iy2 = (-D * dx - yp)/dr2;
+
+                  //console.log(ix1, iy1, ix2, iy2);
+
+                  var L = dist(x1, y1, x2, y2),
+                      di1_1 = dist(ix1, iy1, x1, y1),
+                      di1_2 = dist(ix1, iy1, x2, y2),
+                      di2_1 = dist(ix2, iy2, x1, y1),
+                      di2_2 = dist(ix2, iy2, x2, y2);
+
+                  //console.log(x1, y1, x2, y2);
+                  //console.log("");
+                  //console.log(L, di1_1, di1_2, di2_1, di2_2);
+
+                  var i1OnSegment = di1_1 < L && di1_2 < L,
+                      i2OnSegment = di2_1 < L && di2_2 < L;
+
+                  if (i1OnSegment && i2OnSegment && di1_1 > di2_1) {
+                    var tix1 = ix1,
+                        tiy1 = iy2;
+
+                    ix1 = ix2;
+                    iy1 = iy2;
+                    ix2 = tix1;
+                    iy2 = tiy1;
+
+                    var tmp = i1OnSegment;
+                    i1OnSegment = i2OnSegment;
+                    i2OnSegment = tmp;
+
+                    var t1 = di1_1, t2 = di1_2;
+                    di1_1 = di2_1;
+                    di1_2 = di2_2;
+                    di2_1 = t1;
+                    di2_2 = t2;
+                  }
+
+                  if (i1OnSegment && i2OnSegment) {
+                    array.splice(path, i, 0, {x: ix1 + x, y: iy1 + y}, {x: null, y: null}, {x: ix2 + x, y: iy2 + y});
+                    path[0].lastErased = (path[0].lastErased || 0) + 1;
+                    i += 3;
+                  }
+                }
               });
             });
           }
@@ -307,7 +389,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
 
   function drawPDF(ctrl, args, scale) {
     return Array.apply(null, {length: args.numPages()}).map(function(__, i) {
-      return m.component(PDFPageHolder, {drawn: args.drawn, startStroke: args.startStroke, addPoint: args.addPoint, endStroke: args.endStroke, page: args.remotePages()[i], currentPath: args.currentPath, pdf: args.pdf(), pageNum: i});
+      return m.component(PDFPageHolder, {size: args.size, drawn: args.drawn, startStroke: args.startStroke, addPoint: args.addPoint, endStroke: args.endStroke, page: args.remotePages()[i], currentPath: args.currentPath, pdf: args.pdf(), pageNum: i});
     });
   }
 
@@ -317,7 +399,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         virtualWidth: 1000,
         virtualHeight: 1000 * 11 / 8.5,
         redrawing: false,
-        target: null
+        target: null,
+        localPenDown: false
       };
     },
     view: function(ctrl, args) {
@@ -352,29 +435,46 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           },
           onmousedown: function(e) {
             var targetRect = ctrl.target.getBoundingClientRect();
-            var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
-            var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
+            var localX = ctrl.localX = (e.pageX - targetRect.left);
+            var localY = ctrl.localY = (e.pageY - targetRect.top);
+            var x = localX / targetRect.width * ctrl.virtualWidth;
+            var y = localY / targetRect.height * ctrl.virtualHeight;
             //console.log("down", x, y);
             args.startStroke(args.pageNum, parseInt(x), parseInt(y));
-            m.redraw.strategy("none");
+            ctrl.localPenDown = true;
           },
           onmousemove: function(e) {
             var targetRect = ctrl.target.getBoundingClientRect();
-            var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
-            var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
+            var localX = ctrl.localX = (e.pageX - targetRect.left);
+            var localY = ctrl.localY = (e.pageY - targetRect.top);
+            var x = localX / targetRect.width * ctrl.virtualWidth;
+            var y = localY / targetRect.height * ctrl.virtualHeight;
             //console.log("move", x, y);
             args.addPoint(parseInt(x), parseInt(y));
             m.redraw.strategy("none");
           },
           onmouseup: function(e) {
-            //var targetRect = ctrl.target.getBoundingClientRect();
-            //var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
-            //var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
+            var targetRect = ctrl.target.getBoundingClientRect();
+            var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
+            var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
             //console.log("up", x, y);
             args.endStroke();
+            ctrl.localPenDown = false;
           }
-        }, array.map(args.page.paths, function(path) { return m.component(Path, path); })
-        )
+        }, args.page ? array.map(args.page.paths, function(path) { return m.component(Path, path); }) : ""
+        ),
+        m(".eraser", {
+          style: !ctrl.localPenDown ? "display: none;" : "",
+          config: function(el) {
+            var h = el.parentNode.children[0].getBoundingClientRect().height;
+            el.style.marginTop = (-h) + "px";
+
+            var size = args.size() * h / ctrl.virtualHeight;
+            el.style.height = size + "px";
+            el.style.width = size + "px";
+            el.style.transform = "translate(" + (ctrl.localX - size / 2) + "px, " + (ctrl.localY - size / 2) + "px";
+          }
+        }, " ")
       );
     }
   };
@@ -398,12 +498,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
 
       var dStr = "";
       var a;
-      for (var i = 1; i < array.length(path) - 2; i += a) {
+      for (var i = 1; i < array.length(path) - 1; i += a) {
         a = 1;
 
         var cont = false;
         for (var j = i; j <= i + a; j++) {
-          if (path[j].x == -1) {
+          if (path[j].x === null) {
             cont = true;
           }
         }
@@ -411,7 +511,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         if (cont)
           continue;
 
-        if (i - 1 !== 0 && path[i - 1].x === -1 || !path[i - 1].x) {
+        if (i - 1 !== 0 && path[i - 1].x === null || !path[i - 1].x) {
             dStr += " M " + path[i].x * xM + " " + path[i].y * yM;
             continue;
         }

@@ -235,6 +235,20 @@ define(["exports"], function(exports) {
         delete arr.length;
 
       return toReturn;
+    },
+    splice: function(arr) {
+      var savedLength = arr.length;
+      var hasLength = "length" in arr;
+      arr.length = arrayHelpers.length(arr);
+
+      var toReturn = Array.prototype.splice.apply(arr, Array.prototype.slice.call(arguments, 1));
+
+      if (hasLength)
+        arr.length = savedLength;
+      else
+        delete arr.length;
+
+      return toReturn;
     }
   };
 
