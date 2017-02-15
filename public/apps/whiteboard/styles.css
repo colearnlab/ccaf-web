@@ -63,6 +63,8 @@ html, body {
 
 .color-swatch-holder {
   border: 2px solid rgba(0, 0, 0, 0);
+  height: 40px;
+  width: 40px;
   border-radius: 2px;
 }
 
@@ -84,7 +86,7 @@ html, body {
   border-radius: 2px;
 }
 
-.color-swatch {
+.color-swatch, .pen-size {
   margin-left: 3px;
   margin-top: 3px;
   height: 30px;
@@ -182,6 +184,7 @@ html, body {
 
 .eraser {
   position: absolute;
+  background-color: white;
   border: 2px solid black;
   border-radius: 50%;
   pointer-events: none;

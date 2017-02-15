@@ -6,14 +6,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     css.load("/apps/whiteboard/styles.css");
     var ctrl = m.mount(el, m.component(Main, {
       pdf: params.pdf,
+      user: params.user = 0,
       connection: connection
     }));
+
     connection.addObserver(function(store) {
       if (store.scrollPositions) {
-        ctrl.y(store.scrollPositions[4] || 0);
+        ctrl.y(store.scrollPositions[params.user] || 0);
       }
       ctrl.remotePages(store.pages || {});
-      m.redraw();
+      requestAnimationFrame(m.redraw);
     });
 
     window.addEventListener("resize", m.redraw.bind(null, true));
@@ -46,134 +48,45 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         pdf: m.prop(null),
         tool: m.prop(0),
         color: {0: 0, 1: 0},
-        size: m.prop(15),
+        size: m.prop(10),
         fireScrollEvent: true,
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
-            scrollPositions[4] = pos;
+            scrollPositions[args.user] = pos;
           });
         },
         startStroke: function(page, x, y) {
-          if (ctrl.tool() === 0 || ctrl.tool() === 1) {
+          if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
             ctrl.currentPage = page;
 
             args.connection.transaction([["pages", page, "paths", "+"]], function(path) {
-              ctrl.currentPath = this.props[0].slice(-1);
-              var opacity = ctrl.tool() === 0 ? 1 : 0.5;
-              path[0] = {opacity: opacity, color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
+              var currentPath = ctrl.currentPath = this.props[0].slice(-1)[0];
+              var opacity = ctrl.tool() === 1 ? 0.5 : 1;
+              path[0] = {eraser: ctrl.tool() === 2, opacity: opacity, color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
               path[1] = path[3] = {x: x, y: y};
               path[2] = path[4] = {x: x - 0.005, y: y};
-            });
-          } else if (ctrl.tool() === 2) {
-            ctrl.currentPage = page;
-          }
-        },
-        addPoint: function(x, y) {
-          if (ctrl.tool() === 0 || ctrl.tool() === 1) {
-            if (ctrl.currentPath === null) return;
-
-            args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
-              args.connection.array.push(path, {x: x, y: y});
-            });
-          } else if (ctrl.tool() === 2) {
-            if (ctrl.currentPage === null) return;
-
-            var pow2 = function(x) {
-              return Math.pow(x, 2);
-            };
-
-            var sgn = function(x) {
-              return (x < 0 ? -1 : 1);
-            };
-
-            var sqrt = Math.sqrt;
-            args.connection.transaction([["pages", ctrl.currentPage, "paths"]], function(paths) {
-              array.forEach(paths, function(path) {
-                var len = array.length(path) - 1;
-                for (var i = 1; i < len; i++) {
-                  var x1 = path[i].x,
-                      y1 = path[i].y,
-                      x2 = path[i + 1].x,
-                      y2 = path[i + 1].y,
-                      r = ctrl.size();
-
-                  if (x1 === null || y1 === null || x2 === null || y2 === null) {
-                    continue;
-                  }
-
-                  //console.log("initial", x1, y1, x2, y2);
-                  x1 -= x;
-                  y1 -= y;
-                  x2 -= x;
-                  y2 -= y;
-                  //console.log("final", x1, y1, x2, y2);
-
-                  var dx = x2 - x1,
-                      dy = y2 - y1,
-                      dr = sqrt(pow2(dx) + pow2(dy)),
-                      D = x1 * y2 - x2 * y1;
-
-                  var delta = pow2(r) * pow2(dr) - pow2(D);
-                  //console.log(delta);
-                  if (delta <= 0)
-                    continue;
-
-                  var xp = sgn(dy) * dx * sqrt(delta),
-                      yp = Math.abs(dy) * sqrt(delta),
-                      dr2 = pow2(dr);
-
-                  var ix1 = (D * dy + xp)/dr2,
-                      iy1 = (-D * dx + yp)/dr2,
-                      ix2 = (D * dy - xp)/dr2,
-                      iy2 = (-D * dx - yp)/dr2;
-
-                  //console.log(ix1, iy1, ix2, iy2);
-
-                  var L = dist(x1, y1, x2, y2),
-                      di1_1 = dist(ix1, iy1, x1, y1),
-                      di1_2 = dist(ix1, iy1, x2, y2),
-                      di2_1 = dist(ix2, iy2, x1, y1),
-                      di2_2 = dist(ix2, iy2, x2, y2);
-
-                  //console.log(x1, y1, x2, y2);
-                  //console.log("");
-                  //console.log(L, di1_1, di1_2, di2_1, di2_2);
-
-                  var i1OnSegment = di1_1 < L && di1_2 < L,
-                      i2OnSegment = di2_1 < L && di2_2 < L;
-
-                  if (i1OnSegment && i2OnSegment && di1_1 > di2_1) {
-                    var tix1 = ix1,
-                        tiy1 = iy2;
-
-                    ix1 = ix2;
-                    iy1 = iy2;
-                    ix2 = tix1;
-                    iy2 = tiy1;
-
-                    var tmp = i1OnSegment;
-                    i1OnSegment = i2OnSegment;
-                    i2OnSegment = tmp;
-
-                    var t1 = di1_1, t2 = di1_2;
-                    di1_1 = di2_1;
-                    di1_2 = di2_2;
-                    di2_1 = t1;
-                    di2_2 = t2;
-                  }
-
-                  if (i1OnSegment && i2OnSegment) {
-                    array.splice(path, i, 0, {x: ix1 + x, y: iy1 + y}, {x: null, y: null}, {x: ix2 + x, y: iy2 + y});
-                    path[0].lastErased = (path[0].lastErased || 0) + 1;
-                    i += 3;
-                  }
+              args.connection.transaction([["undoStack", args.user]], function(undoStack) {
+                var undoStackHeight = array.length(undoStack);
+                if (undoStackHeight > 25) {
+                  array.splice(undoStack, undoStack.height - 25);
                 }
+
+                array.push(undoStack, {action: "add-path", page: page, path: currentPath});
               });
             });
           }
         },
+        addPoint: function(x, y) {
+          if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
+            if (ctrl.currentPath === null) return;
+
+            args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
+              args.connection.array.push(path, {x: parseInt(x), y: parseInt(y)});
+            });
+          }
+        },
         endStroke: function() {
-          if (ctrl.tool() === 0 || ctrl.tool() === 1) {
+          if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
             if (ctrl.currentPath === null) return;
 
             args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
@@ -186,9 +99,42 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         },
         clear: function() {
           args.connection.transaction([["pages"]], function(pages) {
+            var savedPages = {};
             array.forEach(pages, function(__, i) {
+              savedPages[i] = pages[i];
               pages[i] = {paths: {}};
             });
+            args.connection.transaction([["undoStack", args.user]], function(undoStack) {
+              var undoStackHeight = array.length(undoStack);
+              if (undoStackHeight > 25) {
+                array.splice(undoStack, undoStack.height - 25);
+              }
+              array.push(undoStack, {action: "clear-screen", savedPages: savedPages});
+            });
+          });
+        },
+        undo: function() {
+          args.connection.transaction([["undoStack", args.user]], function(undoStack) {
+            var toUndo = array.pop(undoStack);
+
+            if (typeof toUndo === "undefined")
+              return;
+
+            console.log(toUndo);
+            switch (toUndo.action) {
+              case "add-path":
+                args.connection.transaction([["pages", toUndo.page, "paths", toUndo.path]], function(path) {
+                  path[0].hidden = true;
+                });
+              break;
+              case "clear-screen":
+                args.connection.transaction([["pages"]], function(pages) {
+                  array.forEach(toUndo.savedPages, function(savedPage, i) {
+                    pages[i] = savedPage;
+                  });
+                });
+              break;
+            }
           });
         }
       };
@@ -213,12 +159,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           onscroll: function(e) {
             var el = e.target;
             if (!ctrl.fireScrollEvent) {
-              console.log("cancelled scroll event");
               ctrl.fireScrollEvent = true;
               m.redraw.strategy("none");
               return false;
             }
-            console.log("fired scroll event");
             ctrl.setScroll(el.scrollTop / (el.scrollHeight - window.innerHeight));
           }
         },
@@ -243,13 +187,65 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           }
         }),
         m("span.glyphicon.glyphicon-remove#clear-screen", {
-          onclick: args.clear,
+          onmousedown: args.clear,
           ontouchend: args.clear
+        }),
+        m("span.glyphicon.glyphicon-hand-left#undo", {
+          onmousedown: args.undo
+          //ontouchend: args.undo
         }),
         m("#tools",
           m.component(Tool, {tool: args.tool, color: args.color, toolId: 0, hasTray: true}),
           m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true}),
-          m.component(Tool, {tool: args.tool, color: {2: 4}, toolId: 2, hasTray: false})
+          m.component(Tool, {tool: args.tool, color: {2: 4}, toolId: 2, hasTray: false}),
+          m.component(SizeSelect, {size: args.size, color: args.color, tool: args.tool})
+        )
+      );
+    }
+  };
+
+  var SizeSelect = {
+    controller: function() {
+      return {
+        open: m.prop(false)
+      };
+    },
+    view: function(ctrl, args) {
+      return m("div.tool-button", {
+          onmousedown: ctrl.open.bind(null, false),
+          ontouchstart: ctrl.open.bind(null, false)
+        },
+        m("div.color-swatch-holder", {
+          onmousedown: function(e) {
+            ctrl.open(!ctrl.open());
+            e.stopPropagation();
+          },
+          ontouchend: function() {
+            ctrl.open(!ctrl.open());
+          }
+        },
+          m("div.pen-size", {
+            style: "background-color: " + (colors[args.color[args.tool()]] || "black") + "; width: " + args.size() + "px; height:" + args.size() + "px; margin-top: " + (36 - args.size())/2 + "px; margin-left: " + (36 - args.size())/2 + "px;"
+          })
+        ),
+        m("div#pen-tray", {
+          class: ctrl.open() ? "tray-open" : "tray-closed"
+        },
+          [4, 8, 16, 24, 32].map(function(size) {
+            var handler = function() {
+              args.size(size);
+              ctrl.open(false);
+            };
+
+            return m("div.color-swatch-holder", {
+                onmousedown: handler,
+                ontouchend: handler
+              },
+              m(".pen-size", {
+                style: "background-color: " + (colors[args.color[args.tool()]] || "black") + "; width: " + size + "px; height:" + size + "px; margin-top: " + (36 - size)/2 + "px; margin-left: " + (36 - size)/2 + "px;",
+              })
+            );
+          })
         )
       );
     }
@@ -271,10 +267,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         },
           m("div.color-swatch", {
             style: "background-color: " + colors[args.color[args.toolId]],
-            config: function(el, isInit) {
-              if (isInit)
-                return;
-            },
             onmousedown: function(e) {
               if (args.tool() !== args.toolId)
                 args.tool(args.toolId);
@@ -299,6 +291,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               args.color[args.toolId] = colorId;
               ctrl.open(false);
             };
+
+            if (colorId == 4)
+              return "";
 
             return m("div.color-swatch", {
               onmousedown: handler,
@@ -359,10 +354,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           if (isInit)
             return;
 
-          console.log("set interactable");
           ctrl.interactable = interact(el).draggable({
             onmove: function(e) {
-              console.log(e);
               var minimapRect = document.getElementById("minimap").getBoundingClientRect();
               var screenRect = el.getBoundingClientRect();
 
@@ -393,6 +386,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     });
   }
 
+  var uniqueCode = 0;
   var PDFPageHolder = {
     controller: function(args) {
       return {
@@ -400,10 +394,40 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         virtualHeight: 1000 * 11 / 8.5,
         redrawing: false,
         target: null,
-        localPenDown: false
+        localPenDown: false,
+        uniqueId: uniqueCode++
       };
     },
     view: function(ctrl, args) {
+      if (args.page)
+      {
+        var bins = [[]];
+        var curBin = 0;
+        var eraser = false;
+
+        var i = 0;
+        var len = array.length(args.page.paths);
+        if (len > 0) {
+          while (args.page.paths[i][0].eraser)
+            i++;
+        }
+
+        for (; i < len; i++) {
+          var curPath = args.page.paths[i];
+
+          if (curPath[0].eraser !== eraser) {
+            eraser = curPath[0].eraser;
+            bins[++curBin] = [];
+          }
+
+          if (eraser)
+            for (var j = 1; j < bins.length; j += 2) {
+              bins[j].push(curPath);
+            }
+          else bins[curBin].push(curPath);
+        }
+      }
+
       return m("div.pdf-page-holder",
         m("img.pdf-page", {
           onload: m.redraw,
@@ -427,6 +451,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           }
         }),
         m("svg.drawing-surface", {
+          "shape-rendering": "geometricPrecision",
           config: function(el) {
             var h = el.parentNode.children[0].getBoundingClientRect().height;
             el.style.marginTop = (-h) + "px";
@@ -434,6 +459,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             ctrl.target = el;
           },
           onmousedown: function(e) {
+            console.profile();
             var targetRect = ctrl.target.getBoundingClientRect();
             var localX = ctrl.localX = (e.pageX - targetRect.left);
             var localY = ctrl.localY = (e.pageY - targetRect.top);
@@ -442,8 +468,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             //console.log("down", x, y);
             args.startStroke(args.pageNum, parseInt(x), parseInt(y));
             ctrl.localPenDown = true;
+            m.redraw.strategy("none");
           },
           onmousemove: function(e) {
+            console.profileEnd();
             var targetRect = ctrl.target.getBoundingClientRect();
             var localX = ctrl.localX = (e.pageX - targetRect.left);
             var localY = ctrl.localY = (e.pageY - targetRect.top);
@@ -459,9 +487,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
             //console.log("up", x, y);
             args.endStroke();
+            m.redraw.strategy("none");
             ctrl.localPenDown = false;
           }
-        }, args.page ? array.map(args.page.paths, function(path) { return m.component(Path, path); }) : ""
+        }, args.page ?
+
+        bins.map(function(bin, i) {
+          return m((i % 2 === 0 ? "g" : "mask"),
+          {
+            mask: (i % 2 === 0 ? "url(#collection" + ctrl.uniqueId + "" + (i+1) + ")": ""),
+            id: "collection" + ctrl.uniqueId + "" + i
+          },
+            (i % 2 == 1 ? (m("rect", {height: "100%", width: "100%", fill: "white"})) : ""),
+            bin.map(function(path) {
+              return m.component(Path, path);
+            })
+          );
+        })
+         : ""
         ),
         m(".eraser", {
           style: !ctrl.localPenDown ? "display: none;" : "",
@@ -483,11 +526,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     controller: function() {
       return {
         drawn: false,
-        lastErased: null
+        lastErased: null,
+        hidden: false
       };
     },
     view: function(ctrl, path) {
-      if (ctrl.drawn && path[0].lastErased === ctrl.lastErased)
+      if (ctrl.drawn && path[0].lastErased === ctrl.lastErased && path[0].hidden === ctrl.hidden)
         return {subtree: "retain"};
       else if (path[0].currentlyDrawing === false) {
         ctrl.drawn = true;
@@ -497,34 +541,30 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
       var yM = 1;
 
       var dStr = "";
-      var a;
-      for (var i = 1; i < array.length(path) - 1; i += a) {
-        a = 1;
 
-        var cont = false;
-        for (var j = i; j <= i + a; j++) {
-          if (path[j].x === null) {
-            cont = true;
-          }
-        }
-
-        if (cont)
-          continue;
-
-        if (i - 1 !== 0 && path[i - 1].x === null || !path[i - 1].x) {
-            dStr += " M " + path[i].x * xM + " " + path[i].y * yM;
+      if (!path[0].hidden) {
+        var len = array.length(path);
+        for (var i = 1; i < len - 1; i++) {
+          if (path[i].x < 0 || path[i + 1].x < 0)
             continue;
-        }
 
-        var xc = (path[i].x * xM + path[i + a].x * xM) / 2;
-        var yc = (path[i].y * yM + path[i + a].y * yM) / 2;
-        dStr += " Q " + (path[i].x * xM) + " " + (path[i].y * yM) + ", " + xc + " " + yc;
+          if (i - 1 !== 0 && path[i - 1].x === -1 || !path[i - 1].x) {
+              dStr += " M " + path[i].x * xM + " " + path[i].y * yM;
+              continue;
+          }
+
+          var xc = (path[i].x * xM + path[i + 1].x * xM) / 2;
+          var yc = (path[i].y * yM + path[i + 1].y * yM) / 2;
+          dStr += " Q " + (path[i].x * xM) + " " + (path[i].y * yM) + ", " + xc + " " + yc;
+        }
       }
 
       ctrl.lastErased = path[0].lastErased;
+      ctrl.hidden = path[0].hidden;
 
       return m("path", {
-        stroke: path[0].color,
+        "shape-rendering": (ctrl.drawn ? "" : "optimizeSpeed"),
+        stroke: path[0].color || "black",
         "stroke-opacity": path[0].opacity,
         fill: "transparent",
         "stroke-width": path[0].size,

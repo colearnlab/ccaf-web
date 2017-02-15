@@ -91,22 +91,27 @@ define(["exports"], function(exports) {
     }).bind(this));
   };
 
-  function getByPath(obj, path, i) {
+  function getByPath(obj, path, i, createdPropPaths) {
     if (typeof i === "undefined")
       i = 0;
+
+    if (typeof createdPropPath === "undefined")
+      createdPropPaths = [];
 
     if (path.length - i === 0 || path[i] === "")
       return obj;
 
     if (path[i] === "+") {
       path[i] = arrayHelpers.push(obj, {}) - 1;
+      createdPropPaths.push(path.slice(0, i + 1));
     } else if (!(path[i] in obj)) {
       obj[path[i]] = {};
+      createdPropPaths.push(path.slice(0, i + 1));
     }
 
     var next = obj[path[i]];
 
-    return getByPath(next, path, i + 1);
+    return getByPath(next, path, i + 1, createdPropPaths);
   }
 
   // Sending and receiving logic.
