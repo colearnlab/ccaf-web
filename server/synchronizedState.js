@@ -4,6 +4,8 @@ var inherits = require('util').inherits;
 var fs = require("fs");
 var path = require("path");
 var async = require("async");
+var stream = require("stream");
+var zlib = require("zlib");
 
 module.exports.server = function(port, dir) {
   return new Server(port, dir);
@@ -13,48 +15,26 @@ function Server(server, dir) {
   this.dir = dir;
   this.connections = [];
 
+  this.gzips = {};
+  this.readStreams = {};
   this.streams = {};
   this.stores = {};
   this.subscriptions = {};
 
-  this.loadLogs((function() {
-    this.server = new WebSocket.Server({server: server});
+  this.server = new WebSocket.Server({server: server});
 
-    this.server.on("connection", (function(ws) {
-      var connection = new Connection(ws);
+  this.server.on("connection", (function(ws) {
+    var connection = new Connection(ws);
 
-      connection.on("message", this.processReceive.bind(this));
-      connection.on("close", (function() {
-        this.connections.splice(this.connections.indexOf(connection), 1);
-      }).bind(this));
-      this.connections.push(connection);
+    connection.on("message", this.processReceive.bind(this));
+    connection.on("close", (function() {
+      this.connections.splice(this.connections.indexOf(connection), 1);
     }).bind(this));
+    this.connections.push(connection);
   }).bind(this));
 
   EventEmitter.call(this);
 }
-
-Server.prototype.loadLogs = function(callback) {
-  var that = this;
-  fs.readdir(this.dir, function(err, files) {
-    async.forEach(files, function(file, _callback) {
-      that.stores[file] = {};
-      fs.readFile(path.resolve(that.dir, file), {
-        encoding: "utf8"
-      }, function(err, contents) {
-        var log = contents.split("\n").slice(0, -1);
-        log.forEach(function(line) {
-          line = JSON.parse(line);
-          for (var p in line.updates) {
-            curPath = p.split(".");
-            getByPath(that.stores[file], curPath.slice(0, -1))[curPath.pop()] = line.updates[p];
-          }
-        });
-        _callback();
-      });
-    }, callback);
-  });
-};
 
 Server.prototype.processReceive = function(connection, envelope) {
   var channel = envelope.channel,
@@ -70,22 +50,76 @@ Server.prototype.processReceive = function(connection, envelope) {
       }
 
       if (!(id in this.subscriptions)) {
-        if (!(id in this.stores))
-          this.stores[id] = {};
+        this.stores[id] = {};
+
         this.subscriptions[id] = [];
+        this.readStreams[id] = new stream.Readable();
+        this.readStreams[id]._read = function(){};
+
+        this.gzips[id] = zlib.createGzip();
+
+        if (fs.existsSync(path.resolve(path.resolve(this.dir, id + "")))) {
+          var rs = fs.createReadStream(path.resolve(this.dir, id + ""));
+          var writestream = new stream.Writable();
+          var leftovers = "";
+          writestream._write = (function(chunk, encoding, done) {
+            var nextUpdates = (leftovers + chunk.toString()).split("\n");
+            leftovers = nextUpdates.pop();
+            for (var i = 0; i < nextUpdates.length; i++) {
+              var cur = JSON.parse(nextUpdates[i]);
+              for (var p in cur.updates) {
+                var curPath = p.split(".");
+                getByPath(this.stores[id], curPath.slice(0, -1))[curPath.pop()] = cur.updates[p];
+              }
+            }
+            done();
+          }).bind(this);
+
+          writestream.on("finish", (function() {
+            this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
+              flags: "a",
+              encoding: "utf8"
+            });
+            this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
+
+            connection.send("set-store", {
+              storeId: id,
+              store: this.stores[id]
+            });
+          }).bind(this));
+          var gunzip = zlib.createGunzip();
+          rs.on("end", function() {
+            console.log("end");
+            gunzip.flush();
+          });
+          rs.pipe(gunzip).pipe(writestream);
+        } else {
+          this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
+            flags: "a",
+            encoding: "utf8"
+          });
+          this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
+
+          connection.send("set-store", {
+            storeId: id,
+            store: this.stores[id]
+          });
+        }
+      } else {
         this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
           flags: "a",
           encoding: "utf8"
+        });
+        this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
+
+        connection.send("set-store", {
+          storeId: id,
+          store: this.stores[id]
         });
       }
 
       this.subscriptions[id].push(connection);
       connection.storeId = id;
-
-      connection.send("set-store", {
-        storeId: id,
-        store: this.stores[id]
-      });
       break;
     case "transaction":
       var store = this.stores[connection.storeId];
@@ -124,13 +158,30 @@ Server.prototype.processReceive = function(connection, envelope) {
         });
       });
 
-      this.streams[message.storeId].write(JSON.stringify({time: + new Date(), updates:  message.updates}) + "\n");
+      this.readStreams[message.storeId].push(JSON.stringify({time: + new Date(), updates:  message.updates}) + "\n");
 
       connection.send("transaction-success", {
         seq: message.seq
       });
 
       break;
+  }
+};
+
+Server.prototype.close = function(callback) {
+  var waitingFor = Object.keys(this.gzips).length;
+  var handler = function() {
+    if (--waitingFor === 0)
+      callback();
+  };
+
+  if (!waitingFor)
+    callback();
+
+  for (var p in this.gzips) {
+    this.readStreams[p].push(null);
+    this.gzips[p].flush();
+    this.streams[p].on("finish", handler);
   }
 };
 

@@ -212,13 +212,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     },
     view: function(ctrl, args) {
       return m("div.tool-button", {
-          onmousedown: ctrl.open.bind(null, false),
-          ontouchstart: ctrl.open.bind(null, false)
+          config: function(el, isInit) {
+            if (!isInit) {
+              document.addEventListener("mousedown", ctrl.open.bind(null, false));
+              document.addEventListener("touchstart", ctrl.open.bind(null, false));
+            }
+          }
         },
         m("div.color-swatch-holder", {
           onmousedown: function(e) {
             ctrl.open(!ctrl.open());
-            e.stopPropagation();
           },
           ontouchend: function() {
             ctrl.open(!ctrl.open());
@@ -259,8 +262,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     },
     view: function(ctrl, args) {
       return m("div.tool-button", {
-          onmousedown: ctrl.open.bind(null, false),
-          ontouchstart: ctrl.open.bind(null, false)
+        config: function(el, isInit) {
+            if (!isInit) {
+              document.addEventListener("mousedown", ctrl.open.bind(null, false));
+              document.addEventListener("touchstart", ctrl.open.bind(null, false));
+            }
+          }
         },
         m("div.color-swatch-holder", {
           class: (args.tool() === args.toolId ? "selected" : "")
@@ -272,8 +279,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
                 args.tool(args.toolId);
               else
                 ctrl.open(!ctrl.open());
-
-              e.stopPropagation();
             },
             ontouchend: function() {
               if (args.tool() !== args.toolId)
@@ -451,7 +456,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           }
         }),
         m("svg.drawing-surface", {
-          "shape-rendering": "geometricPrecision",
+          "color-rendering": "optimizeSpeed",
           config: function(el) {
             var h = el.parentNode.children[0].getBoundingClientRect().height;
             el.style.marginTop = (-h) + "px";
@@ -563,7 +568,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
       ctrl.hidden = path[0].hidden;
 
       return m("path", {
-        "shape-rendering": (ctrl.drawn ? "" : "optimizeSpeed"),
+        "shape-rendering": (ctrl.drawn ? "auto" : "optimizeSpeed"),
         stroke: path[0].color || "black",
         "stroke-opacity": path[0].opacity,
         fill: "transparent",

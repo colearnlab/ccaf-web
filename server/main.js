@@ -515,4 +515,20 @@ app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:user
 
 
 app.use("/", [express.static("public")]);
-require("./synchronizedState").server(app.listen(80), path.resolve(__dirname, "..", "stores"));
+var server = require("./synchronizedState").server(app.listen(80), path.resolve(__dirname, "..", "stores"));
+
+function exitHandler(options, err) {
+    if (options.cleanup) console.log('clean');
+    if (err) console.log(err.stack);
+
+    server.close(process.exit);
+}
+
+//do something when app is closing
+process.on('exit', exitHandler.bind(null,{cleanup:true}));
+
+//catches ctrl+c event
+process.on('SIGINT', exitHandler.bind(null, {exit:true}));
+
+//catches uncaught exceptions
+process.on('uncaughtException', exitHandler.bind(null, {exit:true}));
