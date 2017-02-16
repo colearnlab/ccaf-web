@@ -51,8 +51,6 @@ define(["exports"], function(exports) {
     if (this.playback)
       return;
 
-    seq = (typeof seq !== "undefined" ? seq : this.transactionSeq++);
-
     paths = paths.map((function(path) {
       if (typeof path === "string" || path instanceof String)
         return path.split(".");
@@ -91,6 +89,7 @@ define(["exports"], function(exports) {
       updates[paths[i].join(".")] = dependencies[i];
     }
 
+    seq = (typeof seq !== "undefined" ? seq : this.transactionSeq++);
     this.transactionQueue[seq] = {paths: paths, action: action};
 
     this.send("transaction", {
@@ -202,6 +201,10 @@ define(["exports"], function(exports) {
       case "transaction-failure":
         var transaction = this.transactionQueue[message.seq];
         delete this.transactionQueue[message.seq];
+        for (p in message.updates) {
+          path = p.split(".");
+          getByPath(this.store, path.slice(0, -1))[path.pop()] = message.updates[p];
+        }
         this.transaction(transaction.paths, transaction.action, message.seq);
         break;
     }

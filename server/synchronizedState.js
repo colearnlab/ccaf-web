@@ -144,21 +144,38 @@ Server.prototype.processReceive = function(connection, envelope) {
       var store = this.stores[connection.storeId];
       if (connection.storeId !== message.storeId)
         return;
-      var p, curPath;
+
+      var p, curPath, updates;
+      console.log(message.seq, connection.transactionSeq);
+      if (message.seq != connection.transactionSeq) {
+        updates = {};
+        for (p in message.versions) {
+          curPath = p.split(".");
+          updates[p] = getByPath(store, curPath);
+        }
+        connection.send("transaction-failure", {
+          seq: message.seq,
+          updates: updates
+        });
+
+        return;
+      }
+
       for (p in message.versions) {
         curPath = p.split(".");
         if ((getByPath(store, curPath)._id || 0) !== message.versions[p]) {
-          var updates = {};
+          updates = {};
           for (p in message.versions) {
             curPath = p.split(".");
             updates[p] = getByPath(store, curPath);
-            connection.send("transaction-failure", {
-              seq: message.seq,
-              updates: updates
-            });
-
-            return;
           }
+
+          connection.send("transaction-failure", {
+            seq: message.seq,
+            updates: updates
+          });
+
+          return;
         }
       }
 
@@ -179,6 +196,7 @@ Server.prototype.processReceive = function(connection, envelope) {
 
       this.readStreams[message.storeId].push(JSON.stringify({time: + new Date(), updates:  message.updates}) + "\n");
 
+      connection.transactionSeq += 1;
       connection.send("transaction-success", {
         seq: message.seq
       });
@@ -222,6 +240,8 @@ function Connection(ws) {
 
   this.ws = ws;
 
+  this.transactionSeq = 0;
+
   this.sendSeqToTimeoutId = {};
   this.sendSeq = 0;
 
@@ -245,7 +265,15 @@ Connection.prototype.send = function(channel, message, seq) {
   if (this.ws.readyState !== 1)
     return;
 
-  this.ws.send(JSON.stringify(new Envelope(channel, message, seq)));
+  try {
+    this.ws.send(JSON.stringify(new Envelope(channel, message, seq)), function(err) {
+      if (err) {
+        console.log("WebSocket improperly closed?");
+      }
+    });
+  } catch (e) {
+    console.log("Send error.");
+  }
 
   this.sendSeqToTimeoutId[seq] = setTimeout((function() {
     this.send(channel, message, seq);
