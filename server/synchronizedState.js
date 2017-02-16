@@ -7,11 +7,11 @@ var async = require("async");
 var stream = require("stream");
 var zlib = require("zlib");
 
-module.exports.server = function(port, dir) {
-  return new Server(port, dir);
+module.exports.server = function(port, dir, verifyClient) {
+  return new Server(port, dir, verifyClient);
 };
 
-function Server(server, dir) {
+function Server(server, dir, verifyClient) {
   this.dir = dir;
   this.connections = [];
 
@@ -21,16 +21,32 @@ function Server(server, dir) {
   this.stores = {};
   this.subscriptions = {};
 
-  this.server = new WebSocket.Server({server: server});
+  this.server = new WebSocket.Server({
+    server: server,
+    perMessageDeflate: false,
+    path: "/ws"
+  });
 
   this.server.on("connection", (function(ws) {
     var connection = new Connection(ws);
 
-    connection.on("message", this.processReceive.bind(this));
-    connection.on("close", (function() {
-      this.connections.splice(this.connections.indexOf(connection), 1);
+    verifyClient(ws.upgradeReq, (function(verified, user) {
+      console.log(verified, user);
+      if (!verified) {
+        ws.close();
+        return;
+      }
+
+      connection.user = user;
+
+      connection.on("message", this.processReceive.bind(this));
+      connection.on("close", (function() {
+        this.connections.splice(this.connections.indexOf(connection), 1);
+      }).bind(this));
+      this.connections.push(connection);
     }).bind(this));
-    this.connections.push(connection);
+
+
   }).bind(this));
 
   EventEmitter.call(this);

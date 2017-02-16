@@ -9,11 +9,13 @@ exports.initialize = function(app, db) {
     CALLBACK_URL: "http://localhost/oauth2callback"
   };
 
-  app.use(cookieSession({
+  var cookies = cookieSession({
     name: 'session',
-    keys: ["testing"],
+    keys: ["testing2"],
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }));
+  });
+
+  app.use(cookies);
 
   app.use(passport.initialize());
   app.use(passport.session());
@@ -80,6 +82,10 @@ exports.initialize = function(app, db) {
   app.get('/oauth2callback', passport.authenticate('google',
       { successReturnToOrRedirect: "/", failureRedirect: '/fail' }
   ));
+
+  return {
+    cookies: cookies
+  };
 };
 
 exports.ensureAuthenticated = function(req, res, next) {

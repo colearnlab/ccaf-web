@@ -1,6 +1,6 @@
 define("main", ["exports", "mithril", "synchronizedStateClient", "models"], function(exports, m, synchronizedStateClient, models) {
   var User = models.User;
-  var wsAddress = 'ws://' + window.location.host;
+  var wsAddress = 'ws://' + window.location.host + "/ws";
 
   var appPath = "whiteboard";
   var groupSession = 0;

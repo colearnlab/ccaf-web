@@ -48,7 +48,7 @@ app.use(bodyParser.urlencoded({
 }));
 
 var auth = require('./authentication');
-auth.initialize(app, db);
+var authObj = auth.initialize(app, db);
 
 //app.all("/api/*", auth.ensureAuthenticated);
 
@@ -513,15 +513,37 @@ app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:user
     }
   });
 
+app.use("/", [auth.ensureAuthenticated, express.static("public")]);
 
-app.use("/", [express.static("public")]);
-var server = require("./synchronizedState").server(app.listen(80), path.resolve(__dirname, "..", "stores"));
+var httpServer = app.listen(80);
+var synchronizedStateServer = require("./synchronizedState").server(
+  httpServer,
+  path.resolve(__dirname, "..", "stores"),
+  function(req, done) {
+    authObj.cookies(req, {}, function() {
+      if (!req.session.passport || typeof req.session.passport.user === "undefined")
+        return done(false);
+
+      var stmt = db.prepare("SELECT * FROM users WHERE id=:id", {
+        ":id": req.session.passport.user
+      });
+
+      if (!stmt.step())
+        return done(false);
+
+      var user = stmt.getAsObject();
+      stmt.free();
+
+      done(true, user);
+    });
+  }
+);
 
 function exitHandler(options, err) {
     if (options.cleanup) console.log('clean');
     if (err) console.log(err.stack);
 
-    server.close(process.exit);
+    synchronizedStateServer.close(process.exit);
 }
 
 //do something when app is closing
