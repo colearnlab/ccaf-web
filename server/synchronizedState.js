@@ -76,6 +76,8 @@ Server.prototype.processReceive = function(connection, envelope) {
           }).bind(this);
 
           writestream.on("finish", (function() {
+
+            console.timeEnd("gunzip");
             this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
               flags: "a",
               encoding: "utf8"
@@ -92,6 +94,7 @@ Server.prototype.processReceive = function(connection, envelope) {
             console.log("end");
             gunzip.flush();
           });
+          console.time("gunzip");
           rs.pipe(gunzip).pipe(writestream);
         } else {
           this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {

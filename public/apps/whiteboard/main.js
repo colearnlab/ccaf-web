@@ -81,7 +81,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             if (ctrl.currentPath === null) return;
 
             args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
-              args.connection.array.push(path, {x: parseInt(x), y: parseInt(y)});
+              if (!path[0])
+                return false;
+
+              var i = args.connection.array.push(path, {x: parseInt(x), y: parseInt(y)}) - 1;
+
+              var toReturn = this.props[0].slice();
+              toReturn.push(i);
+              return [toReturn];
             });
           }
         },
@@ -90,7 +97,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             if (ctrl.currentPath === null) return;
 
             args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
+              if (!path[0])
+                return false;
+
               path[0].currentlyDrawing = false;
+              var toReturn = this.props[0].slice();
+              toReturn.push(0);
+              return [toReturn];
             });
           }
 
@@ -104,12 +117,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               savedPages[i] = pages[i];
               pages[i] = {paths: {}};
             });
-            args.connection.transaction([["undoStack", args.user]], function(undoStack) {
-              var undoStackHeight = array.length(undoStack);
-              if (undoStackHeight > 25) {
-                array.splice(undoStack, undoStack.height - 25);
+            args.connection.transaction([["undoStack"]], function(undoStack) {
+              for (var p in undoStack) {
+                if (!isNaN(parseInt(p))) {
+                  undoStack[p] = {};
+                }
               }
-              array.push(undoStack, {action: "clear-screen", savedPages: savedPages});
             });
           });
         },
@@ -125,13 +138,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               case "add-path":
                 args.connection.transaction([["pages", toUndo.page, "paths", toUndo.path]], function(path) {
                   path[0].hidden = true;
-                });
-              break;
-              case "clear-screen":
-                args.connection.transaction([["pages"]], function(pages) {
-                  array.forEach(toUndo.savedPages, function(savedPage, i) {
-                    pages[i] = savedPage;
-                  });
                 });
               break;
             }
@@ -413,12 +419,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         var i = 0;
         var len = array.length(args.page.paths);
         if (len > 0) {
-          while (args.page.paths[i][0].eraser)
+          while (args.page.paths[i] && args.page.paths[i][0] && args.page.paths[i][0].eraser)
             i++;
         }
 
         for (; i < len; i++) {
           var curPath = args.page.paths[i];
+
+          if (!curPath[0])
+            continue;
 
           if (curPath[0].eraser !== eraser) {
             eraser = curPath[0].eraser;
@@ -494,6 +503,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             args.endStroke();
             m.redraw.strategy("none");
             ctrl.localPenDown = false;
+          },
+          onmouseleave: function(e) {
+            args.endStroke();
+            m.redraw.strategy("none");
+            ctrl.localPenDown = false;
           }
         }, args.page ?
 
@@ -505,6 +519,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           },
             (i % 2 == 1 ? (m("rect", {height: "100%", width: "100%", fill: "white"})) : ""),
             bin.map(function(path) {
+              if (!path[0])
+                return "";
               return m.component(Path, path);
             })
           );

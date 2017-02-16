@@ -60,13 +60,27 @@ define(["exports"], function(exports) {
       return path;
     }).bind(this));
 
+    var createdPropPaths = [];
     var dependencies = paths.map((function(path) {
-      return getByPath(this.store, path);
+      return getByPath(this.store, path, 0, createdPropPaths);
     }).bind(this));
 
-    action.apply({
+    var doAction = action.apply({
       props: paths
     }, dependencies);
+
+    if (doAction === false) {
+      var toUndo;
+      while((toUndo = createdPropPaths.pop())) {
+        delete getByPath(this.store, toUndo.slice(0, -1))[toUndo.pop()];
+      }
+      return;
+    } else if (doAction instanceof Array) {
+      paths = doAction;
+      dependencies = paths.map((function(path) {
+        return getByPath(this.store, path, 0);
+      }).bind(this));
+    }
 
     var versions = {};
     var updates = {};
@@ -95,7 +109,7 @@ define(["exports"], function(exports) {
     if (typeof i === "undefined")
       i = 0;
 
-    if (typeof createdPropPath === "undefined")
+    if (typeof createdPropPaths === "undefined")
       createdPropPaths = [];
 
     if (path.length - i === 0 || path[i] === "")
