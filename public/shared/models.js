@@ -218,7 +218,22 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     });
   }
 
+  function File() {}
+
+  File.upload = function(file, metadata) {
+    var data = new FormData();
+    data.append("metadata", metadata);
+    data.append("upload", file);
+    return m.request({
+      method: "POST",
+      url: "/api/v1/media",
+      data: data,
+      serialize: function(a) { return a; }
+    });
+  };
+  
   exports.User = User;
   exports.Classroom = Classroom;
   exports.Group = Group;
+  exports.File = File;
 });

@@ -13,6 +13,12 @@ module.exports.server = function(port, dir, verifyClient) {
 
 function Server(server, dir, verifyClient) {
   this.dir = dir;
+  try {
+    fs.mkdirSync(dir);
+  } catch(e) {
+    
+  }
+
   this.connections = [];
 
   this.gzips = {};

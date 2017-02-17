@@ -7,6 +7,8 @@ var sql = require("sql.js");
 
 var dbPath = path.resolve(__dirname, "..", "embedded.sqlite");
 
+var multer = require("multer");
+
 if (!fs.existsSync(dbPath)) {
   var newdb = new sql.Database();
 
@@ -24,7 +26,8 @@ if (!fs.existsSync(dbPath)) {
     "CREATE TABLE group_user_mapping(groupId INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(groupId, user) ON CONFLICT REPLACE)",
     "CREATE TABLE classroom_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT)",
     "CREATE TABLE group_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, recording INTEGER, FOREIGN KEY(recording) REFERENCES recordings(id))",
-    "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER, FOREIGN KEY(group_session) REFERENCES group_session(id))"
+    "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER, FOREIGN KEY(group_session) REFERENCES group_session(id))",
+    "CREATE TABLE media(owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT UNIQUE PRIMARY KEY NOT NULL, mime TEXT, metadata TEXT)"
   ].join("; ") + "; ";
 
   newdb.exec(sqlstr);
@@ -513,7 +516,46 @@ app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:user
     }
   });
 
+var upload = multer({dest: "media/"});
+
+app.route("/api/v1/media")
+  .post(upload.single("upload"), function(req, res) {
+  try {
+    db.run("PRAGMA foreign_keys = ON");
+    db.run("INSERT INTO media VALUES(:owner, :filename, :mime, :metadata)", {
+      ":owner": req.user.id,
+      ":filename": req.file.filename,
+      ":mime": req.file.mimetype,
+      ":metadata": req.body.metadata
+    });
+
+    res.json({
+      data: {
+        filename: req.file.filename
+      }
+    });
+  } catch(e) {
+    console.log(e);
+    res.status(400).json({data:{status:400}});
+  }
+});
+
 app.use("/", [auth.ensureAuthenticated, express.static("public")]);
+
+app.use("/media", [auth.ensureAuthenticated, function(req, res, next) {
+    var stmt = db.prepare("SELECT * FROM media WHERE filename=:filename and owner=:owner", {
+      ":filename": req.url.slice(1),
+      ":owner": req.user.id
+    });
+
+    if (!stmt.step())
+      return res.status(404).json({data:{status:404}});
+
+    var file = stmt.getAsObject();
+    res.setHeader("Content-Type", file.mime);
+    stmt.free();
+    next();
+}, express.static("media")]);
 
 var httpServer = app.listen(80);
 var synchronizedStateServer = require("./synchronizedState").server(
