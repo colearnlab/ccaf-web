@@ -10,6 +10,9 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     require(["/apps/" + appPath + "/main.js"], function(app) {
       var connection = synchronizedStateClient.connect(wsAddress, function() {
         connection.sync(groupSession);
+        connection.userList.addObserver(function(users) {
+          console.log("Connected users", users);
+        });
         app.load(connection, document.body, {
           pdf: "/media/sample.pdf",
           user: user

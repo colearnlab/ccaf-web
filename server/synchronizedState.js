@@ -31,7 +31,6 @@ function Server(server, dir, verifyClient) {
     var connection = new Connection(ws);
 
     verifyClient(ws.upgradeReq, (function(verified, user) {
-      console.log(verified, user);
       if (!verified) {
         ws.close();
         return;
@@ -40,7 +39,11 @@ function Server(server, dir, verifyClient) {
       connection.user = user;
 
       connection.on("message", this.processReceive.bind(this));
-      connection.on("close", (function() {
+      ws.on("close", (function() {
+        if (typeof connection.storeId !== "undefined" && connection.storeId in this.subscriptions) {
+          this.subscriptions[connection.storeId].splice(this.subscriptions[connection.storeId].indexOf(connection), 1);
+          this.handleSubscriptionUpdate(connection.storeId);
+        }
         this.connections.splice(this.connections.indexOf(connection), 1);
       }).bind(this));
       this.connections.push(connection);
@@ -51,6 +54,28 @@ function Server(server, dir, verifyClient) {
 
   EventEmitter.call(this);
 }
+
+Server.prototype.handleSubscriptionUpdate = function(storeId) {
+  if (!(storeId in this.subscriptions))
+    return;
+
+  var addedUsers = {};
+  var users = [];
+  for (var i = 0; i < this.subscriptions[storeId].length; i++) {
+    if (addedUsers[this.subscriptions[storeId][i].user.id])
+      continue;
+
+    var toAdd = this.subscriptions[storeId][i].user;
+    users.push(toAdd);
+    addedUsers[toAdd.id] = true;
+  }
+
+  this.subscriptions[storeId].forEach(function(connection) {
+    connection.send("connected-users", {
+      users: users
+    });
+  });
+};
 
 Server.prototype.processReceive = function(connection, envelope) {
   var channel = envelope.channel,
@@ -63,6 +88,7 @@ Server.prototype.processReceive = function(connection, envelope) {
       if (typeof connection.storeId !==  "undefined") {
         var indexOfConnection = this.subscriptions[connection.storeId].indexOf(connection);
         this.subscriptions[connection.storeId].splice(indexOfConnection, 1);
+        this.handleSubscriptionUpdate(connection.storeId);
       }
 
       if (!(id in this.subscriptions)) {
@@ -139,6 +165,7 @@ Server.prototype.processReceive = function(connection, envelope) {
 
       this.subscriptions[id].push(connection);
       connection.storeId = id;
+      this.handleSubscriptionUpdate(connection.storeId);
       break;
     case "transaction":
       var store = this.stores[connection.storeId];

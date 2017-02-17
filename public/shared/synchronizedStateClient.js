@@ -19,10 +19,7 @@ define(["exports"], function(exports) {
     this.store = {};
     this.observers = [];
 
-    this.playbackStore = null;
-    this.log = null;
-
-    this.playback = false;
+    this.userList = new UserList();
 
     this.ws = new WebSocket(ws);
     this.ws.addEventListener("message", this.receive.bind(this));
@@ -47,9 +44,6 @@ define(["exports"], function(exports) {
   };
 
   Connection.prototype.transaction = function(paths, action, seq) {
-    if (this.playback)
-      return;
-
     paths = paths.map((function(path) {
       if (typeof path === "string" || path instanceof String)
         return path.split(".");
@@ -169,9 +163,6 @@ define(["exports"], function(exports) {
 
         this.store = message.store;
 
-        if (this.playback)
-          return;
-
         this.observers.forEach((function(observer) {
           observer(this.store);
         }).bind(this));
@@ -185,9 +176,6 @@ define(["exports"], function(exports) {
           path = p.split(".");
           getByPath(this.store, path.slice(0, -1))[path.pop()] = message.updates[p];
         }
-
-        if (this.playback)
-          return;
 
         this.observers.forEach((function(observer) {
           observer(this.store);
@@ -205,6 +193,9 @@ define(["exports"], function(exports) {
           getByPath(this.store, path.slice(0, -1))[path.pop()] = message.updates[p];
         }
         this.transaction(transaction.paths, transaction.action, message.seq);
+        break;
+      case "connected-users":
+        this.userList.update(message.users);
         break;
     }
   };
@@ -284,4 +275,24 @@ define(["exports"], function(exports) {
     this.channel = "ack";
     this.seq = seq;
   }
+
+  function UserList() {
+    this.users = [];
+    this.observers = [];
+  }
+
+  UserList.prototype.update = function(users) {
+    this.users = users;
+    for (var i = 0; i < this.observers.length; i++)
+      this.observers[i](users);
+  };
+
+  UserList.prototype.addObserver = function(callback) {
+    this.observers.push(callback);
+  };
+
+  UserList.prototype.removeObserver = function(callback) {
+    var idx = this.observers.indexOf(callback);
+    this.observers.splice(idx, 1);
+  };
 });
