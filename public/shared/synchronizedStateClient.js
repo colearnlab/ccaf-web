@@ -40,7 +40,6 @@ define(["exports"], function(exports) {
 
   Connection.prototype.addObserver = function(observer) {
     this.observers.push(observer);
-    observer(this.store);
   };
 
   Connection.prototype.removeObserver = function(observer) {

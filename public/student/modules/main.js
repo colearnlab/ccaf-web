@@ -1,6 +1,8 @@
-define("main", ["exports", "mithril", "synchronizedStateClient", "models"], function(exports, m, synchronizedStateClient, models) {
+define("main", ["exports", "mithril", "synchronizedStateClient", "models", "multicast"], function(exports, m, synchronizedStateClient, models, multicast) {
   var User = models.User;
   var wsAddress = 'ws://' + window.location.host + "/ws";
+
+  window.multicast = multicast;
 
   var appPath = "whiteboard";
   var groupSession = 0;

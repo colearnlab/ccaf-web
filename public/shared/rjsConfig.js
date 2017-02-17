@@ -11,7 +11,8 @@ requirejs.config({
     "models": "/shared/models",
     "userPicker": "/shared/userPicker",
     "css": "/shared/css",
-    "synchronizedStateClient": "/shared/synchronizedStateClient"
+    "synchronizedStateClient": "/shared/synchronizedStateClient",
+    "multicast": "/shared/multicast"
   },
   'shim': {
     'underscore': {
