@@ -16,7 +16,7 @@ function Server(server, dir, verifyClient) {
   try {
     fs.mkdirSync(dir);
   } catch(e) {
-    
+
   }
 
   this.connections = [];
@@ -131,6 +131,7 @@ Server.prototype.processReceive = function(connection, envelope) {
               encoding: "utf8"
             });
             this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
+            this.readStreams[id].push(" ");
 
             connection.send("set-store", {
               storeId: id,
@@ -150,6 +151,7 @@ Server.prototype.processReceive = function(connection, envelope) {
             encoding: "utf8"
           });
           this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
+          this.readStreams[id].push(" ");
 
           connection.send("set-store", {
             storeId: id,
@@ -162,6 +164,7 @@ Server.prototype.processReceive = function(connection, envelope) {
           encoding: "utf8"
         });
         this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
+        this.readStreams[id].push(" ");
 
         connection.send("set-store", {
           storeId: id,

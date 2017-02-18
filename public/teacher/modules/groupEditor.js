@@ -192,7 +192,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
     },
     view: function(ctrl, args) {
       return m(".group.bg-color-white",
-        m(".group-header.primary-color-green",
+        m(".main-menu-header.primary-color-green",
           args.group.title,
           m("span.glyphicon.glyphicon-remove.pull-right.delete-group", {
             style: (args.sidebarState() === "close" ? "display: none" : ""),
@@ -201,7 +201,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
             }
           })
         ),
-        m(".group-body",
+        m(".main-menu-body",
           m(".call-to-action", {
               style: args.group.currentUsers().length > 0 || args.sidebarState() === "close" ? "display: none" : ""
             },

@@ -25,8 +25,8 @@ if (!fs.existsSync(dbPath)) {
     "CREATE TABLE groups(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)",
     "CREATE TABLE group_user_mapping(groupId INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(groupId, user) ON CONFLICT REPLACE)",
     "CREATE TABLE classroom_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER REFERENCES classrooms(id) ON DELETE SET NULL, startTime INTEGER, endTime INTEGER, metadata TEXT)",
-    "CREATE TABLE group_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, recording INTEGER, FOREIGN KEY(recording) REFERENCES recordings(id))",
-    "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER, FOREIGN KEY(group_session) REFERENCES group_session(id))",
+    "CREATE TABLE group_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom_session INTEGER REFERENCES classroom_sessions(id) ON DELETE SET NULL, groupId INTEGER REFERENCES groups(id) ON DELETE SET NULL)",
+    "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER REFERENCES group_session(id), user INTEGER REFERENCES users(id))",
     "CREATE TABLE media(owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT UNIQUE PRIMARY KEY NOT NULL, mime TEXT, metadata TEXT)"
   ].join("; ") + "; ";
 
@@ -43,7 +43,7 @@ var app = express();
 
 setInterval(function() {
   fs.writeFileSync(dbPath, new Buffer(db.export()));
-}, 10000);
+}, 60000);
 
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({
@@ -182,6 +182,21 @@ app.route("/api/v1/users/:userId/classrooms")
       },
       function() {
         res.json({data: classrooms});
+      });
+  });
+
+app.route("/api/v1/users/:userId/groups")
+  .get(function(req, res) {
+    var groups = [];
+
+    db.each("SELECT id, title, classroom FROM group_user_mapping LEFT JOIN groups ON group_user_mapping.groupId = groups.id WHERE user=:user", {
+        ":user": req.params.userId
+      },
+      function(group) {
+        groups.push(group);
+      },
+      function() {
+        res.json({data: groups});
       });
   });
 
@@ -609,6 +624,51 @@ app.route("/api/v1/classroom_sessions/:classroomSessionId")
 
   });
 
+app.route("/api/v1/getStoreId/session/:sessionId/group/:groupId/user/:userId")
+  .get(function(req, res) {
+    try {
+      var sessionId = req.params.sessionId;
+      var groupId = req.params.groupId;
+      var userId = req.params.userId;
+
+      var stmt = db.prepare("SELECT * FROM group_sessions WHERE classroom_session=:classroom_session and groupId=:groupId", {
+        ":classroom_session": sessionId,
+        ":groupId": groupId
+      });
+
+      var storeId;
+
+      if (!stmt.step()) {
+        stmt.free();
+        stmt = db.prepare("SELECT * FROM groups WHERE id=:id", {
+          ":id": groupId
+        });
+        if (!stmt.step()) {
+          res.status(400).json({data: {status:400}});
+          stmt.free();
+          return;
+        }
+
+        var group = stmt.getAsObject();
+        db.run("PRAGMA foreign_keys = ON");
+        db.run("INSERT INTO group_sessions VALUES(NULL, :title, :classroom_session, :groupId)", {
+          ":title": group.title,
+          ":classroom_session": sessionId,
+          ":groupId": groupId
+        });
+
+        storeId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+      } else {
+        storeId = stmt.getAsObject().id;
+      }
+
+      res.status(200).json({data: storeId});
+    } catch(e) {
+      console.log(e);
+      res.status(400).json({data: {status:400}});
+    }
+  });
+
 var upload = multer({dest: "media/"});
 app.route("/api/v1/media")
   .post(upload.single("upload"), function(req, res) {
@@ -635,9 +695,8 @@ app.route("/api/v1/media")
 app.use("/", [auth.ensureAuthenticated, express.static("public")]);
 
 app.use("/media", [auth.ensureAuthenticated, function(req, res, next) {
-    var stmt = db.prepare("SELECT * FROM media WHERE filename=:filename and owner=:owner", {
-      ":filename": req.url.slice(1),
-      ":owner": req.user.id
+    var stmt = db.prepare("SELECT * FROM media WHERE filename=:filename", {
+      ":filename": req.url.slice(1)
     });
 
     if (!stmt.step())
@@ -676,7 +735,7 @@ var synchronizedStateServer = require("./synchronizedState").server(
 function exitHandler(options, err) {
     if (options.cleanup) console.log('clean');
     if (err) console.log(err.stack);
-
+    fs.writeFileSync(dbPath, new Buffer(db.export()));
     synchronizedStateServer.close(process.exit);
 }
 

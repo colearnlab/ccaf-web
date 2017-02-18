@@ -79,6 +79,18 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     });
   };
 
+
+  User.prototype.groups = function() {
+    return m.request({
+      method: "GET",
+      url: apiPrefix + "users/" + this.id + "/groups"
+    }).then(function(groups) {
+      return groups.data.map(function(group) {
+        return Object.assign(new Group(), group);
+      });
+    });
+  };
+
   User.prototype.addGroup = function(group) {
     var groupId = (group instanceof Group ? group.id : group);
     return m.request({
@@ -257,7 +269,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   ClassroomSession.get = function(id) {
     return m.request({
       method: "GET",
-      url: "/api/v1/classroom_sessions/" + id,
+      url: "/api/v1/classroom_sessions/" + id
     }).then(function(classroomSession) {
       return Object.assign(new ClassroomSession(), classroomSession.data);
     });
@@ -266,11 +278,20 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   ClassroomSession.list = function() {
     return m.request({
       method: "GET",
-      url: "/api/v1/classroom_sessions",
+      url: "/api/v1/classroom_sessions"
     }).then(function(classroomSessions) {
       return classroomSessions.data.map(function(classroomSession) {
         return Object.assign(new ClassroomSession(), classroomSession);
       });
+    });
+  };
+
+  ClassroomSession.prototype.getStoreId = function(group, user) {
+    return m.request({
+      method: "GET",
+      url: "/api/v1/getStoreId/session/" + this.id + "/group/" + group + "/user/" + user
+    }).then(function(storeId) {
+      return storeId.data;
     });
   };
 

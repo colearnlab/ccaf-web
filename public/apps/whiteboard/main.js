@@ -50,6 +50,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         color: {0: 0, 1: 0},
         size: m.prop(10),
         fireScrollEvent: true,
+        lastX: 0,
+        lastY: 0,
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
             scrollPositions[args.user] = pos;
@@ -63,8 +65,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               var currentPath = ctrl.currentPath = this.props[0].slice(-1)[0];
               var opacity = ctrl.tool() === 1 ? 0.5 : 1;
               path[0] = {eraser: ctrl.tool() === 2, opacity: opacity, color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
-              path[1] = path[3] = {x: x, y: y};
-              path[2] = path[4] = {x: x - 0.005, y: y};
+              path[1] = {x: x, y: y};
               args.connection.transaction([["undoStack", args.user]], function(undoStack) {
                 var undoStackHeight = array.length(undoStack);
                 if (undoStackHeight > 25) {
@@ -79,6 +80,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         addPoint: function(x, y) {
           if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
             if (ctrl.currentPath === null) return;
+
+            if (dist(x, y, ctrl.lastX, ctrl.lastY) < 5)
+              return;
+
+            ctrl.lastX = x;
+            ctrl.lastY = y;
 
             args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
               if (!path[0])
@@ -473,26 +480,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             ctrl.target = el;
           },
           onmousedown: function(e) {
-            console.profile();
             var targetRect = ctrl.target.getBoundingClientRect();
             var localX = ctrl.localX = (e.pageX - targetRect.left);
             var localY = ctrl.localY = (e.pageY - targetRect.top);
             var x = localX / targetRect.width * ctrl.virtualWidth;
             var y = localY / targetRect.height * ctrl.virtualHeight;
             //console.log("down", x, y);
-            args.startStroke(args.pageNum, parseInt(x), parseInt(y));
+            requestAnimationFrame(args.startStroke.bind(null, args.pageNum, parseInt(x), parseInt(y)));
             ctrl.localPenDown = true;
             m.redraw.strategy("none");
           },
           onmousemove: function(e) {
-            console.profileEnd();
             var targetRect = ctrl.target.getBoundingClientRect();
             var localX = ctrl.localX = (e.pageX - targetRect.left);
             var localY = ctrl.localY = (e.pageY - targetRect.top);
             var x = localX / targetRect.width * ctrl.virtualWidth;
             var y = localY / targetRect.height * ctrl.virtualHeight;
             //console.log("move", x, y);
-            args.addPoint(parseInt(x), parseInt(y));
+            requestAnimationFrame(args.addPoint.bind(null, parseInt(x), parseInt(y)));
             m.redraw.strategy("none");
           },
           onmouseup: function(e) {
@@ -500,7 +505,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
             var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
             //console.log("up", x, y);
-            args.endStroke();
+            requestAnimationFrame(args.endStroke);
             m.redraw.strategy("none");
             ctrl.localPenDown = false;
           },
@@ -565,15 +570,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
 
       if (!path[0].hidden) {
         var len = array.length(path);
-        for (var i = 1; i < len - 1; i++) {
-          if (path[i].x < 0 || path[i + 1].x < 0)
-            continue;
 
-          if (i - 1 !== 0 && path[i - 1].x === -1 || !path[i - 1].x) {
-              dStr += " M " + path[i].x * xM + " " + path[i].y * yM;
-              continue;
-          }
+        if (len < 3) {
+          var tmp = [path[0], path[1], {x: path[1].x - 0.005, y: path[1].y}, path[1]];
+          path = tmp;
+          len = 4;
+        }
 
+        dStr += " M " + path[1].x * xM + " " + path[1].y * yM;
+
+        for (var i = 2; i < len - 1; i++) {
           var xc = (path[i].x * xM + path[i + 1].x * xM) / 2;
           var yc = (path[i].y * yM + path[i + 1].y * yM) / 2;
           dStr += " Q " + (path[i].x * xM) + " " + (path[i].y * yM) + ", " + xc + " " + yc;

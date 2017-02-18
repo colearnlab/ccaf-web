@@ -1,13 +1,9 @@
 @import url('https://fonts.googleapis.com/css?family=Raleway:400,700');
 @import url('/lib/bootstrap.css');
 @import url('/shared/colors.css');
+@import url('/shared/interface.css');
 
 /* main */
-
-.stretch {
-  height: 100%;
-  overflow: hidden;
-}
 
 html, body {
   height: 100%;
@@ -24,51 +20,12 @@ html, body {
   margin: 0 !important;
 }
 
-#toolbar {
-  position: absolute;
-  height: 50px;
-  width: 100vw;
-  margin-top: -50px;
-  line-height: 50px;
-  padding-left: 15px;
-  font-size: 32px;
-}
-
 .underline {
   text-decoration: underline;
 }
 
 .modal {
   margin-top: 25vh;
-}
-
-.call-to-action {
-  color: lightgray;
-  text-align: center;
-  position: relative;
-  top: 45%;
-  transform: translateY(-50%);
-  font-size: 2rem;
-  position: absolute;
-}
-
-.main-menu-section {
-  border-radius: 3px;
-}
-
-.main-menu-header {
-  padding: 0;
-  height: 30px;
-  overflow: hidden;
-  margin-top: 5vh;
-}
-
-.main-menu-header > span {
-  line-height: 30px;
-}
-
-.main-menu-body {
-  padding: 0;
 }
 
 /* groupeditor */
@@ -110,16 +67,6 @@ html, body {
   top: calc(50vh - 25px)
 }
 
-.student, .classroom {
-  border-radius: 0 !important;
-  height: 25px;
-  line-height: 15px;
-  padding: 5px;
-  padding-left: 15px;
-  border-right: 0;
-  border-left: 0;
-}
-
 #groups {
   padding-left: 15px;
   overflow-y: scroll;
@@ -132,24 +79,6 @@ html, body {
   margin: 15px;
   border-radius: 3px;
   box-shadow: 1px 1px 1px gray;
-}
-
-.group-header, .main-menu-header {
-  height: 30px;
-  width: 100%;
-  border-radius: 3px 3px 0px 0px;
-  line-height: 30px;
-  padding-left: 0.5em;
-  padding-right: 0.25em;
-  font-size: 1.75rem;
-  border-bottom: 1px solid lightgray;
-}
-
-.group-body, .main-menu-body {
-  height: 140px;
-  width: 100%;
-  overflow: hidden;
-  position: relative;
 }
 
 .group-footer {
