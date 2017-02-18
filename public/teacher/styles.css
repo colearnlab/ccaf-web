@@ -20,15 +20,18 @@ html, body {
 }
 
 #main {
-  padding: 20px 0 0 0;
+  padding: 50px 0 0 0;
   margin: 0 !important;
 }
 
 #toolbar {
   position: absolute;
-  height: 20px;
+  height: 50px;
   width: 100vw;
-  margin-top: -20px;
+  margin-top: -50px;
+  line-height: 50px;
+  padding-left: 15px;
+  font-size: 32px;
 }
 
 .underline {
@@ -166,7 +169,7 @@ html, body {
 #add-group {
   position: absolute;
   right: 25px;
-  top: calc(100vh - 50px);
+  top: calc(100vh - 70px);
 }
 
 #ghost {
@@ -175,4 +178,16 @@ html, body {
 
 .list-group-item:first-child {
   border-top: 0 !important;
+}
+
+.start-session-form {
+  padding: 10px;
+}
+
+#back-button {
+  line-height: 50px;
+}
+
+.delete-group {
+  line-height: 30px;
 }

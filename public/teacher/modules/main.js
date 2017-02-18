@@ -1,6 +1,8 @@
 define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor) {
   var Classroom = models.Classroom;
   var User = models.User;
+  var ClassroomSession = models.ClassroomSession;
+  var File = models.File;
 
   var UserPicker = userPicker.userPicker;
   var GroupEditor = groupEditor.groupEditor;
@@ -8,13 +10,23 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var Shell = {
     controller: function(args) {
       return {
-        me: User.me()
+        me: User.me(),
+        toolbarText: m.prop(""),
+        classrooms: Classroom.list()
       };
     },
     view: function(ctrl, component) {
       return m("div.container-fluid.bg-color-med#main.stretch",
-        m("#toolbar.primary-color-blue", " "),
-        m.component(component, {me: ctrl.me})
+        m("#toolbar.primary-color-blue.text-color-secondary",
+          m("span.glyphicon.glyphicon-circle-arrow-left#back-button", {
+            style: (typeof m.route.param("classroomId") !== "undefined" || typeof m.route.param("sessionId") !== "undefined" ? "" : "display: none"),
+            onclick: function() {
+              m.route("/");
+            }
+          }),
+          m("span", " ", m.trust(ctrl.toolbarText()))
+        ),
+        m.component(component, ctrl)
       );
     }
   };
@@ -24,7 +36,85 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     view: function(ctrl, args) {
       return m(".row",
         m(widthClasses,
+            m.component(StartSessionMenu, args),
             m.component(ClassroomsMenu, args)
+        )
+      );
+    }
+  };
+
+  var StartSessionMenu = {
+    controller: function(args) {
+      return {
+        showBody: false,
+        sessionName: "New session",
+        classroom: null,
+        sessionFile: null
+      };
+    },
+    view: function(ctrl, args) {
+      return m(".main-menu-section.bg-color-white",
+        m(".main-menu-header.primary-color-blue.text-color-secondary", {
+            onclick: function() {
+              ctrl.showBody = !ctrl.showBody;
+            }
+          },
+          "Start a new session"
+        ),
+        m(".main-menu-body", {
+            style: "height: 250px; " + (ctrl.showBody ? "" : "display: none")
+          },
+          m("form.start-session-form",
+            m(".form-group",
+              m("label", "Title"),
+              m("input.form-control", {
+                value: ctrl.sessionName,
+                oninput: function(e) {
+                  ctrl.sessionName = e.target.value;
+                }
+              })
+            ),
+            m(".form-group",
+              m("label", "Classroom"),
+              m("select.form-control", {
+                  value: ctrl.classroom,
+                  onchange: function(e) {
+                    ctrl.classroom = e.target.value;
+                  }
+                },
+                m("option", ""),
+                args.classrooms().map(function(classroom) {
+                  return m("option", {value: classroom.id}, classroom.title);
+                })
+              )
+            ),
+            m(".form-group",
+              m("label", {
+                  style: "display: block"
+                }, "PDF"),
+              m("input[type=file]", {
+                style: "display: inline-block",
+                onchange: function(e) {
+                  ctrl.sessionFile = e.target.files[0] || null;
+                }
+              }),
+              m("button.btn.btn-primary.pull-right", {
+                disabled: ctrl.sessionName.length === 0 || ctrl.classroom === null || ctrl.sessionFile === null || ctrl.sessionFile.type !== "application/pdf",
+                onclick: function(e) {
+                  File.upload(ctrl.sessionFile).then(function(filename) {
+                    var newClassroomSession = new ClassroomSession();
+                    newClassroomSession.title = ctrl.sessionName;
+                    newClassroomSession.classroom = ctrl.classroom;
+                    newClassroomSession.metadata = {pdf: filename.data};
+                    newClassroomSession.save().then(function() {
+                      console.log(newClassroomSession);
+                    });
+                  });
+                  return false;
+                }
+              }, "Start")
+            )
+          )
         )
       );
     }
@@ -33,7 +123,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var ClassroomsMenu = {
     controller: function(args) {
       return {
-        classrooms: Classroom.list(),
+        classrooms: args.classrooms,
         editingClassroom: null,
         deletingClassroom: null
       };
@@ -217,6 +307,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   m.route.mode = "hash";
   m.route(document.body, "/", {
     "/": m.component(Shell, Menu),
-    "/classroom/:classroomId": m.component(Shell, GroupEditor)
+    "/classroom/:classroomId": m.component(Shell, GroupEditor),
+    "/session/:sessionId": m.component(Shell, GroupEditor)
   });
 });

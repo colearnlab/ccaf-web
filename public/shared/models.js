@@ -187,6 +187,10 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     return basicSave.call(this, "groups");
   };
 
+  Group.prototype.delete = function() {
+    return basicDelete.call(this, "groups");
+  };
+
   function basicSave(url) {
     var that = this;
     return m.request({
@@ -201,6 +205,8 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     }).then(function(returnedData) {
       if (typeof that.id === "undefined")
         that.id = returnedData.data.id;
+
+      return returnedData;
     });
   }
 
@@ -231,9 +237,36 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
       serialize: function(a) { return a; }
     });
   };
-  
+
+  function ClassroomSession() {}
+
+  ClassroomSession.get = function(id) {
+    return m.request({
+      method: "GET",
+      url: "/api/v1/classroom_sessions/" + id,
+    }).then(function(classroomSession) {
+      return Object.assign(new ClassroomSession(), classroomSession.data);
+    });
+  };
+
+  ClassroomSession.list = function() {
+    return m.request({
+      method: "GET",
+      url: "/api/v1/classroom_sessions",
+    }).then(function(classroomSessions) {
+      return classroomSessions.data.map(function(classroomSession) {
+        return Object.assign(new ClassroomSession(), classroomSession);
+      });
+    });
+  };
+
+  ClassroomSession.prototype.save = function() {
+    return basicSave.call(this, "classroom_sessions");
+  };
+
   exports.User = User;
   exports.Classroom = Classroom;
   exports.Group = Group;
   exports.File = File;
+  exports.ClassroomSession = ClassroomSession;
 });

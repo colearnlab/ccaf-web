@@ -2,6 +2,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
   var Classroom = models.Classroom;
   var Group = models.Group;
   var User = models.User;
+  var ClassroomSession = models.ClassroomSession;
 
   var widthClasses = ".col-xs-8.col-xs-offset-2.col-sm-8.col-sm-offset-2.col-md-6.col-md-offset-3";
 
@@ -10,24 +11,18 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
   // has the logic to show/hide these components as needed.
   exports.groupEditor = {
     controller: function(args) {
+      var firstLoad = true;
       var ctrl = {
+        mode: m.prop("classroom"),
         sidebarState: m.prop("open"), // "open": show sidebar, can move students; "close": only groups, cannot move students
         addState: "close",
         users: m.prop([]),
         groups: m.prop([]),
-        classroom: Classroom.get(m.route.param("classroomId")).then(function(classroom) {
-            classroom.users().then(ctrl.users);
-            classroom.groups().then(ctrl.groups).then(function(groups) {
-              groups.forEach(function(group) {
-                group.currentUsers = m.prop([]);
-                group.users().then(group.currentUsers);
-              });
-              return groups;
-            });
-            return classroom;
-          }),
+        classroom: m.prop({}),
         triggerReload: function() {
-          Classroom.get(m.route.param("classroomId")).then(ctrl.classroom).then(function(classroom) {
+          var continueReload = function(classroomId) {
+            Classroom.get(classroomId).then(ctrl.classroom).then(function(classroom) {
+              args.toolbarText("Classroom &rsaquo; " + classroom.title);
               var requestsToProcess = 0;
               var checkIfDone = function() {
                 if (--requestsToProcess <= 0) {
@@ -45,9 +40,21 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
               });
               return classroom;
             });
+          };
+          if (typeof m.route.param("classroomId") !== "undefined") {
+            continueReload(m.route.param("classroomId"));
+          } else {
+            if (firstLoad)
+              ctrl.sidebarState("close");
+            ctrl.mode("session");
+            ClassroomSession.get(m.route.param("sessionId")).then(function(classroomSession) {
+              continueReload(classroomSession.classroom);
+            });
+          }
         }
       };
-
+      ctrl.triggerReload();
+      firstLoad = false;
       return ctrl;
     },
     view: function(ctrl, args) {
@@ -155,6 +162,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
           return m.component(GroupComponent, {triggerReload: args.triggerReload, group: group, sidebarState: args.sidebarState});
         }),
         m("span.glyphicon.glyphicon-plus#add-group", {
+            style: args.sidebarState() === "close" ? "display: none" : "",
             onclick: function() {
               var newGroup = new Group("New group", args.classroom().id);
               newGroup.save().then(args.triggerReload);
@@ -173,7 +181,15 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
     },
     view: function(ctrl, args) {
       return m(".group.bg-color-white",
-        m(".group-header.primary-color-green", args.group.title),
+        m(".group-header.primary-color-green",
+          args.group.title,
+          m("span.glyphicon.glyphicon-remove.pull-right.delete-group", {
+            style: (args.sidebarState() === "close" ? "display: none" : ""),
+            onclick: function(e) {
+              args.group.delete().then(args.triggerReload);
+            }
+          })
+        ),
         m(".group-body",
           m(".call-to-action", {
               style: args.group.currentUsers().length > 0 || args.sidebarState() === "close" ? "display: none" : ""

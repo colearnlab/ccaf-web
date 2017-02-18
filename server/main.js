@@ -24,7 +24,7 @@ if (!fs.existsSync(dbPath)) {
     "CREATE TABLE classroom_user_mapping(classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(classroom, user) ON CONFLICT REPLACE)",
     "CREATE TABLE groups(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)",
     "CREATE TABLE group_user_mapping(groupId INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(groupId, user) ON CONFLICT REPLACE)",
-    "CREATE TABLE classroom_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT)",
+    "CREATE TABLE classroom_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER REFERENCES classrooms(id) ON DELETE SET NULL, startTime INTEGER, endTime INTEGER, metadata TEXT)",
     "CREATE TABLE group_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, recording INTEGER, FOREIGN KEY(recording) REFERENCES recordings(id))",
     "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER, FOREIGN KEY(group_session) REFERENCES group_session(id))",
     "CREATE TABLE media(owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT UNIQUE PRIMARY KEY NOT NULL, mime TEXT, metadata TEXT)"
@@ -396,7 +396,7 @@ app.route("/api/v1/groups/:groupId")
     try {
       db.run("PRAGMA foreign_keys = ON");
       db.run("DELETE FROM groups WHERE id=:id", {
-        ":id": req.params.classroomId
+        ":id": req.params.groupId
       });
 
       if (db.getRowsModified() === 1)
@@ -515,9 +515,59 @@ app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:user
       res.sendStatus(400);
     }
   });
+// "CREATE TABLE classroom_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER REFERENCES classrooms(id) ON DELETE SET NULL, startTime INTEGER, endTime INTEGER)",
+app.route("/api/v1/classroom_sessions")
+  .get(function(req, res) {
+    var sessions = [];
+
+    db.each("SELECT * FROM classroom_sessions",
+      {},
+      function(session) {
+        sessions.push(session);
+      },
+      function() {
+        res.json({data: sessions});
+      });
+  })
+  .post(function(req, res) {
+    console.log(req.body);
+    db.run("PRAGMA foreign_keys = ON");
+    db.run("INSERT INTO classroom_sessions VALUES(NULL, :title, :classroom, :startTime, NULL, :metadata)", {
+      ":title": req.body.title,
+      ":classroom": req.body.classroom,
+      ":startTime": (+ new Date()),
+      ":metadata": typeof req.body.metadata === "string" ? req.body.metadata : typeof req.body.metadata !== "undefined" ? JSON.stringify(req.body.metadata) : void 0
+    });
+
+    res.json({
+      data: {
+        id: db.exec("SELECT last_insert_rowid()")[0].values[0][0]
+      }
+    });
+  });
+
+app.route("/api/v1/classroom_sessions/:classroomSessionId")
+  .get(function(req, res) {
+    var stmt = db.prepare("SELECT * FROM classroom_sessions WHERE id=:id", {
+      ":id": req.params.classroomSessionId
+    });
+
+    if (!stmt.step()) {
+      res.status(404).json({data:{status:404}});
+    } else {
+      res.status(200).json({data:stmt.getAsObject()});
+    }
+
+    stmt.free();
+  })
+  .put(function(req, res) {
+
+  })
+  .delete(function(req, res) {
+
+  });
 
 var upload = multer({dest: "media/"});
-
 app.route("/api/v1/media")
   .post(upload.single("upload"), function(req, res) {
   try {
