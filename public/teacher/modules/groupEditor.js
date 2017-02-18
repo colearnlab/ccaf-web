@@ -19,6 +19,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         users: m.prop([]),
         groups: m.prop([]),
         classroom: m.prop({}),
+        session: m.prop(null),
         triggerReload: function() {
           var continueReload = function(classroomId) {
             Classroom.get(classroomId).then(ctrl.classroom).then(function(classroom) {
@@ -48,6 +49,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
               ctrl.sidebarState("close");
             ctrl.mode("session");
             ClassroomSession.get(m.route.param("sessionId")).then(function(classroomSession) {
+              ctrl.session(classroomSession);
               continueReload(classroomSession.classroom);
             });
           }
@@ -79,7 +81,16 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
             // Display the left or right chevron depending on open or close state.
           }, m("span.glyphicon.glyphicon-chevron-" + (ctrl.sidebarState() === "open" ? "left" : "right"))
           ),
-          m.component(Groups, ctrl)
+          m.component(Groups, ctrl),
+          m("button.btn.btn-default#end-session-button", {
+            style: ctrl.sidebarState() === "open" && ctrl.mode() === "session" ? "" : "display: none",
+            onclick: function(e) {
+              ctrl.session().endTime = (+ new Date());
+              ctrl.session().save().then(function() {
+                m.route("/");
+              });
+            }
+          },  "End session")
         )
       );
     }

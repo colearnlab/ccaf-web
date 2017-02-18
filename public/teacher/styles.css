@@ -60,7 +60,7 @@ html, body {
   padding: 0;
   height: 30px;
   overflow: hidden;
-  margin-top: 10vh;
+  margin-top: 5vh;
 }
 
 .main-menu-header > span {
@@ -190,4 +190,10 @@ html, body {
 
 .delete-group {
   line-height: 30px;
+}
+
+#end-session-button {
+  position: absolute;
+  right: 25px;
+  top: 15px;
 }

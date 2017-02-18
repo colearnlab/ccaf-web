@@ -9,11 +9,25 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
 
   var Shell = {
     controller: function(args) {
-      return {
-        me: User.me(),
+      var ctrl = {
+        me: User.me().then(function(me) {
+          ctrl.classrooms = me.classrooms().then(function(classrooms) {
+            classrooms.map(function(classroom) {
+              classroom.sessions().then(function(sessions) {
+                for (var i = 0; i < sessions.length; i++)
+                  ctrl.sessions().push(sessions[i]);
+              });
+            });
+            return classrooms;
+          });
+          return me;
+        }),
         toolbarText: m.prop(""),
-        classrooms: Classroom.list()
+        classrooms: m.prop([]),
+        sessions: m.prop([])
       };
+
+      return ctrl;
     },
     view: function(ctrl, component) {
       return m("div.container-fluid.bg-color-med#main.stretch",
@@ -36,8 +50,9 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     view: function(ctrl, args) {
       return m(".row",
         m(widthClasses,
-            m.component(StartSessionMenu, args),
-            m.component(ClassroomsMenu, args)
+          m.component(StartSessionMenu, args),
+          m.component(ActiveSessions, args),
+          m.component(ClassroomsMenu, args)
         )
       );
     }
@@ -53,13 +68,17 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       };
     },
     view: function(ctrl, args) {
-      return m(".main-menu-section.bg-color-white",
-        m(".main-menu-header.primary-color-blue.text-color-secondary", {
+      return m(".main-menu-section.bg-color-white", {
+          style: args.sessions().filter(function(session) {
+            return session.endTime === null;
+          }).length === 0 ? "" : "display: none"
+        },
+        m(".main-menu-header.primary-color-green.text-color-secondary", {
             onclick: function() {
               ctrl.showBody = !ctrl.showBody;
             }
           },
-          "Start a new session"
+          "Start a new session ", m("span.glyphicon.glyphicon-chevron-right")
         ),
         m(".main-menu-body", {
             style: "height: 250px; " + (ctrl.showBody ? "" : "display: none")
@@ -107,13 +126,52 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                     newClassroomSession.classroom = ctrl.classroom;
                     newClassroomSession.metadata = {pdf: filename.data};
                     newClassroomSession.save().then(function() {
-                      console.log(newClassroomSession);
+                      m.route("/session/" + newClassroomSession.id);
                     });
                   });
                   return false;
                 }
               }, "Start")
             )
+          )
+        )
+      );
+    }
+  };
+
+  var ActiveSessions = {
+    controller: function(args) {
+      return {
+        sessions: ClassroomSession.list()
+      };
+    },
+    view: function(ctrl, args) {
+      var mySessions = args.sessions().filter(function(session) {
+        return session.endTime === null;
+      });
+
+      return m(".main-menu-section.bg-color-white", {
+          style: mySessions.length > 0 ? "" : "display: none"
+        },
+        m(".main-menu-header.primary-color-green.text-color-secondary", "Active Sessions"),
+        m(".main-menu-body",
+          m(".list-group",
+            mySessions.map(function(session) {
+              var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
+              var classroom = args.classrooms()[classroomIdx];
+              return m(".list-group-item.classroom",
+                m(".list-group-heading", {
+                    onclick: function() {
+                      m.route("/session/" + session.id);
+                    }
+                  },
+                  session.title,
+                  " [",
+                  classroom.title,
+                  "]"
+                )
+              );
+            })
           )
         )
       );
@@ -160,9 +218,13 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             }
           })
           : ""),
-        m('.main-menu-section.bg-color-white',
+        m('.main-menu-section.bg-color-white', {
+            style: args.sessions().filter(function(session) {
+              return session.endTime === null;
+            }).length === 0 ? "" : "display: none"
+          },
           m('.main-menu-header.primary-color-blue.text-color-secondary',
-            "Classes",
+            "Class Rosters",
             m('span.glyphicon.glyphicon-plus.pull-right', {
               onclick: function() {
                 ctrl.editingClassroom = new Classroom("", args.me().id);
@@ -214,7 +276,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         },
         m(".modal-content" + widthClasses,
           m(".modal-header",
-            m("h4.modal-title", "Edit classroom")
+            m("h4.modal-title", "Edit class")
           ),
           m(".modal-body",
             m("form",
@@ -281,7 +343,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         },
         m(".modal-content" + widthClasses,
           m(".modal-header",
-            m("h4.modal-title", "Delete classroom?")
+            m("h4.modal-title", "Delete class?")
           ),
           m(".modal-body",
             "Are you sure you want to delete this classroom? This cannot be undone."

@@ -156,6 +156,20 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     });
   };
 
+  Classroom.prototype.sessions = function() {
+    if (typeof this.id === "undefined")
+      return m.prop([]);
+
+    return m.request({
+      method: "GET",
+      url: apiPrefix + "classrooms/" + this.id + "/sessions"
+    }).then(function(sessions) {
+      return sessions.data.map(function(session) {
+        return Object.assign(new ClassroomSession(), session);
+      });
+    });
+  };
+
   Classroom.prototype.save = function() {
     return basicSave.call(this, "classrooms");
   };

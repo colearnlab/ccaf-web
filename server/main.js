@@ -322,6 +322,21 @@ app.route("/api/v1/classrooms/:classroomId/groups")
       });
   });
 
+app.route("/api/v1/classrooms/:classroomId/sessions")
+  .get(function(req, res) {
+    var sessions = [];
+
+    db.each("SELECT * FROM classroom_sessions WHERE classroom=:classroom", {
+        ":classroom": req.params.classroomId
+      },
+      function(session) {
+        sessions.push(session);
+      },
+      function() {
+        res.json({data: sessions});
+      });
+  });
+
 app.route("/api/v1/groups")
   .get(function(req, res) {
     var classrooms = [];
@@ -561,7 +576,34 @@ app.route("/api/v1/classroom_sessions/:classroomSessionId")
     stmt.free();
   })
   .put(function(req, res) {
+    var params = {
+      ":id": req.params.classroomSessionId,
+      ":title": req.body.title,
+      ":metadata": req.body.metadata,
+      ":endTime": (+ new Date())
+    };
 
+    var insertString = [];
+    for (var p in params) {
+      if (p === "id")
+        continue;
+      else if (typeof params[p] !== "undefined")
+        insertString.push(p.slice(1) + "=" + p);
+      else
+        delete params[p];
+    }
+
+    try {
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("UPDATE classroom_sessions SET " + insertString.join(", ") + " WHERE id=:id", params);
+      if (db.getRowsModified() === 1)
+        res.status(200).json({data:{status:200}});
+      else
+        res.status(404).json({data:{status:404}});
+    } catch (e) {
+      console.log(e);
+      res.status(400).json({data:{status:400}});
+    }
   })
   .delete(function(req, res) {
 
