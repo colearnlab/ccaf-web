@@ -124,7 +124,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                     var newClassroomSession = new ClassroomSession();
                     newClassroomSession.title = ctrl.sessionName;
                     newClassroomSession.classroom = ctrl.classroom;
-                    newClassroomSession.metadata = {pdf: filename.data, app: "whiteboard"};
+                    newClassroomSession.metadata = {pdf: filename.data, app: "whiteboardtl "};
                     newClassroomSession.save().then(function() {
                       m.route("/session/" + newClassroomSession.id);
                     });

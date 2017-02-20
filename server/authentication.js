@@ -75,7 +75,9 @@ exports.initialize = function(app, db) {
   });
 
   app.get('/auth/google', passport.authenticate('google',
-      { scope: ['profile', 'email'] }),
+      { scope: ['https://www.googleapis.com/auth/userinfo.email',
+'https://www.googleapis.com/auth/userinfo.profile'],
+approvalPrompt: 'auto' }),
       function(req, res){} // this never gets called
   );
 

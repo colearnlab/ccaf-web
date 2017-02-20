@@ -98,6 +98,20 @@ Server.prototype.processReceive = function(connection, envelope) {
       }
 
       if (!(id in this.subscriptions)) {
+        var finish = (function(err) {
+          this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
+            flags: err ? "a" : "w",
+            encoding: "utf8"
+          });
+          this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
+          this.readStreams[id].push(" ");
+
+          connection.send("set-store", {
+            storeId: id,
+            store: this.stores[id]
+          });
+        }).bind(this);
+
         this.stores[id] = {};
 
         this.subscriptions[id] = [];
@@ -123,49 +137,21 @@ Server.prototype.processReceive = function(connection, envelope) {
             done();
           }).bind(this);
 
-          writestream.on("finish", (function() {
-
-            console.timeEnd("gunzip");
-            this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
-              flags: "a",
-              encoding: "utf8"
-            });
-            this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
-            this.readStreams[id].push(" ");
-
-            connection.send("set-store", {
-              storeId: id,
-              store: this.stores[id]
-            });
-          }).bind(this));
+          writestream.on("finish", finish);
           var gunzip = zlib.createGunzip();
           rs.on("end", function() {
             console.log("end");
             gunzip.flush();
           });
           console.time("gunzip");
-          rs.pipe(gunzip).pipe(writestream);
+          rs.pipe(gunzip).on("error", function(e) {
+            console.log(e);
+            finish();
+          }).pipe(writestream);
         } else {
-          this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
-            flags: "a",
-            encoding: "utf8"
-          });
-          this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
-          this.readStreams[id].push(" ");
-
-          connection.send("set-store", {
-            storeId: id,
-            store: this.stores[id]
-          });
+          finish();
         }
       } else {
-        this.streams[id] = fs.createWriteStream(path.resolve(this.dir, id + ""), {
-          flags: "a",
-          encoding: "utf8"
-        });
-        this.readStreams[id].pipe(this.gzips[id]).pipe(this.streams[id]);
-        this.readStreams[id].push(" ");
-
         connection.send("set-store", {
           storeId: id,
           store: this.stores[id]
@@ -182,7 +168,6 @@ Server.prototype.processReceive = function(connection, envelope) {
         return;
 
       var p, curPath, updates;
-      console.log(message.seq, connection.transactionSeq);
       if (message.seq != connection.transactionSeq) {
         updates = {};
         for (p in message.versions) {

@@ -1,4 +1,4 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"], function(exports, pdfjs, m, interact, css) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css", "userColors"], function(exports, pdfjs, m, interact, css, userColors) {
   var PDFJS = pdfjs.PDFJS;
   var array;
   exports.load = function(connection, el, params) {
@@ -6,13 +6,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     css.load("/apps/whiteboard/styles.css");
     var ctrl = m.mount(el, m.component(Main, {
       pdf: params.pdf,
-      user: params.user = 0,
+      user: params.user.id,
       connection: connection
     }));
 
     connection.addObserver(function(store) {
       if (store.scrollPositions) {
-        ctrl.y(store.scrollPositions[params.user] || 0);
+        ctrl.scrollPositions(store.scrollPositions || {});
       }
       ctrl.remotePages(store.pages || {});
       requestAnimationFrame(m.redraw);
@@ -38,7 +38,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     controller: function(args) {
       var ctrl = {
         numPages: m.prop(0),
-        y: m.prop(0),
+        scrollPositions: m.prop({}),
         scroll: m.prop("open"),
         pages: [],
         remotePages: m.prop({}),
@@ -52,6 +52,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         fireScrollEvent: true,
         lastX: 0,
         lastY: 0,
+        user: args.user,
+        userList: m.prop([]),
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
             scrollPositions[args.user] = pos;
@@ -140,7 +142,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             if (typeof toUndo === "undefined")
               return;
 
-            console.log(toUndo);
             switch (toUndo.action) {
               case "add-path":
                 args.connection.transaction([["pages", toUndo.page, "paths", toUndo.path]], function(path) {
@@ -151,6 +152,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           });
         }
       };
+
+      args.connection.userList.addObserver(function(users) {
+        ctrl.userList(users);
+        m.redraw(true);
+      });
 
       PDFJS.getDocument(args.pdf).then(function(pdf) {
         ctrl.numPages(pdf.numPages);
@@ -167,7 +173,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           class: "scroll-" + ctrl.scroll(),
           config: function(el) {
             ctrl.fireScrollEvent = false;
-            el.scrollTop = parseInt(ctrl.y() * (el.scrollHeight - window.innerHeight));
+            el.scrollTop = parseInt(ctrl.scrollPositions()[args.user] * (el.scrollHeight - window.innerHeight));
           },
           onscroll: function(e) {
             var el = e.target;
@@ -343,7 +349,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     },
     view: function(ctrl, args) {
       return m("#minimap",
-        m.component(MinimapScreen, args),
+        args.userList().map(function(user) {
+          return m.component(MinimapScreen, {
+            scrollPositions: args.scrollPositions,
+            setScroll: args.setScroll,
+            user: user,
+            userList: args.userList,
+            pointerEvents: args.user === user.id
+          });
+        }),
         m("#minimap-overlay", " "),
         drawPDF(ctrl, args, 1)
       );
@@ -358,12 +372,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     },
     view: function(ctrl, args) {
       return m(".minimap-screen", {
-        style: "height: " + (window.innerHeight / 10) + "px",
+        style: "height: " + (window.innerHeight / 10) + "px; ",
+        class: (!args.pointerEvents ? "no-events" : ""),
         config: function(el, isInit, ctx) {
+          var scrollPosition = args.scrollPositions()[args.user.id];
+
           var minimapRect = el.parentNode.getBoundingClientRect();
           var screenRect = el.getBoundingClientRect();
 
-          var percentage = args.y();
+          var percentage = scrollPosition;
           var totalLength = minimapRect.height - screenRect.height;
           var currentPos = percentage * totalLength;
 
@@ -374,10 +391,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
 
           ctrl.interactable = interact(el).draggable({
             onmove: function(e) {
+              var scrollPosition = args.scrollPositions()[args.user.id];
+
               var minimapRect = document.getElementById("minimap").getBoundingClientRect();
               var screenRect = el.getBoundingClientRect();
 
-              var percentage = args.y();
+              var percentage = scrollPosition;
               var totalLength = minimapRect.height - screenRect.height;
               var currentPos = percentage * totalLength;
 
@@ -394,7 +413,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               ctrl.interactable.unset();
           };
         }
-      });
+      }, m(".minimap-background", {
+        style: "background-color: " + userColors.getColor(args.userList(), args.user.id) + "; "
+
+      }));
     }
   };
 

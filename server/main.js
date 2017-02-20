@@ -693,6 +693,14 @@ app.route("/api/v1/media")
 });
 
 app.use("/", [auth.ensureAuthenticated, express.static("public")]);
+app.get("/", function(req, res) {
+  if (req.user.type === 0)
+    res.redirect("/admin");
+  else if (req.user.type === 1)
+    res.redirect("/teacher");
+  else if (req.user.type === 2)
+    res.redirect("/student");
+});
 
 app.use("/media", [auth.ensureAuthenticated, function(req, res, next) {
     var stmt = db.prepare("SELECT * FROM media WHERE filename=:filename", {

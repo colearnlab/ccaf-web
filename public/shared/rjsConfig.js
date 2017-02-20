@@ -12,7 +12,8 @@ requirejs.config({
     "userPicker": "/shared/userPicker",
     "css": "/shared/css",
     "synchronizedStateClient": "/shared/synchronizedStateClient",
-    "multicast": "/shared/multicast"
+    "multicast": "/shared/multicast",
+    "userColors": "/shared/userColors"
   },
   'shim': {
     'underscore': {

@@ -160,9 +160,8 @@ html, body {
 .minimap-screen {
   width: 10vw;
   position: absolute;
-  background-color: blue;
-  opacity: 0.2;
   z-index: 100;
+  border: 2px solid black;
 }
 
 #minimap-overlay {
@@ -188,4 +187,14 @@ html, body {
   border: 2px solid black;
   border-radius: 50%;
   pointer-events: none;
+}
+
+.no-events {
+  border: 2px solid gray;
+  pointer-events: none;
+}
+
+.minimap-background {
+  opacity: 0.4;
+  height: 100%;
 }

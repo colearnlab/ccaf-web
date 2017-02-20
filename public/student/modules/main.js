@@ -3,6 +3,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
 
   var User = models.User;
   var Classroom = models.Classroom;
+  var ClassroomSession = models.ClassroomSession;
   var wsAddress = 'ws://' + window.location.host + "/ws";
 
   var appPath = "whiteboard";
@@ -18,14 +19,14 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
               classrooms.forEach(function(classroom) {
                 classroom.sessions().then(function(sessions) {
                   ctrl.activeSessions([]);
-                  var curSession;
                   sessions.forEach(function(session) {
-                    if (session.endTime === null)
-                      curSession = session;
+                    if (session.endTime !== null)
+                      return;
+
+                    var groupIdx = groupClassrooms.indexOf(session.classroom);
+                    ctrl.activeSessions().push({session: session, group: groups[groupIdx]});
                   });
 
-                  var groupIdx = groupClassrooms.indexOf(curSession.classroom);
-                  ctrl.activeSessions().push({session: curSession, group: groups[groupIdx]});
                 });
               });
             });
@@ -36,12 +37,11 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
 
       var ctrl = {
         activeSessions: m.prop([]),
-        me: refresh()
+        me: refresh(),
+        interval: setInterval(function() {
+            ctrl.me = refresh();
+          }, REFRESH_INTERVAL)
       };
-
-      setInterval(function() {
-        ctrl.me = refresh();
-      }, REFRESH_INTERVAL);
 
       return ctrl;
     },
@@ -73,7 +73,31 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
               return m(".list-group-item.classroom", {
                   style: activeSession.group ? "" : "display: none",
                   onclick: function(e) {
-                    loadSession(args.me, activeSession);
+                    clearInterval(args.interval);
+                    var sessionId = activeSession.session.id;
+                    var classroomId = activeSession.group.classroom;
+                    var groupId = activeSession.group.id;
+
+                    var me = args.me();
+                    args.interval = setInterval(function() {
+                      ClassroomSession.get(sessionId).then(function(updatedActiveSession) {
+                        if (updatedActiveSession.endTime !== null) {
+                          clearInterval(args.interval);
+                          m.mount(document.body, Main);
+                        }
+                      });
+
+                      me.groups().then(function(groups) {
+                        var groupClassrooms = groups.map(function(group) { return group.classroom; });
+                        var groupIdx = groupClassrooms.indexOf(classroomId);
+
+                        if (groups[groupIdx].id !== groupId) {
+                          groupId = groups[groupIdx].id;
+                          loadSession(me, {session: activeSession.session, group: groups[groupIdx]});
+                        }
+                      });
+                    }, REFRESH_INTERVAL);
+                    loadSession(me, activeSession);
                   }
                 },
                 m(".list-group-heading", activeSession.session.title)
@@ -95,12 +119,15 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     var metadata = (session.metadata ? JSON.parse(session.metadata) : {});
 
     session.getStoreId(group.id, me.id).then(function(storeId) {
-      require(["/apps/" + metadata.app + "/main.js"], function(app) {
-        var connection = synchronizedStateClient.connect(wsAddress, function() {
-          connection.sync(storeId);
-          app.load(connection, document.body, {
-            pdf: "/media/" + metadata.pdf.filename,
-            user: me
+      group.users().then(function(userList) {
+
+        require(["/apps/" + metadata.app + "/main.js"], function(app) {
+          var connection = synchronizedStateClient.connect(wsAddress, function() {
+            connection.sync(storeId);
+            app.load(connection, document.body, {
+              pdf: "/media/" + metadata.pdf.filename,
+              user: me
+            });
           });
         });
       });
