@@ -716,7 +716,7 @@ app.use("/media", [auth.ensureAuthenticated, function(req, res, next) {
     next();
 }, express.static("media")]);
 
-var httpServer = app.listen(80);
+var httpServer = app.listen(parseInt(process.env.PORT));
 var synchronizedStateServer = require("./synchronizedState").server(
   httpServer,
   path.resolve(__dirname, "..", "stores"),

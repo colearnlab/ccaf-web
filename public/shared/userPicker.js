@@ -33,8 +33,14 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
                 m("span.glyphicon.glyphicon-remove", {
                     style: "color: darkslategray; font-size: 8pt",
                     onclick: function() {
-                      var indexToRemove = ctrl.userList.map(function(user) { return user._id; }).indexOf(user._id);
-                      ctrl.userList.splice(indexToRemove, 1);
+                      User.get(user.id).then(function(user) {
+                        user.removeClassroom(ctrl.classroom.id).then(function() {
+                          ctrl.currentUser = "";
+                          ctrl.classroom.users().then(ctrl.currentUsers).then(function() {
+                            m.redraw(true);
+                          });
+                        });
+                      });
                     }
                   }
                 )

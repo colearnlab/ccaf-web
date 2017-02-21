@@ -6,7 +6,7 @@ exports.initialize = function(app, db) {
   var googleConfig = {
     CLIENT_ID: process.env.CLIENT_ID,
     CLIENT_SECRET: process.env.CLIENT_SECRET,
-    CALLBACK_URL: "http://localhost/oauth2callback"
+    CALLBACK_URL: process.env.CALLBACK_URL_ROOT + "oauth2callback"
   };
 
   var cookies = cookieSession({
@@ -47,7 +47,7 @@ exports.initialize = function(app, db) {
             var user = stmt.getAsObject();
             stmt.free();
 
-            if (!user.name)
+            if (!user.name || user.name.length === 0)
               db.run("UPDATE users SET name=:name WHERE id=:id", {":id": user.id, ":name": profile.displayName});
 
             done(null, user);

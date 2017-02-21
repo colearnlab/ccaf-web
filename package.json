@@ -19,7 +19,6 @@
     "body-parser": "^1.16.0",
     "bootstrap": "^3.3.5",
     "bootstrap-3-typeahead": "^4.0.2",
-    "checkerboard": "^0.4.0",
     "connect-ensure-login": "^0.1.1",
     "cookie-session": "^2.0.0-alpha.2",
     "dotenv": "^4.0.0",
@@ -30,7 +29,6 @@
     "jquery": "~2.2.4",
     "mithril": "^0.2.0",
     "multer": "^1.3.0",
-    "nedb": "^1.8.0",
     "passport": "^0.3.2",
     "passport-google-oauth": "^1.0.0",
     "pdfjs-dist": "~1.5.454",
@@ -40,7 +38,8 @@
     "ws": "^2.0.3"
   },
   "scripts": {
-    "install": "node build"
+    "install": "node build",
+	"start": "node server/main"
   },
   "readme": "This repository contains all web files relating to CCAF. For more information, see github.com/ccaf/ccaf.\n\nThis software uses icons made by Freepik at flaticon.com.",
   "readmeFilename": "README.md",
