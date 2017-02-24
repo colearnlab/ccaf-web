@@ -2,10 +2,19 @@
 //  connections. It uses passport to log users in with Google using the OAuth2
 //  protocol.
 
+//  Filesystem operations.
 var fs = require("fs");
+
+//  File path operations.
 var path = require("path");
+
+//  Main authentication module.
 var passport = require("passport");
+
+//  Store sessions with cookies.
 var cookieSession = require("cookie-session");
+
+//  Google login plugin for passport.
 var GoogleStrategy = require("passport-google-oauth").OAuth2Strategy;
 
 //  initialize: set up Google authentication, add routes to facilitate
@@ -182,7 +191,7 @@ exports.initialize = function(app, db) {
   //  to the appropriate route. The main route, "/", will forward to the right
   //  app (admin, teacher or student) depending on the user type.
   app.get("/oauth2callback", passport.authenticate("google", {
-      successReturnTo: "/",
+      successReturnToOrRedirect: "/",
       failureRedirect: "/fail"
     })
   );

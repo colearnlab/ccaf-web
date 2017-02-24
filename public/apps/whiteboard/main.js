@@ -52,6 +52,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         fireScrollEvent: true,
         lastX: 0,
         lastY: 0,
+        curId: 0,
         user: args.user,
         userList: m.prop([]),
         setScroll: function(pos) {
@@ -63,19 +64,23 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
             ctrl.currentPage = page;
 
-            args.connection.transaction([["pages", page, "paths", "+"]], function(path) {
-              var currentPath = ctrl.currentPath = this.props[0].slice(-1)[0];
-              var opacity = ctrl.tool() === 1 ? 0.5 : 1;
-              path[0] = {eraser: ctrl.tool() === 2, opacity: opacity, color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
-              path[1] = {x: x, y: y};
-              args.connection.transaction([["undoStack", args.user]], function(undoStack) {
-                var undoStackHeight = array.length(undoStack);
-                if (undoStackHeight > 25) {
-                  array.splice(undoStack, undoStack.height - 25);
-                }
+            args.connection.transaction([["pages"]], function(pages) {
+              ctrl.curId = pages._id || 0;
+              args.connection.transaction([["pages", page, "paths", "+"]], function(path) {
+                var currentPath = ctrl.currentPath = this.props[0].slice(-1)[0];
+                var opacity = ctrl.tool() === 1 ? 0.5 : 1;
+                path[0] = {eraser: ctrl.tool() === 2, opacity: opacity, color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
+                path[1] = {x: x, y: y};
+                args.connection.transaction([["undoStack", args.user]], function(undoStack) {
+                  var undoStackHeight = array.length(undoStack);
+                  if (undoStackHeight > 25) {
+                    array.splice(undoStack, undoStack.height - 25);
+                  }
 
-                array.push(undoStack, {action: "add-path", page: page, path: currentPath});
+                  array.push(undoStack, {action: "add-path", page: page, path: currentPath});
+                });
               });
+              return false;
             });
           }
         },
@@ -89,15 +94,23 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             ctrl.lastX = x;
             ctrl.lastY = y;
 
-            args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
-              if (!path[0])
+            args.connection.transaction([["pages"]], function(pages) {
+              console.log(pages._id, ctrl.curId);
+              if ((pages._id || 0) !== ctrl.curId)
                 return false;
 
-              var i = args.connection.array.push(path, {x: parseInt(x), y: parseInt(y)}) - 1;
+              args.connection.transaction([["pages", ctrl.currentPage, "paths", ctrl.currentPath]], function(path) {
+                if (!path[0])
+                  return false;
 
-              var toReturn = this.props[0].slice();
-              toReturn.push(i);
-              return [toReturn];
+                var i = args.connection.array.push(path, {x: parseInt(x), y: parseInt(y)}) - 1;
+
+                var toReturn = this.props[0].slice();
+                toReturn.push(i);
+                return [toReturn];
+              });
+
+              return false;
             });
           }
         },
@@ -455,7 +468,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         for (; i < len; i++) {
           var curPath = args.page.paths[i];
 
-          if (!curPath[0])
+          if (!curPath || !curPath[0])
             continue;
 
           if (curPath[0].eraser !== eraser) {

@@ -44,9 +44,12 @@ define(["exports"], function(exports) {
   };
 
   Connection.prototype.transaction = function(paths, action, seq) {
-    paths = paths.map((function(path) {
+    var originalPaths = [];
+    paths = paths.map((function(path, i) {
       if (typeof path === "string" || path instanceof String)
-        return path.split(".");
+        path = path.split(".");
+
+      originalPaths[i] = path.slice();
 
       return path;
     }).bind(this));
@@ -64,6 +67,9 @@ define(["exports"], function(exports) {
       var toUndo;
       while((toUndo = createdPropPaths.pop())) {
         delete getByPath(this.store, toUndo.slice(0, -1))[toUndo.pop()];
+      }
+      if (typeof seq !== "undefined") {
+        this.send("skip-seq", seq);
       }
       return;
     } else if (doAction instanceof Array) {
@@ -83,7 +89,7 @@ define(["exports"], function(exports) {
     }
 
     seq = (typeof seq !== "undefined" ? seq : this.transactionSeq++);
-    this.transactionQueue[seq] = {paths: paths, action: action};
+    console.log(seq, this.transactionQueue[seq] = {paths: originalPaths, action: action});
 
     this.send("transaction", {
       seq: seq,
@@ -123,11 +129,14 @@ define(["exports"], function(exports) {
   // Sending and receiving logic.
   Connection.prototype.send = function(channel, message, seq) {
     seq = (typeof seq !== "undefined" ? seq : this.sendSeq++);
+    var sendStr = JSON.stringify(new Envelope(channel, message, seq));
+    var fn = (function() {
+      this.ws.send(sendStr);
+      console.log("sending", seq);
+      this.sendSeqToTimeoutId[seq] = setTimeout(fn, this.timeout);
+    }).bind(this);
 
-    this.ws.send(JSON.stringify(new Envelope(channel, message, seq)));
-    this.sendSeqToTimeoutId[seq] = setTimeout((function() {
-      this.send(channel, message, seq);
-    }).bind(this), this.timeout);
+    fn();
   };
 
   Connection.prototype.receive = function(e) {
@@ -136,17 +145,22 @@ define(["exports"], function(exports) {
     if (envelope.channel === "ack") {
       clearTimeout(this.sendSeqToTimeoutId[envelope.seq]);
       delete this.sendSeqToTimeoutId[envelope.seq];
-    } else if (envelope.seq >= this.receiveSeq) {
+    } else {
       this.ws.send(JSON.stringify(new Ack(envelope.seq)));
-
       this.receiveQueue.push(envelope);
       this.receiveQueue.sort(function(a, b) {
         return a.seq - b.seq;
       });
 
-      while (this.receiveQueue.length > 0 && this.receiveSeq === this.receiveQueue[0].seq) {
-        this.receiveSeq++;
-        this.processReceive(this.receiveQueue.shift());
+      while (this.receiveQueue.length > 0) {
+        if (this.receiveSeq === this.receiveQueue[0].seq) {
+          this.receiveSeq++;
+          this.processReceive(this.receiveQueue.shift());
+        } else if (this.receiveQueue[0].seq < this.receiveSeq) {
+          this.receiveQueue.shift();
+        } else {
+          break;
+        }
       }
     }
   };
