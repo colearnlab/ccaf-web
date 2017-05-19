@@ -1,4 +1,6 @@
-exports = function(dbPath) {
+exports.mkdb = function(dbPath) {
+  var fs = require("fs");
+  var sql = require("sql.js");
   var newdb = new sql.Database();
 
   var sqlstr = [

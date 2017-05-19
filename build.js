@@ -89,13 +89,14 @@ copy(
       else console.log('copied bootstrap js');
     });
 
-copy(
+/*copy(
   path.resolve(path.dirname(require.resolve('checkerboard')), 'build/out.js'),
   path.resolve(__dirname, 'public', 'lib', 'checkerboard.js'),
   function(err) {
     if (err) console.error(err);
     else console.log('copied checkerboard');
   });
+*/
 
 copy(
   require.resolve('interact.js'),

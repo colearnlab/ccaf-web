@@ -11,7 +11,7 @@ var dbPath = path.resolve(__dirname, "..", "embedded.sqlite");
 
 //  If it doesn't exist, create it per the schema.
 if (!fs.existsSync(dbPath))
-  require("./createDB")(dbPath);
+  require("./createDB").mkdb(dbPath);
 
 //  Load the database and save it every sixty seconds (in case of a bad exit).
 var db = new sql.Database(fs.readFileSync(dbPath));
