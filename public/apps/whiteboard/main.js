@@ -7,6 +7,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     var ctrl = m.mount(el, m.component(Main, {
       pdf: params.pdf,
       user: params.user.id,
+      session: params.session.id,
       connection: connection
     }));
 
@@ -54,6 +55,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         lastY: 0,
         curId: 0,
         user: args.user,
+        session: args.session,
         userList: m.prop([]),
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
@@ -103,7 +105,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
                 if (!path[0])
                   return false;
 
-                var i = args.connection.array.push(path, {x: parseInt(x), y: parseInt(y), u: args.user}) - 1;
+                var i = args.connection.array.push(path, {x: parseInt(x), y: parseInt(y), u: args.user, s: args.session}) - 1;
 
                 var toReturn = this.props[0].slice();
                 toReturn.push(i);
