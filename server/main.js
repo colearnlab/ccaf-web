@@ -58,6 +58,7 @@ require("./api/groups").createRoutes(app, db);
 require("./api/userMappings").createRoutes(app, db);
 require("./api/classroom_sessions").createRoutes(app, db);
 require("./api/media").createRoutes(app, db);
+require("./api/visualize").createRoutes(app, db);
 
 
 
