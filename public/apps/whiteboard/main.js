@@ -103,7 +103,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
                 if (!path[0])
                   return false;
 
-                var i = args.connection.array.push(path, {x: parseInt(x), y: parseInt(y)}) - 1;
+                var i = args.connection.array.push(path, {x: parseInt(x), y: parseInt(y), u: args.user}) - 1;
 
                 var toReturn = this.props[0].slice();
                 toReturn.push(i);
