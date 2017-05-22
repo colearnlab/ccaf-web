@@ -51,6 +51,11 @@ app.get("/", function(req, res) {
     res.redirect("/student");
 });
 
+
+// Shared student point-drawing counts
+var pointcounts = {};
+
+
 //  Create API routes.
 require("./api/users").createRoutes(app, db);
 require("./api/classrooms").createRoutes(app, db);
@@ -58,8 +63,7 @@ require("./api/groups").createRoutes(app, db);
 require("./api/userMappings").createRoutes(app, db);
 require("./api/classroom_sessions").createRoutes(app, db);
 require("./api/media").createRoutes(app, db);
-require("./api/visualize").createRoutes(app, db);
-
+require("./api/visualize").createRoutes(app, db, pointcounts);
 
 
 //  verifyClient takes a http upgrade request and ensures that it is authenticated.
@@ -95,8 +99,11 @@ var httpServer = app.listen(parseInt(process.env.PORT));
 var synchronizedStateServer = require("./synchronizedState/main").server(
   httpServer,
   path.resolve(__dirname, "..", "stores"),
-  verifyClient
+  verifyClient,
+  pointcounts
 );
+
+// Give the 
 
 function exitHandler(err) {
     if (err) console.log(err.stack);
