@@ -126,7 +126,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
             connection.sync(storeId);
             app.load(connection, document.body, {
               pdf: "/media/" + metadata.pdf.filename,
-              user: me
+              user: me,
+              session: session
             });
           });
         });
