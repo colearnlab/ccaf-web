@@ -17,8 +17,10 @@ exports.mkdb = function(dbPath) {
     "CREATE TABLE group_user_mapping(groupId INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(groupId, user) ON CONFLICT REPLACE)",
     "CREATE TABLE classroom_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER REFERENCES classrooms(id) ON DELETE SET NULL, startTime INTEGER, endTime INTEGER, metadata TEXT)",
     "CREATE TABLE group_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom_session INTEGER REFERENCES classroom_sessions(id) ON DELETE SET NULL, groupId INTEGER REFERENCES groups(id) ON DELETE SET NULL)",
-    "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER REFERENCES group_session(id), user INTEGER REFERENCES users(id))",
-    "CREATE TABLE media(owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT UNIQUE PRIMARY KEY NOT NULL, mime TEXT, metadata TEXT)"
+    "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER REFERENCES group_sessions(id), user INTEGER REFERENCES users(id))",
+    "CREATE TABLE media(owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT UNIQUE PRIMARY KEY NOT NULL, mime TEXT, metadata TEXT)",
+    "CREATE TABLE student_points_drawn(timestamp INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
+    "CREATE TABLE group_points_drawn(timestamp INTEGER NOT NULL, count INTEGER NOT NULL, groupSessionId INTEGER NOT NULL REFERENCES group_sessions(id) ON DELETE CASCADE)"
   ].join("; ") + "; ";
 
   newdb.exec(sqlstr);
