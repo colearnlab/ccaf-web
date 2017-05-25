@@ -6,6 +6,7 @@ stores
 .env
 .remote-sync.json
 embedded.sqlite
+npm-debug.log
 
 # Windows image file caches
 Thumbs.db
