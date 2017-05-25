@@ -19,8 +19,8 @@ var Store = require("./store").Store,
   Connection = require("./connection").Connection;
 
 //  Helper function to create and return a server.
-module.exports.server = function(port, dir, verifyClient, pointcounts) {
-  return new Server(port, dir, verifyClient, pointcounts);
+module.exports.server = function(port, dir, verifyClient, stats) {
+  return new Server(port, dir, verifyClient, stats);
 };
 
 //  Server class.
@@ -29,7 +29,7 @@ module.exports.server = function(port, dir, verifyClient, pointcounts) {
 //    dir: the directory that datastores will be located in.
 //    verifyClient: a function that takes a WebSocket upgrade request and a
 //      callback, and if the client is authenticated invokes the callback.
-function Server(server, dir, verifyClient, pointcounts) {
+function Server(server, dir, verifyClient, stats) {
   //  Try to create the directory; if this fails it is already created so we can
   //  ignore the error.
   this.dir = dir;
@@ -40,8 +40,8 @@ function Server(server, dir, verifyClient, pointcounts) {
   //  A collection of our stores, indexed by their storeId.
   this.stores = {};
 
-  // Records numbers of points drawn by each user in each session
-  this.pointcounts = pointcounts;
+  // Provides interface to report student activity for measurement
+  this.stats = stats;
 
   //  The actual WebSocket server, which handles the protocol, handing us
   //  connections and messages and allowing us to send messages.
@@ -204,28 +204,13 @@ Server.prototype.processTransaction = function(connection, transaction) {
   //  If all three preconditions have passed:
   if (p3_passed) {
     //  Apply the client's changes.
-    console.log(transaction.updates);
+    //console.log(transaction);
     store.applyUpdates(transaction.updates);
 
-
-    // Add to the user's point count
-    for(pointdict in transaction.updates) {
-        if((u in pointdict) && (s in pointdict)) {
-            var userid = pointdict.u, sessionid = pointdict.s;
-            
-            // Add the session and user to the count dictionary if they aren't present
-            if(!(sessionid in this.pointcounts)) {
-                this.pointcounts[sessionid] = {};
-            }
-
-            // Create or update user in count dictionary
-            if(userid in this.pointcounts[sessionid])) {
-                this.pointcounts[sessionid][userid]++;
-            } else {
-                this.pointcounts[sessionid][userid] = 1;
-            }
-        }
-    }
+    // Get the current time, to be saved with point counts
+    var currentTime = Date.now();
+    // tabulate
+    this.stats.update(currentTime, transaction.updates);
 
     //  Iterate through all other clients subscribed to that store to update
     //  them on changes made.
