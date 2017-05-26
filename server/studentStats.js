@@ -28,15 +28,15 @@ function StudentStats(db) {
             setTimeout((function() {
 
                     // repeat every VISINTERVAL ms
-                    this.updateIntervals[sessionId] = setInterval(
+                    this.updateIntervals[row.id] = setInterval(
                         (function() {
                             this.updateGroupActivity(row.id, Date.now());
                             
                             // if the session has ended, stop updating
                             var stmt = db.prepare("SELECT * FROM classroom_sessions "
-                                + "WHERE id=:sessionID AND endTime IS NULL;", {":sessionId": sessionId});
+                                + "WHERE id=:sessionId AND endTime IS NULL;", {":sessionId": row.id});
                             if(!stmt.step()) {
-                                clearInterval(this.updateIntervals[sessionId]);
+                                clearInterval(this.updateIntervals[row.id]);
                             }
                         }).bind(this),
                         process.env.VISINTERVAL
