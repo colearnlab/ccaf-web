@@ -11,7 +11,10 @@ function StudentStats(db) {
     this.pagescomplete = {};
     this.groupActivityHistory = {};
 
-    var currentTime = Date.now(); 
+    var currentTime = Date.now();
+
+    // We need to be able to cancel the repeating updates when a session ends
+    this.updateIntervals = {};
 
     // load active sessions and start group activity update cycle for each
     db.each("SELECT id, startTime FROM classroom_sessions WHERE endTime IS NULL;", {},
@@ -25,8 +28,17 @@ function StudentStats(db) {
             setTimeout((function() {
 
                     // repeat every VISINTERVAL ms
-                    setInterval(
-                        (function() {this.updateGroupActivity(row.id, Date.now())}).bind(this),
+                    this.updateIntervals[sessionId] = setInterval(
+                        (function() {
+                            this.updateGroupActivity(row.id, Date.now());
+                            
+                            // if the session has ended, stop updating
+                            var stmt = db.prepare("SELECT * FROM classroom_sessions "
+                                + "WHERE id=:sessionID AND endTime IS NULL;", {":sessionId": sessionId});
+                            if(!stmt.step()) {
+                                clearInterval(this.updateIntervals[sessionId]);
+                            }
+                        }).bind(this),
                         process.env.VISINTERVAL
                     );
                 }).bind(this),
@@ -170,7 +182,6 @@ StudentStats.prototype.updateGroupActivity = function(sessionId, time) {
         this.loadSession(sessionId);
     }
     this.groupActivityHistory[sessionId].push(groupActivity);
-
 
     // Add group point drawing counts to the database
     for(var groupId in groupActivity.groups) {
