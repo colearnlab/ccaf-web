@@ -21,8 +21,8 @@ exports.mkdb = function(dbPath) {
     "CREATE TABLE media(owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT UNIQUE PRIMARY KEY NOT NULL, mime TEXT, metadata TEXT)",
     "CREATE TABLE student_points_drawn(timestamp INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
     "CREATE TABLE group_points_drawn(timestamp INTEGER NOT NULL, count INTEGER NOT NULL, groupSessionId INTEGER NOT NULL REFERENCES group_sessions(id) ON DELETE CASCADE)",
-    "CREATE TABLE current_page(pagenumber INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
-    "CREATE TABLE page_complete(timestamp INTEGER NOT NULL, pagenumber INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE"
+    "CREATE TABLE scroll_position(position REAL NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
+    "CREATE TABLE page_complete(complete INTEGER NOT NULL, pagenumber INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)"
   ].join("; ") + "; ";
 
   newdb.exec(sqlstr);
