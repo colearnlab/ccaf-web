@@ -50,7 +50,7 @@ function StudentStats(db) {
 
 
 // TODO include page completion
-StudentStats.prototype.countDrawPoints = function(sessionId, time) {
+StudentStats.prototype.collectGroupSummaries = function(sessionId, time) {
     if((typeof time) === "undefined") {
         time = Date.now();
     }
@@ -60,6 +60,7 @@ StudentStats.prototype.countDrawPoints = function(sessionId, time) {
     // groupID -> student counts and total
     var groupSummaries = {total: 0};
 
+    // TODO separate out scroll position from query
     // approach: get groups in session and their members
     this.db.each("SELECT group_sessions.groupId AS groupId, group_user_mapping.user AS userId "
         + "FROM group_sessions "
@@ -94,11 +95,36 @@ StudentStats.prototype.countDrawPoints = function(sessionId, time) {
             if(!(groupId in groupSummaries)) {
                 groupSummaries[groupId] = {total: 0}
             }
+            if(!(userId in groupSummaries[groupId])) {
+                groupSummaries[groupId][userId] = {};
+            }
             var count = endidx - startidx - 1;
 
-            groupSummaries[groupId][userId] = count;
+            groupSummaries[groupId][userId].count = count;
             groupSummaries[groupId].total += count;
             groupSummaries.total += count;
+
+            // Get current scroll position
+            var stmt = this.db.prepare("SELECT position FROM scroll_position "
+                + "WHERE userId=:userId AND sessionId=:sessionId;",
+                {":userId": userId, ":sessionId": sessionId}
+            );
+
+            if(stmt.step()) {
+                groupSummaries[groupId][userId].position = stmt.getAsObject().position;
+            } else {
+                groupSummaries[groupId][userId].position = 0;
+            }
+
+            // Get page completion
+            groupSummaries[groupId][userId].complete = {};
+            this.db.each("SELECT pagenumber, complete FROM page_complete "
+                + "WHERE userId=:userId AND sessionId=:sessionId;",
+                {":userId": userId, ":sessionId": sessionId},
+                function(row) {
+                    groupSummaries[groupId][userId].complete[row.pagenumber] = (row.complete == 1);
+                }
+            );
         }).bind(this)
     );
     
@@ -172,7 +198,7 @@ StudentStats.prototype.loadSession = function(sessionId) {
 // Looks back at the last group activity interval and adds activity stats to group logs
 StudentStats.prototype.updateGroupActivity = function(sessionId, time) {
     // Tally group activity from the last VISINTERVAL milliseconds
-    var groupActivity = this.countDrawPoints(sessionId, time);
+    var groupActivity = this.collectGroupSummaries(sessionId, time);
 
     //console.log("update group activity");
     //console.log(groupActivity);
@@ -216,7 +242,7 @@ StudentStats.prototype.updateGroupActivity = function(sessionId, time) {
 // Update student and group statistics 
 StudentStats.prototype.update = function(timestamp, updateobj) {
     // an update may have more than one event, so check all
-    for(updatekey in updateobj) {
+    for(var updatekey in updateobj) {
         var update_event = updateobj[updatekey];
 
         if(updatekey.includes("pages")) {
@@ -240,8 +266,58 @@ StudentStats.prototype.update = function(timestamp, updateobj) {
                     + "VALUES (:timestamp, :userId, :sessionId);",
                     {":timestamp": timestamp, ":userId": userId, ":sessionId": sessionId});
             }
+        } else if(updatekey.includes("scrollPositions")) {
+            // maybe update student's current page
+            console.log(update_event);
+            
+
+            var sessionId = update_event.s;
+            for(var userId in update_event) {
+                if(!isNaN(userId)) {
+                    console.log("update?");
+                    // Update the user's scroll position in the database
+                    var params = {
+                        ":pos": update_event[userId],
+                        ":userId": userId,
+                        ":sessionId": sessionId
+                    };
+
+                    this.db.run("UPDATE OR IGNORE scroll_position "
+                        + "SET position=:pos "
+                        + "WHERE userId=:userId AND sessionId=:sessionId;",
+                        params
+                    );
+
+                    this.db.run("INSERT OR IGNORE INTO scroll_position "
+                        + "VALUES (:pos, :userId, :sessionId);",
+                        params
+                    );
+                }
+            }
+        } else if(updatekey.includes("pageComplete")) {
+            //console.log(update_event);
+            var params = {
+                ":complete": update_event.b,
+                ":pagenumber": update_event.p,
+                ":userId": update_event.u,
+                ":sessionId": update_event.s
+            };
+
+            this.db.run("UPDATE OR IGNORE page_complete "
+                + "SET complete=:complete "
+                + "WHERE pagenumber=:pagenumber AND userId=:userId AND sessionId=:sessionId;",
+                params
+            );
+
+            // Insert
+            this.db.run("INSERT OR IGNORE INTO page_complete "
+                + "VALUES (:complete, :pagenumber, :userId, :sessionId);",
+                params
+            );
+
         }
-        // TODO handle others here: page completion, etc.
+        // TODO add other update events here
+    
     }
 };
 
