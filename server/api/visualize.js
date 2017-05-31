@@ -23,9 +23,7 @@ exports.createRoutes = function(app, db, stats) {
             }
 
             // get the current student data
-            response.latest = stats.countDrawPoints(sessionId, Date.now());
-            //////// get rid of
-            //console.log(response);
+            response.latest = stats.collectGroupSummaries(sessionId, Date.now());
 
             // send response
             res.status(200).json(response);
