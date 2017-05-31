@@ -12,34 +12,58 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     var barHeight = 43;
     var barStep = 7;
 
-    /* TODO
-     *
-     * Draw the big per-group-relative-activity plot
-     *  -   background
-     *  -   axes
-     *  -   points, lines, labels
-     *  -   legend
-     *  -   mouse events
-     *
-     *  Draw the per-group progress views
-     *  -   background
-     *  -   pdf page thumbnails
-     *  -   box edges
-     *  -   completion tokens
-     *  -   per-student relative activity bars
-     */
+    // colors for each student in a group
+    var colormap = {
+        0: '#ea6f2c',
+        1: '#6cb5b4',
+        2: '#f7cc3b',
+        3: '#ab4aaa',
+        4: '#29e663',
+        5: '#898989'
+    };
 
 
-    // 
+    // The scroll position number reported by Whiteboard is a real number
+    // in [0,1] representing the position of the student's view in the 
+    // entire document. This function calculates the page number (with the
+    // first page numbered 0).
+    var getPageNumber = function(scrollPos, npages) { 
+        // estimated fraction of a page the student can see
+        // TODO have the whiteboard app report this? or just measure how it 
+        // appears on the tablets and hard-code? The current value is from
+        // my laptop
+        var viewsize = 0.4;
+
+        // The first and last pages are special cases because they have less
+        // scrollable area than inner pages
+        var p1bound = (1 - viewsize / 2) / (npages - viewsize);
+        var pnbound = (npages - viewsize - (1 - viewsize / 2)) / (npages - viewsize);
+        var onpage = -1;
+        if(scrollPos < p1bound) {
+            onpage = 0;
+        } else if(scrollPos >= pnbound) {
+            onpage = npages - 1;
+        } else {
+            onpage = Math.floor((npages - 2) * (scrollPos - p1bound) / (pnbound - p1bound)) + 1;
+        }
+
+        // zero-indexed
+        return onpage;
+    };
+
+    // per group?
     var refreshProgressCanvas = function(ctx, pdfcanvas, data, npages) {
         // If the shared PDF render is available, draw it first
         if(pdfcanvas) {
             ctx.drawImage(pdfcanvas, pageXOffset, pageYOffset);
         }
+        
+        var markernum = 0;
+        var markermap = {};
 
         // Draw boxes
         ctx.imageSmoothingEnabled = false;
-        ctx.translate(0.5, 0.5);
+        ctx.translate(0.5, 0.5); // for crisper lines
         for(var i = 0; i < npages; i++) {
             var pageBaseX = pageXOffset + i * pageWidth;
             var pageBaseY = pageYOffset;
@@ -56,141 +80,61 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
 
             // Draw student page completion markers
             var total = -1;
-            var markernum = 0;
-            var markermap = {};
+            markernum = 0;
             for(var studentId in data) {
                 if(studentId == "total") {
                     total = data[studentId];
                 } else {
-
                     // draw completion marker
-                    // TODO handle case with more than four students in a group?
-                    if(markernum == 0) {
-                        ctx.fillStyle = '#ea6f2c';
-                        ctx.fillRect(pageWidth * i, 0, boxWidth / 2, boxWidth / 2);
-                    } else if(markernum == 1) {
-                        ctx.fillStyle = '#6cb5b4';
-                        ctx.fillRect(pageWidth * i + boxWidth / 2, 0, boxWidth / 2, boxWidth / 2);
-                    } else if(markernum == 2) {
-                        ctx.fillStyle = '#f7cc3b';
-                        ctx.fillRect(pageWidth * i, boxWidth / 2, boxWidth / 2, boxWidth / 2);
-                    } else if(markernum == 3) {
-                        ctx.fillStyle = '#ab4aaa';
-                        ctx.fillRect(pageWidth * i + boxWidth / 2, boxWidth / 2, boxWidth / 2, boxWidth / 2);
+                    if((i in data[studentId].complete) && data[studentId].complete[i]) {
+                        ctx.fillStyle = colormap[markernum];
+                        var markerX = pageBaseX - pageXOffset + (markernum % 2) * (boxWidth / 2),
+                            markerY = pageBaseY - pageYOffset + Math.floor(markernum / 2) * (boxWidth / 2);
+                        ctx.fillRect(markerX, markerY, boxWidth / 2, boxWidth / 2);
                     }
 
-                    markermap[studentId] = markernum;
 
+                    // keep track of which marker number we're using for each student
+                    markermap[studentId] = markernum;
                     markernum++;
                 }
             }
             // completion marker outline
             ctx.strokeStyle = '#000000';
             ctx.strokeRect(pageWidth * i, 0, boxWidth, boxWidth);
+        }
+        
+        // Draw student relative contribution bars
+        ctx.lineWidth = 2;
+        var onPageCounts = {};
+        for(var studentId in data) {
+            if(studentId != "total") {
+                var studentRelativeContribution = data[studentId].count / total;
+                var barFillHeight = studentRelativeContribution * barHeight;
 
-            // Draw student relative contribution bars
-            // TODO check if student is currently on this page!
-            var barBaseX = pageBaseX + barStep;
-            var barBaseY = pageBaseY + pageHeight - 22;
-            ctx.lineWidth = 2;
-            for(var studentId in data) {
-                if(studentId != "total") {
-                    var studentRelativeContribution = data[studentId] / total;
-                    var barFillHeight = studentRelativeContribution * barHeight;
-
-                    if(markermap[studentId] == 0) {
-                        ctx.fillStyle = 'white';
-                        ctx.fillRect(barBaseX, barBaseY, barWidth, barHeight);
-                        
-                        ctx.strokeStyle = '#ea6f2c';
-                        ctx.strokeRect(barBaseX, barBaseY, barWidth, barHeight);
-
-
-                        ctx.fillStyle = '#ea6f2c';
-                        ctx.fillRect(
-                            barBaseX,
-                            barBaseY + barHeight - barFillHeight,
-                            barWidth,
-                            barFillHeight
-                        );
-                    } else if(markermap[studentId] == 1) {
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(
-                            barBaseX + barStep + barWidth,
-                            barBaseY,
-                            barWidth,
-                            barHeight
-                        );
-                        
-                        ctx.strokeStyle = '#6cb5b4';
-                        ctx.strokeRect(
-                            barBaseX + barStep + barWidth,
-                            barBaseY,
-                            barWidth,
-                            barHeight
-                        );
-
-                        ctx.fillStyle = '#6cb5b4';
-                        ctx.fillRect(
-                            barBaseX + barStep + barWidth,
-                            barBaseY + barHeight - barFillHeight,
-                            barWidth,
-                            barFillHeight
-                        );
-                    } else if(markermap[studentId] == 2) {
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(
-                            barBaseX + 2 * (barStep + barWidth),
-                            barBaseY,
-                            barWidth,
-                            barHeight
-                        );
-                        
-                        ctx.strokeStyle = '#f7cc3b';
-                        ctx.strokeRect(
-                            barBaseX + 2 * (barWidth + barStep),
-                            barBaseY,
-                            barWidth,
-                            barHeight
-                        );
-                        
-                        ctx.fillStyle = '#f7cc3b';
-                        ctx.fillRect(
-                            barBaseX + 2 * (barStep + barWidth),
-                            barBaseY + barHeight - barFillHeight,
-                            barWidth,
-                            barFillHeight
-                        );
-                    } else if(markermap[studentId] == 3) {
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(
-                            barBaseX + 3 * (barStep + barWidth),
-                            barBaseY,
-                            barWidth,
-                            barHeight
-                        );
-                        
-                        ctx.strokeStyle = '#ab4aaa';
-                        ctx.strokeRect(
-                            barBaseX + 3 * (barWidth + barStep),
-                            barBaseY,
-                            barWidth,
-                            barHeight
-                        );
-
-                        ctx.fillStyle = '#ab4aaa';
-                        ctx.fillRect(
-                            barBaseX + 3 * (barStep + barWidth),
-                            barBaseY + barHeight - barFillHeight,
-                            barWidth,
-                            barFillHeight
-                        );
-                    }
-
+                // determine which page student is on and how many other students are on that page
+                var _markernum = markermap[studentId];       
+                var currentPage = getPageNumber(data[studentId].position, npages);
+                if(!(currentPage in onPageCounts)) {
+                    onPageCounts[currentPage] = 0;
                 }
+
+                var barX = currentPage * pageWidth + pageXOffset + onPageCounts[currentPage] * (barStep + barWidth) + barStep;
+                var barY = pageYOffset + pageHeight - 22;
+                onPageCounts[currentPage]++;
+
+                // draw bar background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                // draw bar outline
+                ctx.strokeStyle = colormap[_markernum];
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                // draw bar fill
+                ctx.fillStyle = colormap[_markernum];
+                ctx.fillRect(barX, barY + barHeight - barFillHeight, barWidth, barFillHeight);
             }
-
-
         }
         //m.redraw();
     };
@@ -239,6 +183,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     };
 
 
+    // Make sure summary data is fresh and reload everything.
     var refreshVisualizations = function(ctrl) {
         var recreateView = function(data) {
             ctrl.summaryData = data;
