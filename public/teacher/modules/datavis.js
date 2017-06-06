@@ -4,12 +4,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     
     // for tuning the look of the group progress views
     var scaleDim = function(d) {
-        return Math.floor(d * 1.0); // TODO change?
+        return Math.floor(d * 0.75); // TODO change?
     }
 
     // line chart styles
     var normalStrokeStyle = '#555',
-        normalFillStyle = '#555',
+        normalFillStyle = 'transparent',
         normalLineWidth = 1,
         selectedStrokeStyle = 'purple',
         selectedFillStyle = 'purple',
@@ -18,14 +18,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     // progress view dimensions/styles
     var pageXOffset = scaleDim(7),
         pageYOffset = scaleDim(11),
-        pageWidth = scaleDim(80),
+        pageWidth = scaleDim(75),
         pageHeight = scaleDim(pageWidth * 48 / 33.5),
         boxWidth = scaleDim(pageWidth * 0.45),
         outlineLineWidth = 2,
         outlineStrokeStyle = 'black',
         barWidth = scaleDim(11),
         barHeight = scaleDim(43),
-        barStep = scaleDim(7),
+        barStep = scaleDim(5),
         barLineWidth = 2;
 
     // colors for each student in a group
@@ -224,141 +224,139 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         return groupViewList;
     };
 
-
-    var generateLineChart = function(data) {
+    var generateLineChartSVG = function(data) {
         var lcdata = data.old;
         if((typeof lcdata) === "undefined") {
             lcdata = [];
         }
 
-        // Create a canvas 
-        return m("canvas.linechart", {
-            config: function(canvas) {
-                // TODO remove hard-coded dimensions!
-                canvas.width = Math.floor(0.9 * document.body.clientWidth);
-                canvas.height = Math.floor(canvas.width * 0.2);
-                var ctx = canvas.getContext('2d');
+        var chartXOffset = 20,
+            chartYOffset = 20;
+        var svgwidth = Math.floor(0.9 * document.body.clientWidth);
+        var svgheight = Math.floor(0.15 * svgwidth);
+        var chartWidth = svgwidth - chartXOffset,
+            chartHeight = svgheight - chartYOffset;
+        var sessionDuration = 60 * 60 * 1000,
+            updateInterval = 1 * 60 * 1000;
 
-                var chartXOffset = 20,
-                    chartYOffset = 20;
-                var chartWidth = canvas.width - chartXOffset,
-                    chartHeight = canvas.height - chartYOffset;
-
-                // TODO pass this in somehow?
-                var sessionDuration = 60 * 60 * 1000,
-                    updateInterval = 1 * 60 * 1000;
-                   
-                // Draw axes
-                ctx.strokeStyle = 'black';
-                ctx.beginPath(chartXOffset, 0);
-                ctx.lineTo(chartXOffset, 0);
-                ctx.lineTo(chartXOffset, canvas.height - chartYOffset);
-                ctx.lineTo(canvas.width, canvas.height - chartYOffset);
-                ctx.stroke();
-
-                // method to draw a point on the chart
-                var drawPoint = function(time, count, prevtime, prevcount, isSelected) {
-                    var x = (time / sessionDuration) * chartWidth + chartXOffset,
-                        y = chartHeight - (chartHeight * count / maxPoints),
-                        prevX = (prevtime / sessionDuration) * chartWidth + chartXOffset,
-                        prevY = chartHeight - (chartHeight * prevcount / maxPoints);
-                    
-                    // Choose style based on whether the group is selected
-                    if(isSelected) {
-                        ctx.strokeStyle = selectedStrokeStyle;
-                        ctx.fillStyle = selectedFillStyle;
-                        ctx.lineWidth = selectedLineWidth;
-                    } else {
-                        ctx.strokeStyle = normalStrokeStyle;
-                        ctx.fillStyle = normalFillStyle;
-                        ctx.lineWidth = normalLineWidth;
-                    }
-                    
-                    // Draw a line from the old point to the new one
-                    ctx.beginPath();
-                    ctx.moveTo(prevX, prevY);
-                    ctx.lineTo(x, y);
-                    ctx.stroke();
-
-                    // Draw circle
-                    // TODO remove hard coded dimensions
-                    ctx.moveTo(x, y);
-                    ctx.beginPath();
-                    ctx.arc(x, y, 4, 0, 2*Math.PI, false);
-                    if(isSelected) {
-                        ctx.fill();
-                    } else {
-                        ctx.stroke();
-                    }
-
-                };
-
-                var drawTick = function(time) {
-                    // TODO
-                    var x = (time / sessionDuration) * chartWidth + chartXOffset;
-                    ctx.strokeStyle = 'black';
-                    ctx.beginPath();
-                    ctx.moveTo(x, chartHeight);
-                    ctx.lineTo(x, chartHeight + 5);
-                    ctx.stroke();
-                };
-
-                var timestamp, basetime;
-                var prevTime = {}, prevCount = {};
-
-                // Find max count to determine scale for y axis
-                var maxPoints = -1;
-                for(var i = 0, len = lcdata.length; i < len; i++) {
-                    for(var gkey in lcdata[i].groups) {
-                        if(gkey !== "total") {
-                            var thistotal = lcdata[i].groups[gkey].total;
-                            if(thistotal > maxPoints) {
-                                maxPoints = thistotal;
-                            }
-                        }
-                    }
-                }
-                // avoid cutting off tops of circles
-                maxPoints *= 1.05;
-
-                // Draw points and connecting lines
-                for(var i = 0, len = lcdata.length; i < len; i++) {
-                    if(i == 0) {
-                        basetime = lcdata[i].time;
-                    }
-                    timestamp = lcdata[i].time - basetime;
-
-                    // Draw a point for each group
-                    for(var gkey in lcdata[i].groups) {
-                        if(gkey === "total") 
-                            continue;
-                        
-                        // we are interested in per-group totals
-                        if(!(gkey in prevTime)) {
-                            prevTime[gkey] = 0;
-                        }
-                        if(!(gkey in prevCount)) {
-                            prevCount[gkey] = 0;
-                        }
-                        var count = lcdata[i].groups[gkey].total;
-                        drawPoint(
-                            timestamp, 
-                            count, 
-                            prevTime[gkey], 
-                            prevCount[gkey], 
-                            (parseInt(gkey) == groupSelected)
-                        );
-                        
-                        prevTime[gkey] = timestamp;
-                        prevCount[gkey] = count;
-                    }
-
-                    // Draw the time marker on the x axis
-                    drawTick(timestamp);
-                }
-
+        var drawlist = [];
+        
+        var drawPoint = function(time, count, prevtime, prevcount, isSelected, gkey) {
+            var x = (time / sessionDuration) * chartWidth + chartXOffset,
+                y = svgheight - (chartHeight * count / maxPoints) - chartYOffset,
+                prevX = (prevtime / sessionDuration) * chartWidth + chartXOffset,
+                prevY = svgheight - (chartHeight * prevcount / maxPoints) - chartYOffset;
+            
+            // Choose style based on whether the group is selected
+            var strokeStyle, fillStyle, lineWidth;
+            if(isSelected) {
+                strokeStyle = selectedStrokeStyle;
+                fillStyle = selectedFillStyle;
+                lineWidth = selectedLineWidth;
+            } else {
+                strokeStyle = normalStrokeStyle;
+                fillStyle = normalFillStyle;
+                lineWidth = normalLineWidth;
             }
-        }, "Loading..."); // TODO loading gif!
+            
+            // Draw a line from the old point to the new one
+            drawlist.push(m("line", {
+                "stroke-width": lineWidth,
+                stroke: strokeStyle,
+                x1: prevX, y1: prevY, x2: x, y2: y
+            }));
+
+            // Draw circle
+            drawlist.push(m("circle", {
+                fill: fillStyle,
+                stroke: strokeStyle,
+                cx: x, cy: y, r: 4.0,
+                onclick: (function(gid) {
+                    return function(ev) {
+                        console.log(gid);
+                        groupSelected = parseInt(gid);
+                        refreshVisualizations(gctrl);
+                    };
+                })(gkey)
+            }));    
+        }; // drawPoint
+
+        var drawTick = function(time) {
+            var x = (time / sessionDuration) * chartWidth + chartXOffset,
+                y = chartHeight;
+            drawlist.push(m("line", {
+                "stroke-width": 1, stroke: "black",
+                x1: x, y1: y - 4, x2: x, y2: y
+            }));
+        };
+        
+        var timestamp, basetime;
+        var prevTime = {}, prevCount = {};
+
+        // Find max count to determine scale for y axis
+        var maxPoints = -1;
+        for(var i = 0, len = lcdata.length; i < len; i++) {
+            for(var gkey in lcdata[i].groups) {
+                if(gkey !== "total") {
+                    var thistotal = lcdata[i].groups[gkey].total;
+                    if(thistotal > maxPoints) {
+                        maxPoints = thistotal;
+                    }
+                }
+            }
+        }
+        // avoid cutting off tops of circles
+        maxPoints *= 1.05;
+
+        // Draw points and connecting lines
+        for(var i = 0, len = lcdata.length; i < len; i++) {
+            if(i == 0) {
+                basetime = lcdata[i].time;
+            }
+            timestamp = lcdata[i].time - basetime;
+
+            // Draw a point for each group
+            for(var gkey in lcdata[i].groups) {
+                if(gkey === "total") 
+                    continue;
+                
+                // we are interested in per-group totals
+                if(!(gkey in prevTime)) {
+                    prevTime[gkey] = 0;
+                }
+                if(!(gkey in prevCount)) {
+                    prevCount[gkey] = 0;
+                }
+                var count = lcdata[i].groups[gkey].total;
+                drawPoint(
+                    timestamp, 
+                    count, 
+                    prevTime[gkey], 
+                    prevCount[gkey], 
+                    (parseInt(gkey) == groupSelected),
+                    gkey
+                );
+                
+                prevTime[gkey] = timestamp;
+                prevCount[gkey] = count;
+            }
+
+            // Draw the time marker on the x axis
+            drawTick(timestamp);
+        }
+
+        // Draw axes and points
+        return m("svg.linechart", {width: svgwidth, height: svgheight},
+            m("line.xaxis", {
+                "stroke-width": 1, stroke: "black", 
+                x1: chartXOffset, y1: 0, x2: chartXOffset, y2: svgheight - chartYOffset
+            }),
+            m("line.yaxis", {
+                "stroke-width": 1, stroke: "black", 
+                x1: chartXOffset, y1: svgheight - chartYOffset, x2: svgwidth, y2: svgheight - chartYOffset
+            }),
+            drawlist
+        );
     };
 
 
@@ -368,7 +366,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             ctrl.summaryData = data;
             
             // Make chart tracking relative activity of groups
-            ctrl.linechartview = generateLineChart(data);
+            //ctrl.linechartview = generateLineChart(data);
+            ctrl.linechartview = generateLineChartSVG(data);
 
             // Make per-group progress views
             ctrl.progressview = generateProgressView(data, ctrl.pdfcanvas, ctrl.npages);
