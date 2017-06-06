@@ -17,10 +17,10 @@ exports.createRoutes = function(app, db, stats) {
 
             // get group activity histories
             var response = {};
-            response.old = stats.groupActivityHistory[sessionId];
-            if((typeof response) === "undefined") {
-                response = {};
+            if(!(sessionId in stats.groupActivityHistory)) {
+                stats.loadSession(sessionId);
             }
+            response.old = stats.groupActivityHistory[sessionId];
 
             // get the current student data
             response.latest = stats.collectGroupSummaries(sessionId, Date.now());
