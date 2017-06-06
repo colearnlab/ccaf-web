@@ -3,25 +3,45 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     PDFJS.disableWorker = true;
     
     // for tuning the look of the group progress views
-    var pageXOffset = 7;
-    var pageYOffset = 11;
-    var pageWidth = 100;
-    var pageHeight = Math.round(100 * 11 / 8.5);
-    var boxWidth = 43;
-    var barWidth = 15;
-    var barHeight = 43;
-    var barStep = 7;
+    var scaleDim = function(d) {
+        return Math.floor(d * 1.0); // TODO change?
+    }
+
+    // line chart styles
+    var normalStrokeStyle = '#555',
+        normalFillStyle = '#555',
+        normalLineWidth = 1,
+        selectedStrokeStyle = 'purple',
+        selectedFillStyle = 'purple',
+        selectedLineWidth = 3;
+
+    // progress view dimensions/styles
+    var pageXOffset = scaleDim(7),
+        pageYOffset = scaleDim(11),
+        pageWidth = scaleDim(80),
+        pageHeight = scaleDim(pageWidth * 48 / 33.5),
+        boxWidth = scaleDim(pageWidth * 0.45),
+        outlineLineWidth = 2,
+        outlineStrokeStyle = 'black',
+        barWidth = scaleDim(11),
+        barHeight = scaleDim(43),
+        barStep = scaleDim(7),
+        barLineWidth = 2;
 
     // colors for each student in a group
     var colormap = {
-        0: '#ea6f2c',
-        1: '#6cb5b4',
-        2: '#f7cc3b',
-        3: '#ab4aaa',
+        0: '#e98039',
+        1: '#6ab1b6',
+        2: '#face57',
+        3: '#ac63a5',
         4: '#29e663',
-        5: '#898989'
+        5: '#898989',
+        6: '#000000',
     };
 
+    var groupSelected = null;
+    var doRefresh = null; // to keep refreshVisualizations later
+    var gctrl = null;
 
     // The scroll position number reported by Whiteboard is a real number
     // in [0,1] representing the position of the student's view in the 
@@ -62,21 +82,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         var markermap = {};
 
         // Draw boxes
-        ctx.imageSmoothingEnabled = false;
-        ctx.translate(0.5, 0.5); // for crisper lines
+        //ctx.imageSmoothingEnabled = false;
+        ctx.translate(1, 1); // for crisper lines
         for(var i = 0; i < npages; i++) {
             var pageBaseX = pageXOffset + i * pageWidth;
             var pageBaseY = pageYOffset;
 
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 1;
-
             // Page outline
+            ctx.strokeStyle = outlineStrokeStyle;
+            ctx.lineWidth = outlineLineWidth;
             ctx.strokeRect(pageBaseX, pageBaseY, pageWidth, pageHeight);
 
+            /*
             // completion box
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(pageBaseX - pageXOffset, 0, boxWidth, boxWidth);
+            */
 
             // Draw student page completion markers
             var total = -1;
@@ -85,6 +106,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
                 if(studentId == "total") {
                     total = data[studentId];
                 } else {
+
+                    /*
                     // draw completion marker
                     if((i in data[studentId].complete) && data[studentId].complete[i]) {
                         ctx.fillStyle = colormap[markernum];
@@ -92,6 +115,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
                             markerY = pageBaseY - pageYOffset + Math.floor(markernum / 2) * (boxWidth / 2);
                         ctx.fillRect(markerX, markerY, boxWidth / 2, boxWidth / 2);
                     }
+                    */
 
 
                     // keep track of which marker number we're using for each student
@@ -99,13 +123,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
                     markernum++;
                 }
             }
+            /*
             // completion marker outline
-            ctx.strokeStyle = '#000000';
+            ctx.strokeStyle = outlineStrokeStyle;
+            ctx.lineWidth = outlineLineWidth;
             ctx.strokeRect(pageWidth * i, 0, boxWidth, boxWidth);
+            */
         }
         
         // Draw student relative contribution bars
-        ctx.lineWidth = 2;
+        ctx.lineWidth = barLineWidth;
         var onPageCounts = {};
         for(var studentId in data) {
             if(studentId != "total") {
@@ -149,32 +176,47 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
                     groupTotal = oneGroup.total,
                     studentList = [];
 
-                /*
-                for(var skey in oneGroup) {
-                    if(!(skey === "total")) {
-                        studentList.push(m("p", 
-                            "student " + skey + ": " + oneGroup[skey]
-                        ));
-                    }
-                }
-                */
+                var progressviewClickHandler = function(gid) {
+                    return function(_) {
+                        
+                        // Set the group selection and redraw everything
+                        groupSelected = gid;
+                        refreshVisualizations(gctrl);
+                    };
+                };
 
-                groupViewList.push(m("div.group-progress-view", 
-                    m("canvas.group-progress-canvas", 
-                        {config: function(n) {
-                            // refresh canvas
-                            n.width = 100 * npages + 50;
-                            n.height = 100 * 11 / 8.5 + 50;
-                            refreshProgressCanvas(
-                                n.getContext("2d"),
-                                pdfcanvas,
-                                oneGroup,
-                                npages
-                            );
-                        }}, 
-                        "canvas not supported"),
-                    //"Group " + gkey + " (total: " + groupTotal + ")",
-                    studentList
+                var createGroupCanvas = function(gid) {
+                    return function(canvas) {
+                        // refresh canvas
+                        var ctx = canvas.getContext("2d");
+                        canvas.width = pageWidth * npages + 2 * pageXOffset;
+                        canvas.height = pageHeight + pageYOffset + 25;
+                        refreshProgressCanvas(
+                            ctx,
+                            pdfcanvas,
+                            groupData[gid],
+                            npages
+                        );        
+                    };
+                };
+
+                // Highlight the group number if the group is selected
+                var groupSelector = "div.group-number";
+                if(parseInt(gkey) == groupSelected) {
+                    groupSelector += ".group-number-selected";
+                }
+
+                groupViewList.push(m("div.group-progress-container",
+                    m(groupSelector, 
+                        {onclick: progressviewClickHandler(gkey)},
+                        gkey),
+                    m("div.group-progress-view",
+                        {onclick: progressviewClickHandler(gkey)},
+                        m("canvas.group-progress-canvas", 
+                            {config: createGroupCanvas(gkey)}, 
+                            "canvas not supported"),
+                        studentList
+                    )
                 ));
             }
         }
@@ -183,11 +225,150 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     };
 
 
+    var generateLineChart = function(data) {
+        var lcdata = data.old;
+        if((typeof lcdata) === "undefined") {
+            lcdata = [];
+        }
+
+        // Create a canvas 
+        return m("canvas.linechart", {
+            config: function(canvas) {
+                // TODO remove hard-coded dimensions!
+                canvas.width = Math.floor(0.9 * document.body.clientWidth);
+                canvas.height = Math.floor(canvas.width * 0.2);
+                var ctx = canvas.getContext('2d');
+
+                var chartXOffset = 20,
+                    chartYOffset = 20;
+                var chartWidth = canvas.width - chartXOffset,
+                    chartHeight = canvas.height - chartYOffset;
+
+                // TODO pass this in somehow?
+                var sessionDuration = 60 * 60 * 1000,
+                    updateInterval = 1 * 60 * 1000;
+                   
+                // Draw axes
+                ctx.strokeStyle = 'black';
+                ctx.beginPath(chartXOffset, 0);
+                ctx.lineTo(chartXOffset, 0);
+                ctx.lineTo(chartXOffset, canvas.height - chartYOffset);
+                ctx.lineTo(canvas.width, canvas.height - chartYOffset);
+                ctx.stroke();
+
+                // method to draw a point on the chart
+                var drawPoint = function(time, count, prevtime, prevcount, isSelected) {
+                    var x = (time / sessionDuration) * chartWidth + chartXOffset,
+                        y = chartHeight - (chartHeight * count / maxPoints),
+                        prevX = (prevtime / sessionDuration) * chartWidth + chartXOffset,
+                        prevY = chartHeight - (chartHeight * prevcount / maxPoints);
+                    
+                    // Choose style based on whether the group is selected
+                    if(isSelected) {
+                        ctx.strokeStyle = selectedStrokeStyle;
+                        ctx.fillStyle = selectedFillStyle;
+                        ctx.lineWidth = selectedLineWidth;
+                    } else {
+                        ctx.strokeStyle = normalStrokeStyle;
+                        ctx.fillStyle = normalFillStyle;
+                        ctx.lineWidth = normalLineWidth;
+                    }
+                    
+                    // Draw a line from the old point to the new one
+                    ctx.beginPath();
+                    ctx.moveTo(prevX, prevY);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+
+                    // Draw circle
+                    // TODO remove hard coded dimensions
+                    ctx.moveTo(x, y);
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2*Math.PI, false);
+                    if(isSelected) {
+                        ctx.fill();
+                    } else {
+                        ctx.stroke();
+                    }
+
+                };
+
+                var drawTick = function(time) {
+                    // TODO
+                    var x = (time / sessionDuration) * chartWidth + chartXOffset;
+                    ctx.strokeStyle = 'black';
+                    ctx.beginPath();
+                    ctx.moveTo(x, chartHeight);
+                    ctx.lineTo(x, chartHeight + 5);
+                    ctx.stroke();
+                };
+
+                var timestamp, basetime;
+                var prevTime = {}, prevCount = {};
+
+                // Find max count to determine scale for y axis
+                var maxPoints = -1;
+                for(var i = 0, len = lcdata.length; i < len; i++) {
+                    for(var gkey in lcdata[i].groups) {
+                        if(gkey !== "total") {
+                            var thistotal = lcdata[i].groups[gkey].total;
+                            if(thistotal > maxPoints) {
+                                maxPoints = thistotal;
+                            }
+                        }
+                    }
+                }
+                // avoid cutting off tops of circles
+                maxPoints *= 1.05;
+
+                // Draw points and connecting lines
+                for(var i = 0, len = lcdata.length; i < len; i++) {
+                    if(i == 0) {
+                        basetime = lcdata[i].time;
+                    }
+                    timestamp = lcdata[i].time - basetime;
+
+                    // Draw a point for each group
+                    for(var gkey in lcdata[i].groups) {
+                        if(gkey === "total") 
+                            continue;
+                        
+                        // we are interested in per-group totals
+                        if(!(gkey in prevTime)) {
+                            prevTime[gkey] = 0;
+                        }
+                        if(!(gkey in prevCount)) {
+                            prevCount[gkey] = 0;
+                        }
+                        var count = lcdata[i].groups[gkey].total;
+                        drawPoint(
+                            timestamp, 
+                            count, 
+                            prevTime[gkey], 
+                            prevCount[gkey], 
+                            (parseInt(gkey) == groupSelected)
+                        );
+                        
+                        prevTime[gkey] = timestamp;
+                        prevCount[gkey] = count;
+                    }
+
+                    // Draw the time marker on the x axis
+                    drawTick(timestamp);
+                }
+
+            }
+        }, "Loading..."); // TODO loading gif!
+    };
+
+
     // Make sure summary data is fresh and reload everything.
     var refreshVisualizations = function(ctrl) {
         var recreateView = function(data) {
             ctrl.summaryData = data;
-            // TODO create graph
+            
+            // Make chart tracking relative activity of groups
+            ctrl.linechartview = generateLineChart(data);
 
             // Make per-group progress views
             ctrl.progressview = generateProgressView(data, ctrl.pdfcanvas, ctrl.npages);
@@ -236,11 +417,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
                 var pdfcanvas = document.createElement("canvas");
                 var pdfctx = pdfcanvas.getContext("2d");
                 
-                // TODO remove hard-coded values
-                // aim for 100px/page
-                var targetwidth = 100;
-                pdfcanvas.width = targetwidth * npages;
-                pdfcanvas.height = targetwidth * 11 / 8.5;
+                // TODO finish removing hard-coded values
+                pdfcanvas.width = pageWidth * npages;
+                pdfcanvas.height = pageHeight;
 
 
                 // Render all pages and lay out on pdfcanvas
@@ -248,19 +427,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
                     pdf.getPage(i).then(function(page) {
                         // Render page onto temporary canvas
                         var tempcanvas = document.createElement("canvas");
-                        tempcanvas.width = targetwidth;
-                        tempcanvas.height = pdfcanvas.height;
+                        tempcanvas.width = pageWidth * 2;
+                        tempcanvas.height = pageHeight * 2;
                         var tempctx = tempcanvas.getContext('2d');
 
                         
                         // get viewport scaling width to the target width defined above
                         var viewport = page.getViewport(1);
-                        viewport = page.getViewport(targetwidth / viewport.width);
+                        viewport = page.getViewport(tempcanvas.width / viewport.width);
 
                         // render to drawing context
                         page.render({viewport: viewport, canvasContext: tempctx}).then(function() {
                             // move the page over to proper location
-                            pdfctx.drawImage(tempcanvas, page.pageIndex * targetwidth, 0);
+                            pdfctx.drawImage(tempcanvas, 
+                                0, 0, pageWidth, pageHeight,
+                                page.pageIndex * pageWidth, 0, pageWidth, pageHeight);
                             
                             // trigger mithril redrawing DOM
                             refreshVisualizations(ctrl);
@@ -275,6 +456,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             //refreshVisualizations(ctrl);
             setInterval(function() { refreshVisualizations(ctrl); }, 15000);
 
+            // TODO put this elsewhere?
+            gctrl = ctrl;
             return ctrl;
         },
         
@@ -290,7 +473,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             //generateProgressView(null);
             return m("div",
                 m("div.graph-view",
-                    "Graph goes here"
+                    m("div.linechart-y-label", "Class Activity"),
+                    ctrl.linechartview
                 ),
                 m("div.progress-view",
                     //getGroupList(ctrl.sessionId);
