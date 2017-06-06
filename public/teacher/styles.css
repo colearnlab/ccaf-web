@@ -127,29 +127,62 @@ html, body {
   top: 15px;
 }
 
+.session-link {
+    display: inline-block;
+    padding-left: 1em;
+    color: blue;
+};
+
 /* teacher visualization */
 
 div.graph-view {
+    /*
     width: 100%;
-    height: 5em;
+    max-height: 25%;
+    */
     padding: 1em;
-    color: #aaaaaa;
+    color: #000000;
+}
+
+div.linechart-y-label {
+    display: inline-block;
+    position: relative;
+    top: 5em;
+    left: -1em;
+    -webkit-transform: rotate(-90deg);
+    -moz-transform: rotate(-90deg);
+    -ms-transform: rotate(-90deg);
+    -o-transform: rotate(-90deg);
+}
+
+canvas.linechart {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 div.progress-view {
     width: 100%;
-    height: inherit;
+    height: auto%;
     padding: 1em;
     color: black;
 }
 
+div.group-progress-container {
+    display: inline-block;
+    margin-right: 1em;
+}
+
 div.group-progress-view {
+    position: relative;
+    left: 1.5em;
+    top: -1.5em;
+
     background-color: #ffffff;
 
-    padding-left: 2em;
-    padding-right: 2em;
+    padding-left: 3em;
+    padding-right: 3em;
     padding-top: 1em;
-    padding-bottom: 0.5em;
 
     border-width: 1px;
     border-style: solid;
@@ -157,8 +190,41 @@ div.group-progress-view {
     border-radius: 1em;
 }
 
-canvas.group-progress-canvas {
-    width: 400px;
-    height: 200px;
+
+div.group-number {
+    /* Small circle */
+    width: 2em;
+    height: 2em;
+
+    /* Position at top left */
+    position: relative;
+    z-index: 1;
+
+    text-align: center;
+    vertical-align: middle;
+    padding-top: 0.2em;
+    font-size: x-large;
+
+    background-color: #ffffff;
+    
+    border-radius: 50%;
+    border-color: #dbdbdb;
+    border-width: 1px;
+    border-style: solid;
 }
+
+
+div.group-number-selected {
+    color: white;
+    background-color: purple;
+}
+
+/*
+canvas.group-progress-canvas {
+    position: relative;
+    top: 1em;
+
+}
+*/
+
 
