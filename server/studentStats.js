@@ -48,8 +48,35 @@ function StudentStats(db) {
     );
 }
 
+// TODO make method to start new sessions' group update intervals!
 
-// TODO include page completion
+StudentStats.prototype.refreshPointCounts = function(sessionId, time) {
+    // clear old data
+    this.drawpoints[sessionId] = [];
+
+    this.db.each("SELECT timestamp, userId FROM student_points_drawn "
+        + "WHERE sessionId=:sessionId AND timestamp>=:mintimestamp AND timestamp<:time " 
+        + "ORDER BY timestamp;", 
+        {
+            ":sessionId": sessionId,
+            ":mintimestamp": time - process.env.VISINTERVAL,
+            ":time": time
+        },
+        (function(row) {
+            var userId = row.userId,
+                timestamp = row.timestamp;
+
+            if(!(userId in this.drawpoints[sessionId])) {
+                this.drawpoints[sessionId][userId] = [];
+            }
+
+            this.drawpoints[sessionId][userId].push(timestamp);
+        }).bind(this)
+    );
+            
+};
+
+
 StudentStats.prototype.collectGroupSummaries = function(sessionId, time) {
     if((typeof time) === "undefined") {
         time = Date.now();
@@ -59,8 +86,10 @@ StudentStats.prototype.collectGroupSummaries = function(sessionId, time) {
 
     // groupID -> student counts and total
     var groupSummaries = {total: 0};
+    
+    // reload point counts from database
+    this.refreshPointCounts(sessionId, time);
 
-    // TODO separate out scroll position from query
     // approach: get groups in session and their members
     this.db.each("SELECT group_sessions.groupId AS groupId, group_user_mapping.user AS userId "
         + "FROM group_sessions "
@@ -69,15 +98,13 @@ StudentStats.prototype.collectGroupSummaries = function(sessionId, time) {
         {":sessionId": sessionId},
         (function(row) {
             var groupId = row.groupId, userId = row.userId;
-            if(!(sessionId in this.drawpoints)) {
-                this.loadSession(sessionId);
-            }
+            
             if(!(userId in this.drawpoints[sessionId])) {
                 this.drawpoints[sessionId][userId] = [];
             }
             var drawpoints = this.drawpoints[sessionId][userId];
-            
 
+            /*
             // Seek backwards until we're at the end of the interval
             var endidx = drawpoints.length;
             while(drawpoints[endidx - 1] > time) {
@@ -90,6 +117,8 @@ StudentStats.prototype.collectGroupSummaries = function(sessionId, time) {
                     break;
                 }
             }
+            */
+            
 
             // Save the count of points drawn
             if(!(groupId in groupSummaries)) {
@@ -98,7 +127,8 @@ StudentStats.prototype.collectGroupSummaries = function(sessionId, time) {
             if(!(userId in groupSummaries[groupId])) {
                 groupSummaries[groupId][userId] = {};
             }
-            var count = endidx - startidx - 1;
+            //var count = endidx - startidx - 1;
+            var count = drawpoints.length;
 
             groupSummaries[groupId][userId].count = count;
             groupSummaries[groupId].total += count;
@@ -141,17 +171,17 @@ StudentStats.prototype.loadSession = function(sessionId) {
     this.groupActivityHistory[sessionId] = [];
     
     // Check that session exists; return if not
-    var stmt = this.db.prepare("SELECT id FROM classroom_sessions WHERE id=:sessionId;",
-        {":sessionId": sessionId});
-    if(!stmt.step()) {
-        return;
-    }
+    //var stmt = this.db.prepare("SELECT id FROM classroom_sessions WHERE id=:sessionId;",
+    //    {":sessionId": sessionId});
+    //if(!stmt.step()) {
+    //    return;
+    //}
 
     // Select students and their point drawing history  from the database
     this.db.each("SELECT user AS userId, timestamp FROM group_user_mapping "
         + "INNER JOIN group_sessions ON group_sessions.groupId=group_user_mapping.groupId "
         + "INNER JOIN classroom_sessions ON group_sessions.classroom_session=classroom_sessions.id "
-        + "INNER JOIN student_points_drawn ON student_points_drawn.userId=user AND student_points_drawn.sessionId=classroom_sessions.id "
+        + "LEFT OUTER JOIN student_points_drawn ON student_points_drawn.userId=user AND student_points_drawn.sessionId=classroom_sessions.id "
         + "WHERE classroom_sessions.id=:sessionId "
         + "ORDER BY timestamp;", 
         {":sessionId": sessionId},
@@ -191,7 +221,6 @@ StudentStats.prototype.loadSession = function(sessionId) {
             }
         }).bind(this)
     );
-
 }
 
 
