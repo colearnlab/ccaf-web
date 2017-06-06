@@ -161,6 +161,12 @@ canvas.linechart {
     margin-right: auto;
 }
 
+svg.linechart {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 div.progress-view {
     width: 100%;
     height: auto%;
@@ -170,7 +176,7 @@ div.progress-view {
 
 div.group-progress-container {
     display: inline-block;
-    margin-right: 1em;
+    margin-right: 2em;
 }
 
 div.group-progress-view {
@@ -180,8 +186,8 @@ div.group-progress-view {
 
     background-color: #ffffff;
 
-    padding-left: 3em;
-    padding-right: 3em;
+    padding-left: 2em;
+    padding-right: 2em;
     padding-top: 1em;
 
     border-width: 1px;
@@ -193,8 +199,8 @@ div.group-progress-view {
 
 div.group-number {
     /* Small circle */
-    width: 2em;
-    height: 2em;
+    width: 1.7em;
+    height: 1.7em;
 
     /* Position at top left */
     position: relative;
@@ -202,7 +208,7 @@ div.group-number {
 
     text-align: center;
     vertical-align: middle;
-    padding-top: 0.2em;
+    /*padding-top: 0.2em;*/
     font-size: x-large;
 
     background-color: #ffffff;
