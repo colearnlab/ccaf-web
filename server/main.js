@@ -11,11 +11,12 @@ var dbPath = path.resolve(__dirname, "..", "embedded.sqlite");
 
 //  If it doesn't exist, create it per the schema.
 if (!fs.existsSync(dbPath))
-  require("./createDB")(dbPath);
+  require("./createDB").mkdb(dbPath);
 
 //  Load the database and save it every sixty seconds (in case of a bad exit).
 var db = new sql.Database(fs.readFileSync(dbPath));
 setInterval(function() {
+  console.log("database written to disk!!");
   fs.writeFileSync(dbPath, new Buffer(db.export()));
 }, 60000);
 
@@ -51,6 +52,8 @@ app.get("/", function(req, res) {
     res.redirect("/student");
 });
 
+var studentstats = require("./studentStats").createstats(db);
+
 //  Create API routes.
 require("./api/users").createRoutes(app, db);
 require("./api/classrooms").createRoutes(app, db);
@@ -58,7 +61,7 @@ require("./api/groups").createRoutes(app, db);
 require("./api/userMappings").createRoutes(app, db);
 require("./api/classroom_sessions").createRoutes(app, db);
 require("./api/media").createRoutes(app, db);
-
+require("./api/visualize").createRoutes(app, db, studentstats);
 
 
 //  verifyClient takes a http upgrade request and ensures that it is authenticated.
@@ -94,8 +97,11 @@ var httpServer = app.listen(parseInt(process.env.PORT));
 var synchronizedStateServer = require("./synchronizedState/main").server(
   httpServer,
   path.resolve(__dirname, "..", "stores"),
-  verifyClient
+  verifyClient,
+  studentstats
 );
+
+// Give the 
 
 function exitHandler(err) {
     if (err) console.log(err.stack);
@@ -111,3 +117,6 @@ process.on('SIGINT', exitHandler.bind(null, 1));
 
 //catches uncaught exceptions
 process.on('uncaughtException', exitHandler.bind(null, 1));
+
+console.log("started server");
+

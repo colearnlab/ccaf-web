@@ -19,8 +19,8 @@ var Store = require("./store").Store,
   Connection = require("./connection").Connection;
 
 //  Helper function to create and return a server.
-module.exports.server = function(port, dir, verifyClient) {
-  return new Server(port, dir, verifyClient);
+module.exports.server = function(port, dir, verifyClient, stats) {
+  return new Server(port, dir, verifyClient, stats);
 };
 
 //  Server class.
@@ -29,7 +29,7 @@ module.exports.server = function(port, dir, verifyClient) {
 //    dir: the directory that datastores will be located in.
 //    verifyClient: a function that takes a WebSocket upgrade request and a
 //      callback, and if the client is authenticated invokes the callback.
-function Server(server, dir, verifyClient) {
+function Server(server, dir, verifyClient, stats) {
   //  Try to create the directory; if this fails it is already created so we can
   //  ignore the error.
   this.dir = dir;
@@ -39,6 +39,9 @@ function Server(server, dir, verifyClient) {
 
   //  A collection of our stores, indexed by their storeId.
   this.stores = {};
+
+  // Provides interface to report student activity for measurement
+  this.stats = stats;
 
   //  The actual WebSocket server, which handles the protocol, handing us
   //  connections and messages and allowing us to send messages.
@@ -161,6 +164,7 @@ Server.prototype.processSync = function(connection, id) {
 Server.prototype.processTransaction = function(connection, transaction) {
   var store = connection.store;
 
+  //console.log("process transaction!");
   //  Precondition 1.
   if (!store || store.id !== transaction.storeId)
     return;
@@ -200,7 +204,13 @@ Server.prototype.processTransaction = function(connection, transaction) {
   //  If all three preconditions have passed:
   if (p3_passed) {
     //  Apply the client's changes.
+    //console.log(transaction);
     store.applyUpdates(transaction.updates);
+
+    // Get the current time, to be saved with point counts
+    var currentTime = Date.now();
+    // tabulate
+    this.stats.update(currentTime, transaction.updates);
 
     //  Iterate through all other clients subscribed to that store to update
     //  them on changes made.

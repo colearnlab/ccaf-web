@@ -1,4 +1,4 @@
-define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor) {
+define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor, dataVis) {
   var Classroom = models.Classroom;
   var User = models.User;
   var ClassroomSession = models.ClassroomSession;
@@ -6,6 +6,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
 
   var UserPicker = userPicker.userPicker;
   var GroupEditor = groupEditor.groupEditor;
+  var DataVis = dataVis.dataVis;
 
   var Shell = {
     controller: function(args) {
@@ -52,6 +53,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         m(widthClasses,
           m.component(StartSessionMenu, args),
           m.component(ActiveSessions, args),
+          m.component(PastSessions, args),
+          // TODO add past/future sessions
           m.component(ClassroomsMenu, args)
         )
       );
@@ -161,14 +164,83 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               var classroom = args.classrooms()[classroomIdx];
               return m(".list-group-item.classroom",
                 m(".list-group-heading", {
-                    onclick: function() {
+                    /*onclick: function() {
                       m.route("/session/" + session.id);
-                    }
+                    }*/
                   },
                   session.title,
                   " [",
                   classroom.title,
-                  "]"
+                  "]",
+                  m("a.session-link", {
+                      onclick: function() {
+                          m.route("/session/" + session.id);
+                      }
+                    },
+                    m.trust("&laquo;Edit groups&raquo;")
+                  ),
+                  m("a.session-link", {
+                      onclick: function() {
+                          m.route("/visualize/" + session.id);
+                      }
+                    }, 
+                    m.trust("&laquo;Visualize&raquo;")
+                  )
+                )
+              );
+            })
+          )
+        )
+      );
+    }
+  };
+
+  // TODO future sessions menu, and be able to create future sessions
+  
+  var PastSessions = {
+    controller: function(args) {
+      return {
+        sessions: ClassroomSession.list()
+      };
+    },
+    view: function(ctrl, args) {
+      var mySessions = args.sessions().filter(function(session) {
+        return session.endTime !== null;
+      });
+
+      return m(".main-menu-section.bg-color-white", {
+          style: mySessions.length > 0 ? "" : "display: none"
+        },
+        m(".main-menu-header.primary-color-green.text-color-secondary", "Past Sessions"),
+        m(".main-menu-body",
+          m(".list-group",
+            mySessions.map(function(session) {
+              var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
+              var classroom = args.classrooms()[classroomIdx];
+              return m(".list-group-item.classroom",
+                m(".list-group-heading", {
+                    /*onclick: function() {
+                      m.route("/session/" + session.id);
+                    }*/
+                  },
+                  session.title,
+                  " [",
+                  classroom.title,
+                  "]",
+                  /*m("a.session-link", {
+                      onclick: function() {
+                          m.route("/session/" + session.id);
+                      }
+                    },
+                    m.trust("&laquo;Edit groups&raquo;")
+                  ),*/
+                  m("a.session-link", {
+                      onclick: function() {
+                          m.route("/visualize/" + session.id);
+                      }
+                    }, 
+                    m.trust("&laquo;Visualize&raquo;")
+                  )
                 )
               );
             })
@@ -370,6 +442,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   m.route(document.body, "/", {
     "/": m.component(Shell, Menu),
     "/classroom/:classroomId": m.component(Shell, GroupEditor),
-    "/session/:sessionId": m.component(Shell, GroupEditor)
+    "/session/:sessionId": m.component(Shell, GroupEditor),
+    "/visualize/:sessionId": m.component(Shell, DataVis)
   });
 });

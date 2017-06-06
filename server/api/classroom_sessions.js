@@ -1,3 +1,40 @@
+// Separated out to make this more accessable from the server side.
+exports.getStoreId = function(db, sessionId, groupId, userId) {
+        
+    var stmt = db.prepare("SELECT * FROM group_sessions WHERE classroom_session=:classroom_session and groupId=:groupId", {
+      ":classroom_session": sessionId,
+      ":groupId": groupId
+    });
+
+    var storeId;
+
+    if (!stmt.step()) {
+      stmt.free();
+      stmt = db.prepare("SELECT * FROM groups WHERE id=:id", {
+        ":id": groupId
+      });
+      if (!stmt.step()) {
+        res.status(400).json({data: {status:400}});
+        stmt.free();
+        return {status: 1};
+      }
+
+      var group = stmt.getAsObject();
+      db.run("PRAGMA foreign_keys = ON");
+      db.run("INSERT INTO group_sessions VALUES(NULL, :title, :classroom_session, :groupId)", {
+        ":title": group.title,
+        ":classroom_session": sessionId,
+        ":groupId": groupId
+      });
+
+      storeId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+    } else {
+      storeId = stmt.getAsObject().id;
+    }
+
+    return {storeId: storeId, status: 0};
+};
+
 exports.createRoutes = function(app, db) {
   app.route("/api/v1/classroom_sessions")
     .get(function(req, res) {
@@ -84,38 +121,11 @@ exports.createRoutes = function(app, db) {
         var groupId = req.params.groupId;
         var userId = req.params.userId;
 
-        var stmt = db.prepare("SELECT * FROM group_sessions WHERE classroom_session=:classroom_session and groupId=:groupId", {
-          ":classroom_session": sessionId,
-          ":groupId": groupId
-        });
-
-        var storeId;
-
-        if (!stmt.step()) {
-          stmt.free();
-          stmt = db.prepare("SELECT * FROM groups WHERE id=:id", {
-            ":id": groupId
-          });
-          if (!stmt.step()) {
-            res.status(400).json({data: {status:400}});
-            stmt.free();
-            return;
-          }
-
-          var group = stmt.getAsObject();
-          db.run("PRAGMA foreign_keys = ON");
-          db.run("INSERT INTO group_sessions VALUES(NULL, :title, :classroom_session, :groupId)", {
-            ":title": group.title,
-            ":classroom_session": sessionId,
-            ":groupId": groupId
-          });
-
-          storeId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
-        } else {
-          storeId = stmt.getAsObject().id;
+        var result = exports.getStoreId(db, sessionId, groupId, userId);
+        if(result.status == 0) {
+            res.status(200).json({data: result.storeId});
         }
 
-        res.status(200).json({data: storeId});
       } catch(e) {
         console.log(e);
         res.status(400).json({data: {status:400}});
