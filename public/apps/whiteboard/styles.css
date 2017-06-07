@@ -115,6 +115,7 @@ html, body {
   display: block;
   width: 100%;
   position: relative;
+  -webkit-user-select: none;
 }
 
 .pdf-page {
