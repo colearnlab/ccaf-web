@@ -662,7 +662,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             el.style.width = size + "px";
             el.style.transform = "translate(" + (ctrl.localX - size / 2) + "px, " + (ctrl.localY - size / 2) + "px";
           }
-        }, " "),
+        }, " ")
       );
     }
   };

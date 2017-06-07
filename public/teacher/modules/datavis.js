@@ -1,4 +1,6 @@
 define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "interact"], function(exports, pdfjs, m, models, interact) {
+    var ClassroomSession = models.ClassroomSession;
+
     var PDFJS = pdfjs.PDFJS;
     PDFJS.disableWorker = true;
     
@@ -398,65 +400,71 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         controller: function(args) {
             //console.log(args);
             var ctrl = {
-                session: args.sessions()[0],
+                session: m.prop(null),
                 summaryData: "summary data hasn't loaded yet",
                 summaryDataLoaded: null,
                 pdfthumbs: null // to be filled in when we've downloaded and rendered
             };
             
+            ClassroomSession.get(m.route.param("sessionId")).then(function(classroomSession) {
+                //console.log(classroomSession);
+              ctrl.session = classroomSession;
+            }).then(function () {
+            
+                console.log(ctrl.session);
+                ctrl.session.metadata = JSON.parse(ctrl.session.metadata);
+                var pdffile = ctrl.session.metadata.pdf.filename;
 
-            ctrl.session.metadata = JSON.parse(ctrl.session.metadata);
-            var pdffile = ctrl.session.metadata.pdf.filename;
-
-            // Get pdf and render thumbnails
-            PDFJS.getDocument("/media/" + pdffile).then(function(pdf) {
-                console.log("loaded pdf");
-                var npages = pdf.numPages;
-                ctrl.npages = npages;
-                var pdfcanvas = document.createElement("canvas");
-                var pdfctx = pdfcanvas.getContext("2d");
-                
-                // TODO finish removing hard-coded values
-                pdfcanvas.width = pageWidth * npages;
-                pdfcanvas.height = pageHeight;
+                // Get pdf and render thumbnails
+                PDFJS.getDocument("/media/" + pdffile).then(function(pdf) {
+                    console.log("loaded pdf");
+                    var npages = pdf.numPages;
+                    ctrl.npages = npages;
+                    var pdfcanvas = document.createElement("canvas");
+                    var pdfctx = pdfcanvas.getContext("2d");
+                    
+                    // TODO finish removing hard-coded values
+                    pdfcanvas.width = pageWidth * npages;
+                    pdfcanvas.height = pageHeight;
 
 
-                // Render all pages and lay out on pdfcanvas
-                for(var i = 1; i <= npages; i++) {
-                    pdf.getPage(i).then(function(page) {
-                        // Render page onto temporary canvas
-                        var tempcanvas = document.createElement("canvas");
-                        tempcanvas.width = pageWidth * 2;
-                        tempcanvas.height = pageHeight * 2;
-                        var tempctx = tempcanvas.getContext('2d');
+                    // Render all pages and lay out on pdfcanvas
+                    for(var i = 1; i <= npages; i++) {
+                        pdf.getPage(i).then(function(page) {
+                            // Render page onto temporary canvas
+                            var tempcanvas = document.createElement("canvas");
+                            tempcanvas.width = pageWidth * 2;
+                            tempcanvas.height = pageHeight * 2;
+                            var tempctx = tempcanvas.getContext('2d');
 
-                        
-                        // get viewport scaling width to the target width defined above
-                        var viewport = page.getViewport(1);
-                        viewport = page.getViewport(tempcanvas.width / viewport.width);
-
-                        // render to drawing context
-                        page.render({viewport: viewport, canvasContext: tempctx}).then(function() {
-                            // move the page over to proper location
-                            pdfctx.drawImage(tempcanvas, 
-                                0, 0, pageWidth, pageHeight,
-                                page.pageIndex * pageWidth, 0, pageWidth, pageHeight);
                             
-                            // trigger mithril redrawing DOM
-                            refreshVisualizations(ctrl);
+                            // get viewport scaling width to the target width defined above
+                            var viewport = page.getViewport(1);
+                            viewport = page.getViewport(tempcanvas.width / viewport.width);
+
+                            // render to drawing context
+                            page.render({viewport: viewport, canvasContext: tempctx}).then(function() {
+                                // move the page over to proper location
+                                pdfctx.drawImage(tempcanvas, 
+                                    0, 0, pageWidth, pageHeight,
+                                    page.pageIndex * pageWidth, 0, pageWidth, pageHeight);
+                                
+                                // trigger mithril redrawing DOM
+                                refreshVisualizations(ctrl);
+                            });
+            
                         });
-        
-                    });
-                }
-                ctrl.pdfcanvas = pdfcanvas;
+                    }
+                    ctrl.pdfcanvas = pdfcanvas;
 
+                });
+
+                //refreshVisualizations(ctrl);
+                setInterval(function() { refreshVisualizations(ctrl); }, 15000);
+
+                // TODO put this elsewhere?
+                gctrl = ctrl;
             });
-
-            //refreshVisualizations(ctrl);
-            setInterval(function() { refreshVisualizations(ctrl); }, 15000);
-
-            // TODO put this elsewhere?
-            gctrl = ctrl;
             return ctrl;
         },
         
