@@ -35,7 +35,7 @@ exports.getStoreId = function(db, sessionId, groupId, userId) {
     return {storeId: storeId, status: 0};
 };
 
-exports.createRoutes = function(app, db) {
+exports.createRoutes = function(app, db, stats) {
   app.route("/api/v1/classroom_sessions")
     .get(function(req, res) {
       var sessions = [];
@@ -59,9 +59,13 @@ exports.createRoutes = function(app, db) {
         ":metadata": typeof req.body.metadata === "string" ? req.body.metadata : typeof req.body.metadata !== "undefined" ? JSON.stringify(req.body.metadata) : void 0
       });
 
+      var sessionId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+      // TODO start updating group stats
+      stats.startGroupUpdateInterval({id: sessionId, startTime: Date.now()});
+
       res.json({
         data: {
-          id: db.exec("SELECT last_insert_rowid()")[0].values[0][0]
+            id: sessionId
         }
       });
     });

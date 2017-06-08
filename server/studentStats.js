@@ -21,34 +21,37 @@ function StudentStats(db) {
         (function(row) {
             // ensure active sessions are loaded
             this.loadSession(row.id);          
+            this.startGroupUpdateInterval(row);
 
-            // Set up repeating updates to group activity logs
-            var sessionElapsedTime = currentTime - row.startTime;
-            // Set initial timeout to sync with 
-            setTimeout((function() {
-
-                    // repeat every VISINTERVAL ms
-                    this.updateIntervals[row.id] = setInterval(
-                        (function() {
-                            this.updateGroupActivity(row.id, Date.now());
-                            
-                            // if the session has ended, stop updating
-                            var stmt = db.prepare("SELECT * FROM classroom_sessions "
-                                + "WHERE id=:sessionId AND endTime IS NULL;", {":sessionId": row.id});
-                            if(!stmt.step()) {
-                                clearInterval(this.updateIntervals[row.id]);
-                            }
-                        }).bind(this),
-                        process.env.VISINTERVAL
-                    );
-                }).bind(this),
-                process.env.VISINTERVAL - (sessionElapsedTime % process.env.VISINTERVAL)
-            );
         }).bind(this)
     );
 }
 
 // TODO make method to start new sessions' group update intervals!
+// TODO stop interval when session is ended!!!
+StudentStats.prototype.startGroupUpdateInterval = function(row) {
+    // Set up repeating updates to group activity logs
+    var sessionElapsedTime = Date.now() - row.startTime;
+    // Set initial timeout to sync with 
+    setTimeout((function() {
+            // repeat every VISINTERVAL ms
+            this.updateIntervals[row.id] = setInterval(
+                (function() {
+                    this.updateGroupActivity(row.id, Date.now());
+                    
+                    // if the session has ended, stop updating
+                    var stmt = this.db.prepare("SELECT * FROM classroom_sessions "
+                        + "WHERE id=:sessionId AND endTime IS NULL;", {":sessionId": row.id});
+                    if(!stmt.step()) {
+                        clearInterval(this.updateIntervals[row.id]);
+                    }
+                }).bind(this),
+                process.env.VISINTERVAL
+            );
+        }).bind(this),
+        process.env.VISINTERVAL - (sessionElapsedTime % process.env.VISINTERVAL)
+    );
+};
 
 StudentStats.prototype.refreshPointCounts = function(sessionId, time) {
     // clear old data
