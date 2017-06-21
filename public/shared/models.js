@@ -61,6 +61,10 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     });
   };
 
+  User.prototype.activities = function() {
+      return Activity.list(this.id);
+  };
+
   User.prototype.addClassroom = function(classroom) {
     var classroomId = (classroom instanceof Classroom ? classroom.id : classroom);
     return m.request({
@@ -261,6 +265,15 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
       url: "/api/v1/media",
       data: data,
       serialize: function(a) { return a; }
+    }).then(function(resobj) {
+        var res = resobj.data;
+        var newPage = new ActivityPage();
+        newPage.id = res.activityPageId;
+        newPage.filename = res.filename;
+        newPage.originalFilename = res.originalname;
+        newPage.owner = res.owner;
+        newPage.timeUploaded = res.timeUploaded;
+        return newPage;
     });
   };
 
@@ -298,10 +311,76 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   ClassroomSession.prototype.save = function() {
     return basicSave.call(this, "classroom_sessions");
   };
+  
+  function Activity(title, owner) {
+    this.title = title;
+    this.owner = owner;
+    this.pages = [];
+  }
+
+  // Get an activity by its id (should get info about all pages!)
+  Activity.get = function(id) {
+      return m.request({
+          method: "GET",
+          url: "/api/v1/activity/" + id
+      }).then(function(activity) {
+        var newActivity = Object.assign(new Activity(), activity.data);
+        if(newActivity.pages) {
+            newActivity.pages = newActivity.pages.map(function(page) {
+                return Object.assign(new ActivityPage(), page);
+            });
+        }
+        return newActivity;
+      });
+  };
+
+    Activity.list = function(ownerId) {
+        return m.request({
+            method: "GET",
+            url: "/api/v1/activities/" + ownerId
+        }).then(function(activities) {
+            return activities.data.map(function(activity) {
+                var ret = new Activity(activity.title, activity.owner);
+                ret.id = activity.id;
+                return ret;
+            });
+        });
+    };
+
+    Activity.prototype.save = function() {
+        console.log(this.pages);
+        var oldPages = this.pages;
+        this.pages = JSON.stringify(this.pages);
+        return basicSave.call(this, "activity").then(function() {
+            this.pages = oldPages;
+        });
+    };
+
+    Activity.prototype.delete = function(settings) {
+        return basicDelete.call(this, "activity", settings);
+    };
+
+  function ActivityPage() {}
+
+  ActivityPage.getByOwner = function(ownerId) {
+    return m.request({
+        method: "GET",
+        url: "/api/v1/documents/" + ownerId
+    }).then(function(pages) {
+        //console.log(pages);
+        return pages.data.map(function(page) {
+            return Object.assign(new ActivityPage(), page);
+        });
+    });
+  };
+
+
 
   exports.User = User;
   exports.Classroom = Classroom;
   exports.Group = Group;
   exports.File = File;
   exports.ClassroomSession = ClassroomSession;
+  exports.Activity = Activity;
+  exports.ActivityPage = ActivityPage;
 });

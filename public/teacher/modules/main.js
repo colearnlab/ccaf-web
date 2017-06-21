@@ -1,12 +1,15 @@
-define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor, dataVis) {
+define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "modules/activityEditor", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor, dataVis, activityEditor, bs) {
   var Classroom = models.Classroom;
   var User = models.User;
   var ClassroomSession = models.ClassroomSession;
   var File = models.File;
+  var Activity = models.Activity;
+  var ActivityPage = models.ActivityPage;
 
   var UserPicker = userPicker.userPicker;
   var GroupEditor = groupEditor.groupEditor;
   var DataVis = dataVis.dataVis;
+  var ActivityEditor = activityEditor.ActivityEditor;
 
   var Shell = {
     controller: function(args) {
@@ -22,8 +25,12 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             return classrooms;
           });
           return me;
+        }).then(function(me) {
+            ctrl.activities = me.activities();
+            return me;
         }),
         toolbarText: m.prop(""),
+        activities: m.prop([]),
         classrooms: m.prop([]),
         sessions: m.prop([])
       };
@@ -34,7 +41,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       return m("div.container-fluid.bg-color-med#main.stretch",
         m("#toolbar.primary-color-blue.text-color-secondary",
           m("span.glyphicon.glyphicon-circle-arrow-left#back-button", {
-            style: (typeof m.route.param("classroomId") !== "undefined" || typeof m.route.param("sessionId") !== "undefined" ? "" : "display: none"),
+            //style: (typeof m.route.param("classroomId") !== "undefined" || typeof m.route.param("sessionId") !== "undefined" ? "" : "display: none"),
+            style: (m.route() === "/") ? "display: none" : "",
             onclick: function() {
               m.route("/");
             }
@@ -51,11 +59,23 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     view: function(ctrl, args) {
       return m(".row",
         m(widthClasses,
-          m.component(StartSessionMenu, args),
-          m.component(ActiveSessions, args),
-          m.component(PastSessions, args),
-          // TODO add past/future sessions
-          m.component(ClassroomsMenu, args)
+          m.component(ClassroomsMenu, args),
+          //m.component(StartSessionMenu, args),
+          //m.component(ActiveSessions, args),
+          //m.component(PastSessions, args),
+          
+          // TODO make these menus
+          m.component(ActivitiesMenu, args),
+          //m.component(RecordedClassesMenu, args)
+
+          /*
+          m("a", { 
+              onclick: function() {
+                  m.route("/activity");
+              }
+            },
+            "Activity Editor"
+          )*/
         )
       );
     }
@@ -303,7 +323,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               }
             })
           ),
-          m('.main-menu-body',
+          m('.main-menu-body', {style: "overflow: auto"},
             m(".list-group",
               ctrl.classrooms().map(function(classroom) {
                 return m(".list-group-item.classroom",
@@ -437,12 +457,497 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       );
     }
   };
+  
+  //////////////////////
+
+  var ActivitiesMenu = {
+    controller: function(args) {
+      var ctrl = { 
+        activities: args.activities,
+        editingActivity: null,
+        deletingActivity: null,
+        startActivity: null,
+        showRecentDocsModal: false
+
+      };
+        ctrl.addPage = function(page) {
+            //console.log(ctrl.editingActivity());
+            ctrl.editingActivity().pages.push(page);
+            m.redraw();
+        };
+        
+        ctrl.triggerRecentDocs = function(show) {
+            ctrl.showRecentDocsModal = show;
+            //console.log(show ? "Show recent docs" : "Don't show recent docs");
+        };
+        return ctrl;
+    },
+    view: function(ctrl, args) {
+      return m("div",
+        (ctrl.editingActivity ? m.component(ActivitiesEditModal, {
+            me: args.me,
+            activity: ctrl.editingActivity,
+            triggerDelete: function() {
+              ctrl.deletingActivity = ctrl.editingActivity;
+            },
+            triggerRecentDocs: ctrl.triggerRecentDocs,
+            endEdit: function(reload, cb) {
+              ctrl.editingActivity = null;
+              if (reload)
+                Activity.list(args.me().id).then(ctrl.activities).then(function() {
+                  m.redraw(true);
+                });
+
+              if((typeof cb) != "undefined") {
+                  cb();
+              }
+            }
+
+          })
+          : ""), // TODO for Activity.list, give owner as parameter
+        (ctrl.deletingActivity ? m.component(ActivitiesDeleteModal, {
+            activity: ctrl.deletingActivity,
+            endDelete: function(reload) {
+              ctrl.deletingActivity = null;
+              $("#activity-delete-modal").modal("hide");
+              if (reload) {
+                ctrl.editingActivity = null;
+                $("#activity-edit-modal").modal("hide");
+                Activity.list(args.me().id).then(ctrl.activities).then(function() {
+                  m.redraw(true);
+                });
+              }
+            }
+          })
+          : ""),
+        (ctrl.showRecentDocsModal ? m.component(RecentDocumentsModal, {
+            me: args.me,
+            addPage: ctrl.addPage,
+            triggerRecentDocs: ctrl.triggerRecentDocs
+        }) : ""),
+        (ctrl.startActivity ? m.component(StartActivityModal, {
+            me: args.me,
+            activity: ctrl.startActivity,
+            classrooms: args.classrooms,
+            cancelStartActivity: function() {
+                ctrl.startActivity = null;
+            }
+        }) : ""),
+        m('.main-menu-section.bg-color-white', {
+            /*style: args.sessions().filter(function(session) {
+              return session.endTime === null;
+            }).length === 0 ? "" : "display: none"*/
+          },
+          m('.main-menu-header.primary-color-blue.text-color-secondary',
+            "Activities",
+            m('span.glyphicon.glyphicon-plus.pull-right', {
+              onclick: function() {
+                // TODO create activity modal
+                ctrl.editingActivity = m.prop(new Activity("", args.me().id));
+                ctrl.creatingActivity = true;
+              }
+                
+            })
+          ),
+          m('.main-menu-body', {style: "overflow: auto"},
+            m(".list-group",
+              ctrl.activities().map(function(activity) {
+                if(ctrl.deleteActivityPromptId == activity.id) {
+                    return m(".list-group-item", 
+                        {onclick: function(e) {
+                            e.stopPropagation();
+                        }},
+                        m("p", "Delete activity?", 
+                            m("button.btn.btn-danger", {
+                                onclick: function() {
+                                    // Delete activity and then refresh activity list
+                                    activity.delete();
+                                    Activity.list(args.me().id).then(ctrl.activities).then(function() {
+                                        m.redraw(true);
+                                    });
+                                }},
+                                "Delete"),
+                            m("button.btn.btn-default", {
+                                onclick: function(e) {
+                                    // Close prompt
+                                    ctrl.deleteActivityPromptId = null;
+                                }},
+                                "Cancel")
+                        )
+                    );
+                } else {
+                    return m(".list-group-item.activity",
+                      m(".list-group-heading", {
+                          onclick: function() {
+                            //ctrl.editingActivity = Object.assign(new Activity(activity.title, activity.owner), JSON.parse(JSON.stringify(activity)));
+                            // Gets all pages for activity
+                              ctrl.editingActivity = Activity.get(activity.id);
+                              ctrl.creatingActivity = false;
+                              //console.log(ctrl.editingActivity);
+                              //console.log(args.activities()[0]);
+                          }
+                        },
+                        m("span.glyphicon.glyphicon-remove.pull-right", {
+                            style: "color: gray",
+                            onclick: function(e) {
+                                ctrl.deleteActivityPromptId = activity.id;
+                                e.stopPropagation();
+                            }
+                        }),
+                        m("span.glyphicon.glyphicon-edit.pull-right", {
+                          style: "color: gray",
+                          onclick: function(e) {
+                              // TODO go to activity editor page
+                              // pulls up modal
+                            //ctrl.editingActivity = Object.assign(new Activity(activity.title, activity.owner), JSON.parse(JSON.stringify(activity)));
+                            //e.stopPropagation();
+                          }
+                        }),
+                        activity.title,
+                        m("span.glyphicon.glyphicon-play-circle.pull-right", {
+                            style: "color: gray",
+                            onclick: function(e) {
+                                // TODO start activity modal -- choose class and end time?
+                                ctrl.startActivity = activity;
+                                e.stopPropagation();
+                            }
+                        })
+                      ) // heading
+                    );
+                } // if
+              })
+            )
+          )
+        )
+      );
+    }
+  };
+  
+  var StartActivityModal = {
+    controller: function(args) {
+      var ctrl = {
+        title: "Start activity",
+        doneButtonLabel: "Start",
+        activity: args.activity,
+        sessionTitle: "New session - " + args.activity.title,
+        showEndTime: false,
+          // TODO hour and a half?
+        scheduledEndTime: Date.now() + 60000,
+        classroom: null,
+      };
+        
+        console.log(ctrl.scheduledEndTime);
+      return ctrl;
+    },
+    view: function(ctrl, args) {
+      return m(".modal.fade#start-activity-modal", {
+          config: function(el) {
+            $("#start-activity-modal").modal({
+              backdrop: "static"
+            });
+            $("#start-activity-modal").modal("show");
+          }
+        },
+        m(".modal-content" + widthClasses,
+          m(".modal-header",
+            m("h4.modal-title", ctrl.title)
+          ),
+          m(".modal-body",
+              // TODO include document first page previews?
+            m("form",
+              m(".form-group", {style: "display: block"},
+                  m("label", "Session name"),
+                  m("input.form-control", {
+                      value: ctrl.sessionTitle,
+                      onchange: function(e) {
+                        ctrl.sessionTitle = e.target.value;
+                      }
+                  }),
+                  m("label", "Classroom"),
+                  m("select.form-control", {
+                      value: ctrl.classroom,
+                      onchange: function(e) {
+                        ctrl.classroom = e.target.value;
+                      }
+                    },
+                    m("option", ""),
+                    args.classrooms().map(function(classroom) {
+                      return m("option", {value: classroom.id}, classroom.title);
+                    })
+                  ),
+
+                    /*
+                  m("input[type=checkbox]#showTimeCheckBox", {
+                    value: ctrl.showEndTime,
+                    onchange: function(e) {
+                        ctrl.showEndTime = e.target.checked;
+                    },
+                  }),
+                  m("label[for=showTimeCheckbox]", "Automatically end session when class is over"),
+                  m("label[for=timeInput]", {
+                      style: (ctrl.showEndTime ? "display: block" : "display: none")},
+                      "Class end time"
+                  ),
+                  m("input[type=time].form-control#timeInput", {
+                      style: (ctrl.showEndTime ? "display: block" : "display: none"),
+                      value: (new Date(ctrl.scheduledEndTime)).toTimeString().slice(0, 5),
+                      onchange: function(e) {
+                        //console.log(e);
+                        ctrl.scheduledEndTime = e.target.valueAsDate.getTime();
+                      }
+                  }),*/
+              ),
+            )
+          ),
+          m(".modal-footer",
+            m("button.btn.btn-default", {
+                onclick: function(e) {
+                  args.cancelStartActivity();
+                },
+                "data-dismiss": "modal"
+              }, "Cancel"
+            ),
+            m("button.btn.btn-primary", {
+                onclick: function() { 
+                    var newClassroomSession = new ClassroomSession();
+                    newClassroomSession.title = ctrl.sessionTitle;
+                    newClassroomSession.classroom = ctrl.classroom;
+                    //newClassroomSession.metadata = {pdf: filename.data, app: "whiteboard"};
+                    newClassroomSession.metadata = {app: "whiteboard"};
+                    newClassroomSession.activityId = ctrl.activity.id;
+                    
+                    // Close modal, save, and go to the visualizations page
+                    args.cancelStartActivity();
+                    newClassroomSession.save().then(function() {
+                      m.route("/visualize/" + newClassroomSession.id);
+                    });
+                    
+                },
+                "data-dismiss": "modal"
+              }, ctrl.doneButtonLabel
+            )
+          )
+        )
+      );
+    }
+  };
+
+  var ActivitiesEditModal = {
+    controller: function(args) {
+      var ctrl = {
+        notOwner: args.activity.owner !== args.me().id,
+        activity: args.activity,
+      };
+        
+      if(args.creating) {
+          ctrl.title = "Create activity";
+          ctrl.doneButtonLabel = "Create";
+      } else {
+          ctrl.title = "Edit activity";
+          ctrl.doneButtonLabel = "Save";
+      }
+
+      return ctrl;
+    },
+    view: function(ctrl, args) {
+      return m(".modal.fade#activity-edit-modal", {
+          config: function(el) {
+            $("#activity-edit-modal").modal({
+              backdrop: "static"
+            });
+            $("#activity-edit-modal").modal("show");
+          }
+        },
+        m(".modal-content" + widthClasses,
+          m(".modal-header",
+            m("h4.modal-title", ctrl.title)
+          ),
+          m(".modal-body",
+            m("form",
+              m(".form-group",
+                m("label.control-label[for=activity-modal-title]", "Title"),
+                m("div",
+                  m("input.input-sm.form-control#activity-modal-title", {
+                      value: ctrl.activity().title ? ctrl.activity().title : "Untitled",
+                    oninput: function(el) {
+                      ctrl.activity().title = el.target.value;
+                    }
+                  })
+                )
+              ),
+              m("label", {style: "display: block"}, "Pages"),
+              // TODO list of documents
+              m(".list-group",
+                (ctrl.activity().pages) ? 
+                  (ctrl.activity().pages.map(function(page) {
+                    return m(".list-group-item", page.originalFilename);
+                  })) : "",
+                m(".btn.btn-default", {
+                  style: "display: block",
+                  onclick: function() {args.triggerRecentDocs(true);}},
+                  "Add page")
+              )
+              )
+          ),
+          m(".modal-footer",
+            m("button.btn.btn-danger.pull-left", {
+              onclick: args.triggerDelete,
+              style: (typeof ctrl.activity.id === "undefined" || ctrl.notOwner ? "display: none;" : ""),
+            }, "Delete"),
+            m("button.btn.btn-default", {
+                onclick: function(e) {
+                  args.endEdit();
+                },
+                "data-dismiss": "modal"
+              }, "Cancel"
+            ),
+            m("button.btn.btn-primary", {
+                onclick: function() {
+                  ctrl.activity().save().then(function() {
+                    args.endEdit(true);
+                  });
+                },
+                "data-dismiss": "modal"
+              }, ctrl.doneButtonLabel
+            )
+          )
+        )
+      );
+    }
+  };
+  
+    
+  var RecentDocumentsModal = {
+    controller: function(args) {
+      var ctrl = {
+          newUploadFile: null,
+          selectedPage: null,
+          pages: m.prop([])
+      };
+      
+      ActivityPage.getByOwner(args.me().id).then(function(pages) {
+        ctrl.pages(pages);
+        //console.log(ctrl.pages());
+          m.redraw();
+      });
+
+        return ctrl;
+    },
+    view: function(ctrl, args) {
+      return m(".modal.fade#recent-documents-modal", {
+          config: function(el) {
+            $("#recent-documents-modal").modal({
+              backdrop: "static"
+            });
+            $("#recent-documents-modal").modal("show");
+          }
+        },
+        m(".modal-content" + widthClasses,
+          m(".modal-header",
+            m("h4.modal-title", "Recent documents")
+          ),
+          m(".modal-body",
+            // Hidden file upload thing
+            m("input[type=file]", {
+                style: "display: none",
+                onchange: function(e) {
+                    //console.log(e);
+                    ctrl.newUploadFile = e.target.files[0];
+                  if(ctrl.newUploadFile) {
+                      // Upload file and then add to the list of recent documents.
+                      File.upload(ctrl.newUploadFile).then(function(file) {
+                        ctrl.pages().push(file);
+                        return file;
+                      });
+                    }
+                }}, ""
+            ),
+            (ctrl.pages() 
+                ? m(".list-group", 
+                    ctrl.pages().map(function(page) {
+                        var selected = (ctrl.selectedPage && ctrl.selectedPage.id == page.id) ? ".active" : "";
+                        return m(".list-group-item" + selected, {
+                            onclick: function() {
+                                ctrl.selectedPage = page;
+                                m.redraw();
+                            }},
+                            page.originalFilename
+                        );
+                    })
+                ) 
+                : "No recent documents")
+          ),
+          m(".modal-footer",
+            m("button.btn.btn-default.pull-left", {
+              onclick: function() {
+                // Show choose file dialog
+                $('input[type=file]').click();
+              }
+            }, "Upload new document..."),
+            m("button.btn.btn-default", {
+                onclick: function(e) {
+                  args.triggerRecentDocs(false);
+                },
+                "data-dismiss": "modal"
+              }, "Cancel"
+            ),
+            m("button.btn.btn-primary", {
+                onclick: function() {
+                    args.addPage(ctrl.selectedPage);
+                    args.triggerRecentDocs(false);
+                  },
+                "data-dismiss": "modal"
+              }, "Add"
+            )
+          )
+        )
+      );
+    }
+  };
+
+  var ActivitiesDeleteModal = {
+    view: function(ctrl, args) {
+      return m(".modal.fade#activity-delete-modal", {
+          config: function() {
+            $("#activity-delete-modal").modal({
+              backdrop: "static"
+            });
+            $("#activity-delete-modal").modal("show");
+          }
+        },
+        m(".modal-content" + widthClasses,
+          m(".modal-header",
+            m("h4.modal-title", "Delete activity?")
+          ),
+          m(".modal-body",
+            "Are you sure you want to delete this activity? This cannot be undone."
+          ),
+          m(".modal-footer",
+            m("button.btn.btn-default", {
+              onclick: args.endDelete.bind(null, false),
+            }, "Cancel"),
+            m("button.btn.btn-danger", {
+              "data-dismiss": "modal",
+              onclick: function() {
+                args.activity.delete().then(function() {
+                  args.endDelete(true);
+                    m.redraw();
+                });
+              }
+            }, "Delete!")
+          )
+        )
+      );
+    }
+  };
 
   m.route.mode = "hash";
   m.route(document.body, "/", {
     "/": m.component(Shell, Menu),
     "/classroom/:classroomId": m.component(Shell, GroupEditor),
     "/session/:sessionId": m.component(Shell, GroupEditor),
-    "/visualize/:sessionId": m.component(Shell, DataVis)
+    "/visualize/:sessionId": m.component(Shell, DataVis),
+    "/activity/:activityId": m.component(Shell, ActivityEditor),
+    //"/activity/": m.component(Shell, ActivityEditor)
   });
 });

@@ -20,13 +20,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     // progress view dimensions/styles
     var pageXOffset = scaleDim(7),
         pageYOffset = scaleDim(11),
-        pageWidth = scaleDim(100),
+        pageWidth = scaleDim(75),
         pageHeight = scaleDim(pageWidth * 48 / 33.5),
         boxWidth = scaleDim(pageWidth * 0.45),
         outlineLineWidth = 2,
         outlineStrokeStyle = 'black',
-        barWidth = scaleDim(13),
-        barHeight = scaleDim(51),
+        barWidth = scaleDim(11),
+        barHeight = scaleDim(43),
         barStep = scaleDim(5),
         barLineWidth = 2;
 
@@ -235,7 +235,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         var chartXOffset = 20,
             chartYOffset = 20;
         var svgwidth = Math.floor(0.9 * document.body.clientWidth);
-        var svgheight = Math.floor(0.20 * svgwidth);
+        var svgheight = Math.floor(0.15 * svgwidth);
         var chartWidth = svgwidth - chartXOffset,
             chartHeight = svgheight - chartYOffset;
         var sessionDuration = 60 * 60 * 1000,

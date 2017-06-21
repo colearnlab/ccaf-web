@@ -133,6 +133,11 @@ html, body {
     color: blue;
 };
 
+.doc-selected {
+    color: white;
+    background: gray;
+}
+
 /* teacher visualization */
 
 div.graph-view {
@@ -233,4 +238,53 @@ canvas.group-progress-canvas {
 }
 */
 
+hr {
+    margin: 0px;
+}
+
+/* Activity editor */
+div.activity-editor {
+    display: block;
+}
+
+.activity-title-form {
+  padding: 1em;
+}
+
+div.flow-page {
+    width: 10vw;
+    height: 10vw;
+    text-align: center;
+    background-color: white;
+    margin: 1em;
+    border-radius: 0.5em;
+    display: inline-block;
+}
+
+div.add-flow-page {
+    background-color: transparent;
+    padding: 1em;
+}
+
+.blue-rounded-box {
+    border-style: solid;
+    border-width: 1px;
+    border-color: #06354f;
+    border-radius: 0.5em;
+    margin: 0px;
+    padding: 0px;
+}
+
+div.doc-icon {
+    /* TODO see about adding a document icon instead */
+    background-color: white;
+    width: 100px;
+    height: 100px;
+}
+
+.doc-icon-selected {
+    border-style: solid;
+    border-width: 4px;
+    border-color: navy;
+}
 
