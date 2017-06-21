@@ -50,24 +50,30 @@ exports.createRoutes = function(app, db, stats) {
         });
     })
     .post(function(req, res) {
-      console.log(req.body);
-      db.run("PRAGMA foreign_keys = ON");
-      db.run("INSERT INTO classroom_sessions VALUES(NULL, :title, :classroom, :startTime, NULL, :metadata)", {
-        ":title": req.body.title,
-        ":classroom": req.body.classroom,
-        ":startTime": (+ new Date()),
-        ":metadata": typeof req.body.metadata === "string" ? req.body.metadata : typeof req.body.metadata !== "undefined" ? JSON.stringify(req.body.metadata) : void 0
-      });
+      //console.log(req.body);
+      try {
+          db.run("PRAGMA foreign_keys = ON");
+          db.run("INSERT INTO classroom_sessions VALUES(NULL, :title, :classroom, :startTime, NULL, :activityId, :metadata)", {
+            ":title": req.body.title,
+            ":classroom": req.body.classroom,
+            ":activityId": req.body.activityId,
+            ":startTime": (+ new Date()),
+            ":metadata": typeof req.body.metadata === "string" ? req.body.metadata : typeof req.body.metadata !== "undefined" ? JSON.stringify(req.body.metadata) : void 0
+          });
 
-      var sessionId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
-      // TODO start updating group stats
-      stats.startGroupUpdateInterval({id: sessionId, startTime: Date.now()});
+          var sessionId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+          // TODO start updating group stats
+          stats.startGroupUpdateInterval({id: sessionId, startTime: Date.now()});
 
-      res.json({
-        data: {
-            id: sessionId
-        }
-      });
+          res.json({
+            data: {
+                id: sessionId
+            }
+          });
+      } catch(e) {
+        console.log(e);
+        res.status(400).json({data:{status:400}});
+      }
     });
 
   app.route("/api/v1/classroom_sessions/:classroomSessionId")

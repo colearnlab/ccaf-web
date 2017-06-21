@@ -6,6 +6,10 @@ exports.createRoutes = function(app, db) {
   app.route("/api/v1/media")
     .post(upload.single("upload"), function(req, res) {
     try {
+
+        console.log(req.user);
+        console.log(req.file);
+        // TODO eliminate media table in favor of activity_pages?
       db.run("PRAGMA foreign_keys = ON");
       db.run("INSERT INTO media VALUES(:owner, :filename, :mime, :metadata)", {
         ":owner": req.user.id,
@@ -14,9 +18,25 @@ exports.createRoutes = function(app, db) {
         ":metadata": req.body.metadata
       });
 
+      var nowTime = Date.now();
+      // Add as an activity page as well
+      db.run("INSERT INTO activity_pages VALUES(NULL, :owner, :origFilename, :time, :filename, :npages);", {
+        ":owner": req.user.id,
+        ":origFilename": req.file.originalname,
+        ":time": nowTime,
+        ":filename": req.file.filename,
+        ":npages": 1 // TODO deal with this properly
+      });
+
+      var activityPageId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+
       res.json({
         data: {
-          filename: req.file.filename
+          activityPageId: activityPageId,
+          filename: req.file.filename,
+          originalname: req.file.originalname,
+          owner: req.user.id,
+          timeUploaded: nowTime
         }
       });
     } catch(e) {
@@ -24,6 +44,22 @@ exports.createRoutes = function(app, db) {
       res.status(400).json({data:{status:400}});
     }
   });
+
+  // Interface to get a list of documents by owner
+  app.route("/api/v1/documents/:owner")
+    .get(function(req, res) {
+        var docs = [];
+        db.each("SELECT * FROM activity_pages WHERE owner=:owner "
+            + "ORDER BY timeUploaded;", 
+            {":owner": req.params.owner},
+            function(row) {
+                docs.push(row);
+            },
+            function() {
+                res.json({data: docs});
+            }
+        );
+    });
 
   app.use("/media", function(req, res, next) {
       var stmt = db.prepare("SELECT * FROM media WHERE filename=:filename", {
