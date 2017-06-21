@@ -116,6 +116,8 @@ exports.initialize = function(app, db) {
         ":email": acctEmail
       });
 
+      
+      // TODO fail more elegantly??  
       //  This will be false if there is no record returned. If this is the case
       //  then the user is not in our system so we reject them. Otherwise,
       //  process the user.
