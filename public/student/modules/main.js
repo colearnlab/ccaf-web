@@ -4,8 +4,9 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
   var User = models.User;
   var Classroom = models.Classroom;
   var ClassroomSession = models.ClassroomSession;
-  var wsAddress = 'wss://' + window.location.host + "/ws";
-
+  var wsAddress = 'ws://' + window.location.host + "/ws";
+  var Activity = models.Activity;
+  var ActivityPage = models.ActivityPage;
   var appPath = "whiteboard";
   var widthClasses = ".col-xs-8.col-xs-offset-2.col-sm-8.col-sm-offset-2.col-md-6.col-md-offset-3";
 
@@ -125,7 +126,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
           var connection = synchronizedStateClient.connect(wsAddress, function() {
             connection.sync(storeId);
             app.load(connection, document.body, {
-              pdf: "/media/" + metadata.pdf.filename,
+              //pdf: "/media/" + metadata.pdf.filename,
               user: me,
               session: session
             });

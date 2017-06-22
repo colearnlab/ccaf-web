@@ -1,6 +1,17 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css", "userColors"], function(exports, pdfjs, m, interact, css, userColors) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "interact", "css", "userColors"], function(exports, pdfjs, m, models, interact, css, userColors) {
   var PDFJS = pdfjs.PDFJS;
+  var Activity = models.Activity,
+      ActivityPage = models.ActivityPage,
+      ClassroomSession = models.ClassroomSession;
   var array;
+  
+  var colors = {
+    0: "#000000",
+    1: "#FF0000",
+    2: "#00FF00",
+    3: "#0000FF",
+    4: "#FFFFFF"
+  };
   exports.load = function(connection, el, params) {
     array = connection.array;
     css.load("/apps/whiteboard/styles.css");
@@ -22,37 +33,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
     window.addEventListener("resize", m.redraw.bind(null, true));
   };
 
-  var colors = {
-    0: "#000000",
-    1: "#FF0000",
-    2: "#00FF00",
-    3: "#0000FF",
-    4: "#FFFFFF"
-  };
-
-    
-    // size and position of page completion check boxes
-    var completionX = 50,
-        completionY = 50,
-        completionW = 50,
-        completionH = 50,
-        completionBoxColor = 'orange';
-    
-
-    function drawPageCompletionMarker(pn, isComplete) {
-        
-        var box = document.getElementById('completionbox' + pn);
-        console.log("Here: ", box);
-        if(!box)
-            return;
-        if(isComplete) {
-            box.setAttribute("fill", "black");
-        } else {
-            box.setAttribute("fill", "transparent");
-        }
-    };
-
-
   function dist(x1, y1, x2, y2) {
     var d = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
     return d;
@@ -61,16 +41,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
   var Main = {
     controller: function(args) {
       var ctrl = {
-        numPages: m.prop(0),
+        numPages: m.prop([]),
         scrollPositions: m.prop({}),
         scroll: m.prop("open"),
+
+        //
         pages: [],
         pagesComplete: {},
         remotePages: m.prop({}),
         currentPath: null,
         currentPage: null,
+        currentDocument: m.prop(0),
+        //
+
         drawn: m.prop([]),
-        pdf: m.prop(null),
+        pdfs: m.prop([]),
         tool: m.prop(0),
         color: {0: 0, 1: 0},
         size: m.prop(10),
@@ -80,15 +65,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         curId: 0,
         user: args.user,
         session: args.session,
+        activity: m.prop(null),
+        docs: m.prop({}),
+        lastDrawn: m.prop({}),
+        
+        
+
         userList: m.prop([]),
-        markPageComplete: function(pagenum, isComplete) {
-            args.connection.transaction([["pageComplete"]], function(pageCompletion) {
-                pageCompletion.u = args.user;
-                pageCompletion.s = args.session;
-                pageCompletion.p = pagenum;
-                pageCompletion.b = isComplete;
-            });
-        },
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
             scrollPositions[args.user] = pos;
@@ -206,10 +189,36 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         m.redraw(true);
       });
 
-      PDFJS.getDocument(args.pdf).then(function(pdf) {
-        ctrl.numPages(pdf.numPages);
-        ctrl.pdf(pdf);
-        m.redraw(true);
+      // TODO load many pdfs here
+      ClassroomSession.get(args.session).then(function(session) {
+          Activity.get(session.activityId).then(ctrl.activity).then(function() {
+              ctrl.activity().pages.map(function(activitypage) {
+                  PDFJS.getDocument("/media/" + activitypage.filename).then(function(pdf) {
+                    ctrl.numPages()[activitypage.pageNumber] = pdf.numPages;
+                    //ctrl.pdfs()[activitypage.pageNumber] = m.prop(pdf);
+                    ctrl.docs()[activitypage.pageNumber] = {page:{}};
+
+                    for(var i = 0, len = pdf.numPages; i < len; i++) {
+                        (function(pn) {
+                            var canvas = document.createElement('canvas');
+                            pdf.getPage(pn + 1).then(function(page) {
+                                var viewport = page.getViewport(1000 / page.getViewport(1).width * 1);
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                canvasctx = canvas.getContext("2d");
+
+                                page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
+                                    ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
+                                    //ctrl.redrawing = false;
+                                });
+                            });
+                        })(i);
+                    }
+
+                    m.redraw(true);
+                  });
+              });
+          });
       });
 
       return ctrl;
@@ -233,8 +242,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             ctrl.setScroll(el.scrollTop / (el.scrollHeight - window.innerHeight));
           }
         },
+        // TODO choose which pdf to view!
         m.component(PDFViewer, ctrl),
-        m.component(Minimap, ctrl),
+        //m.component(Minimap, ctrl),
         m.component(Controls, ctrl)
       );
 
@@ -244,6 +254,42 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
   var Controls = {
     view: function(__, args) {
       return m("#controls",
+        // Page select
+        m("div.page-select", {
+            onclick: function() {
+                var doc = args.currentDocument();
+                if(doc > 0) {
+                    doc--;
+                    args.lastDrawn({});
+                }
+                args.currentDocument(doc);
+                m.redraw(true);
+            }
+        }, "Prev"),
+        (args.activity() ? 
+        args.activity().pages.map(function(page) {
+            // TODO highlight current page
+            return m("div.page-select", {
+                onclick: function() {
+                    args.currentDocument(page.pageNumber);
+                    args.lastDrawn({});
+                    m.redraw(true);
+                }
+            }, page.pageNumber);
+        })
+        : ""),
+        m("div.page-select", {
+            onclick: function() {
+                var doc = args.currentDocument();
+                if(doc < (args.activity().pages.length - 1)) {
+                    doc++;
+                    args.lastDrawn({});
+                }
+                args.currentDocument(doc);
+                m.redraw(true);
+            }
+        }, "Next"),
+        
         m("span.glyphicon#minimap-chevron", {
           class: args.scroll() === "open" ? "glyphicon-chevron-right" : "glyphicon-chevron-left",
           onclick: function() {
@@ -257,10 +303,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
           onmousedown: args.clear,
           ontouchend: args.clear
         }),
-        m("span.glyphicon.glyphicon-hand-left#undo", {
+        /*m("span.glyphicon.glyphicon-hand-left#undo", {
           onmousedown: args.undo
           //ontouchend: args.undo
-        }),
+        }),*/
         m("#tools",
           m.component(Tool, {tool: args.tool, color: args.color, toolId: 0, hasTray: true}),
           m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true}),
@@ -469,20 +515,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
   };
 
   function drawPDF(ctrl, args, scale) {
-    return Array.apply(null, {length: args.numPages()}).map(function(__, i) {
-      return m.component(PDFPageHolder, {
+    return Array.apply(null, {length: args.numPages()[args.currentDocument()]}).map(function(__, i) {
+      //console.log(args.currentDocument());
+        return m.component(PDFPageHolder, {
           size: args.size, 
           drawn: args.drawn, 
           startStroke: args.startStroke, 
           addPoint: args.addPoint, 
           endStroke: args.endStroke, 
           page: args.remotePages()[i], 
-          currentPath: args.currentPath, 
-          pdf: args.pdf(), 
+          currentPath: args.currentPath,
+          pdf: args.pdfs()[args.currentDocument()], 
+          //pdfs: args.pdfs,
+          currentDocument: args.currentDocument,
+          docs: args.docs,
+          lastDrawn: args.lastDrawn,
           pageNum: i, 
-          markPageComplete: function(isComplete) {
-            args.markPageComplete(i, isComplete);
-          }
       });
     });
   }
@@ -497,17 +545,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         target: null,
         localPenDown: false,
         uniqueId: uniqueCode++, 
-        complete: false
-      };
-
-      ctrl.toggleComplete = function() {
-        ctrl.complete = !ctrl.complete;
-        args.markPageComplete(ctrl.complete);
       };
 
       return ctrl;
     },
     view: function(ctrl, args) {
+      //args.pdf = args.pdfs()[args.currentDocument()];
       if(args.page)
       {
         // what is this??
@@ -547,15 +590,27 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
         m("img.pdf-page", {
           onload: m.redraw,
           config: function(el, isInit) {
-            if (isInit || ctrl.redrawing) {
-                //drawPageCompletionMarker(ctrl.canvasctx, ctrl.complete);
+            /*if (isInit || ctrl.redrawing) {
                 return;
+            }*/
+            var currentDocument = args.currentDocument();
+            var doc = args.docs()[currentDocument];
+            if(doc && doc.page[args.pageNum] && ((typeof args.lastDrawn()[args.pageNum]) === "undefined")) {
+                console.log("here");
+                el.src = args.docs()[currentDocument].page[args.pageNum];
+                args.lastDrawn()[args.pageNum] = true;
             }
 
+            /*if(ctrl.redrawing) {
+                return;
+            }*/
+
+              /*
             var canvas = document.createElement("canvas");
 
             ctrl.redrawing = true;
-            args.pdf.getPage(args.pageNum + 1).then(function(page) {
+            args.pdf().getPage(args.pageNum + 1).then(function(page) {
+              console.log(args.pdf());
               var viewport = page.getViewport(1000 / page.getViewport(1).width * 1);
               canvas.height = viewport.height;
               canvas.width = viewport.width;
@@ -564,12 +619,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
               ctrl.imgel = el;
 
               page.render({canvasContext: ctrl.canvasctx, viewport: viewport}).then(function() {
-                // TODO draw page completion here
-                drawPageCompletionMarker(ctrl.canvasctx, ctrl.complete);
                 el.src = canvas.toDataURL();
                 ctrl.redrawing = false;
               });
-            });
+              */
           }
         }),
         m("svg.drawing-surface", {
@@ -586,21 +639,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             var localY = ctrl.localY = (e.pageY - targetRect.top);
             var x = localX / targetRect.width * ctrl.virtualWidth;
             var y = localY / targetRect.height * ctrl.virtualHeight;
-
-            // Check to see if the student is clicking the page completion box
-            if((x >= completionX) 
-                && (x <= (completionX + completionW))
-                && (y >= completionY)
-                && (y <= (completionY + completionH))
-            ) {
-                // Mark/unmark and draw
-                ctrl.toggleComplete();
-                //requestAnimationFrame(drawPageCompletionMarker.bind(null, ctrl.canvasctx, ctrl.complete));
-                drawPageCompletionMarker(args.pageNum, ctrl.complete);
-                //e.src = ctrl.canvas.toDataURL();
-                m.redraw();
-                //console.log(ctrl.canvasctx);
-            }
 
             console.log("down", x, y);
             requestAnimationFrame(args.startStroke.bind(null, args.pageNum, parseInt(x), parseInt(y)));
@@ -632,7 +670,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "interact", "css"
             ctrl.localPenDown = false;
           }
         },
-        m("rect.completionbox", {id: "completionbox" + args.pageNum, x: 50, y: 50, width: 50, height: 50, stroke: 'black', "stroke-width": 5, fill: "transparent"}),
         args.page ?
 
         bins.map(function(bin, i) {
