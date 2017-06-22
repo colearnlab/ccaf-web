@@ -89,7 +89,7 @@ define(["exports"], function(exports) {
     }
 
     seq = (typeof seq !== "undefined" ? seq : this.transactionSeq++);
-    console.log(seq, this.transactionQueue[seq] = {paths: originalPaths, action: action});
+    //console.log(seq, this.transactionQueue[seq] = {paths: originalPaths, action: action});
 
     this.send("transaction", {
       seq: seq,
@@ -132,7 +132,7 @@ define(["exports"], function(exports) {
     var sendStr = JSON.stringify(new Envelope(channel, message, seq));
     var fn = (function() {
       this.ws.send(sendStr);
-      console.log("sending", seq);
+      //console.log("sending", seq);
       this.sendSeqToTimeoutId[seq] = setTimeout(fn, this.timeout);
     }).bind(this);
 
