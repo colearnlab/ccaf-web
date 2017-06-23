@@ -129,3 +129,11 @@ copy(
     if (err) console.error(err);
     else console.log('copied underscore');
   });
+
+copy(
+  require.resolve('fabric'),
+  path.resolve(__dirname, 'public', 'lib', 'fabric.js'),
+  function(err) {
+    if (err) console.error(err);
+    else console.log('copied underscore');
+  });
