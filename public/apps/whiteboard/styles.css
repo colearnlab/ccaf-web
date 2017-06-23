@@ -24,7 +24,7 @@ html, body {
   top: 0;
   left: 0;
   height: 50px;
-  background-color: #ddd;
+  background-color: #053650;
   width: 100%;
   border-bottom: 1px solid black;
   line-height: 35px;
@@ -104,7 +104,8 @@ html, body {
 }
 
 .scroll-open > #pdf-container {
-  width:90vw;
+  /*width:90vw;*/
+  width: 100%;
 }
 
 .scroll-closed > #pdf-container {
@@ -203,6 +204,24 @@ html, body {
   height: 100%;
 }
 
+img.tool-icon {
+    display: inline-block;
+    height: 75%;
+    
+    /* Vertically center on the toolbar */
+    position: relative;
+    top: 50%;
+    margin-top: -32px;
+}
+
+.tool-right {
+    height: 75%;
+    position: relative;
+    top: 50%;
+    margin-top: -18px;
+}
+
+
 /*/////////////////////////*/
 div.toolbar {
     width: 100%;
@@ -221,11 +240,11 @@ div.page-container {
 svg.scrollbar {
     position: absolute;
     right: 1em;
-    top: 5%; 
-    height: 90%;
+    top: 9vh; 
+    height: 89vh;
     width: 2em;
 
-    background-color: transparent;
+    background-color: #f3f8fb;
     border-radius: 2em;
     border-width: 1px;
     border-color: #699;

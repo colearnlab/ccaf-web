@@ -3,6 +3,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
       ClassroomSession = models.ClassroomSession;
+  var getUserColor = userColors.getColor; 
   var array;
   
   var colors = {
@@ -45,14 +46,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         scrollPositions: m.prop({}),
         scroll: m.prop("open"),
 
-        //
         pages: [],
-        pagesComplete: {},
+        //pagesComplete: {},
         remotePages: m.prop({}),
+        
+        // TODO figure out what these were for
         currentPath: null,
         currentPage: null,
-        currentDocument: m.prop(0),
-        //
+        
+        // stores index of current document for each user
+        pageNumbers: m.prop({}),
 
         drawn: m.prop([]),
         pdfs: m.prop([]),
@@ -69,9 +72,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         docs: m.prop({}),
         lastDrawn: m.prop({}),
         
-        
-
         userList: m.prop([]),
+
+        // for recording which document each user is looking at
+        setPage: function(pageNum) {
+            args.connection.transaction([["setPage"]], function(userCurrentPages) {
+                pageNumbers()[args.user] = pageNum;
+                pageNumbers().s = args.session;
+            });
+        },
+
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
             scrollPositions[args.user] = pos;
@@ -186,19 +196,28 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
 
       args.connection.userList.addObserver(function(users) {
         ctrl.userList(users);
+          // TODO get correct position!
+        // Update users' page positions
+        ctrl.userList().map(function(user) {
+            ctrl.pageNumbers()[user.id] = 0;
+        });
         m.redraw(true);
       });
 
-      // TODO load many pdfs here
+      // Load all pdfs right away
       ClassroomSession.get(args.session).then(function(session) {
+          // Retrieve activity info for the session
           Activity.get(session.activityId).then(ctrl.activity).then(function() {
               ctrl.activity().pages.map(function(activitypage) {
+
+                  // Retrieve document
                   PDFJS.getDocument("/media/" + activitypage.filename).then(function(pdf) {
                     ctrl.numPages()[activitypage.pageNumber] = pdf.numPages;
                     //ctrl.pdfs()[activitypage.pageNumber] = m.prop(pdf);
                     ctrl.docs()[activitypage.pageNumber] = {page:{}};
 
                     for(var i = 0, len = pdf.numPages; i < len; i++) {
+                        // Render page
                         (function(pn) {
                             var canvas = document.createElement('canvas');
                             pdf.getPage(pn + 1).then(function(page) {
@@ -209,7 +228,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
-                                    //ctrl.redrawing = false;
                                 });
                             });
                         })(i);
@@ -245,6 +263,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         // TODO choose which pdf to view!
         m.component(PDFViewer, ctrl),
         //m.component(Minimap, ctrl),
+        m.component(Scrollbar, ctrl),
         m.component(Controls, ctrl)
       );
 
@@ -254,42 +273,51 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
   var Controls = {
     view: function(__, args) {
       return m("#controls",
-        // Page select
-        m("div.page-select", {
+        // Previous page button
+        m("img.tool-icon", {
             onclick: function() {
-                var doc = args.currentDocument();
+                var doc = args.pageNumbers()[args.user];
                 if(doc > 0) {
                     doc--;
                     args.lastDrawn({});
                 }
-                args.currentDocument(doc);
+                args.pageNumbers()[args.user] = doc;
                 m.redraw(true);
-            }
+            },
+            src: "/shared/icons/Icons_F_Left_W.png"
         }, "Prev"),
+        // Specific page buttons
         (args.activity() ? 
         args.activity().pages.map(function(page) {
-            // TODO highlight current page
-            return m("div.page-select", {
+            return m("img.tool-icon", {
                 onclick: function() {
-                    args.currentDocument(page.pageNumber);
+                    args.pageNumbers()[args.user] = page.pageNumber;
                     args.lastDrawn({});
                     m.redraw(true);
-                }
+                },
+                // Use the filled-in circle if it's the current page
+                src: ((page.pageNumber == args.pageNumbers()[args.user])
+                    ? "/shared/icons/Icons_F_Selected Circle_W.png"
+                    : "/shared/icons/Icons_F_Deselect Circle_W.png")
             }, page.pageNumber);
         })
         : ""),
-        m("div.page-select", {
+        // Next page button
+        m("img.tool-icon", {
             onclick: function() {
-                var doc = args.currentDocument();
+                var doc = args.pageNumbers()[args.user];
                 if(doc < (args.activity().pages.length - 1)) {
                     doc++;
                     args.lastDrawn({});
                 }
-                args.currentDocument(doc);
+                args.pageNumbers()[args.user] = doc;
                 m.redraw(true);
-            }
+            },
+            src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
         
+        // Not used since we're doing away with the minimap.
+        /*
         m("span.glyphicon#minimap-chevron", {
           class: args.scroll() === "open" ? "glyphicon-chevron-right" : "glyphicon-chevron-left",
           onclick: function() {
@@ -298,15 +326,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
           ontouchend: function() {
             args.scroll(args.scroll() === "open" ? "closed" : "open");
           }
-        }),
-        m("span.glyphicon.glyphicon-remove#clear-screen", {
-          onmousedown: args.clear,
-          ontouchend: args.clear
-        }),
-        /*m("span.glyphicon.glyphicon-hand-left#undo", {
-          onmousedown: args.undo
-          //ontouchend: args.undo
         }),*/
+        m("img.tool-right.pull-right#clear-screen", {
+          onmousedown: args.clear,
+          ontouchend: args.clear,
+          src: "/shared/icons/Icons_F_Delete Pages_W.png"
+        }),
+        m("img.tool-right.pull-right#undo", {
+          onmousedown: args.undo,
+          //ontouchend: args.undo
+          src: "/shared/icons/Icons_F_Undo_W.png"
+        }),
         m("#tools",
           m.component(Tool, {tool: args.tool, color: args.color, toolId: 0, hasTray: true}),
           m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true}),
@@ -435,6 +465,47 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     }
   };
 
+  var Scrollbar = {
+      controller: function(args) {
+          var ctrl = {
+          };
+          return ctrl;
+      },
+      view: function(ctrl, args) {
+          return m("svg.scrollbar", 
+              args.userList().map(function(user) {
+                  return m.component(ScrollbarCircle, {
+                      scrollPositions: args.scrollPositions,
+                      setScroll: args.setScroll,
+                      user: user,
+                      userList: args.userList,
+                      pointerEvents: args.user === user.id
+                  });
+              }),
+              "Scrollbar here"
+          );
+      }
+  };
+
+  var ScrollbarCircle = {
+    controller: function(args) {
+        return {
+        };
+    },
+    view: function(ctrl, args) {
+        // TODO 
+        var scrollPosition = args.scrollPositions()[args.user.id];
+        return m("circle.scrollbar-circle", {
+            cx: "calc(1em - 1px)",
+            //cy: "calc(1em + " + Math.round(89 * scrollPosition) + "vh)",
+            cy: "" + Math.round(scrollPosition * 100) + "%",
+            r: "calc(1em - 2px)",
+            fill: getUserColor(args.userList(), args.user.id),
+            stroke: "none"
+        }, "");
+    }
+  };
+
   var Minimap = {
     controller: function(args) {
       return {
@@ -515,8 +586,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
   };
 
   function drawPDF(ctrl, args, scale) {
-    return Array.apply(null, {length: args.numPages()[args.currentDocument()]}).map(function(__, i) {
-      //console.log(args.currentDocument());
+    return Array.apply(null, {length: args.numPages()[args.pageNumbers()[args.user]]}).map(function(__, i) {
         return m.component(PDFPageHolder, {
           size: args.size, 
           drawn: args.drawn, 
@@ -525,9 +595,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
           endStroke: args.endStroke, 
           page: args.remotePages()[i], 
           currentPath: args.currentPath,
-          pdf: args.pdfs()[args.currentDocument()], 
+          pdf: args.pdfs()[args.pageNumbers()[args.user]], 
           //pdfs: args.pdfs,
-          currentDocument: args.currentDocument,
+          pageNumbers: args.pageNumbers,
+          user: args.user,
           docs: args.docs,
           lastDrawn: args.lastDrawn,
           pageNum: i, 
@@ -550,7 +621,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
       return ctrl;
     },
     view: function(ctrl, args) {
-      //args.pdf = args.pdfs()[args.currentDocument()];
       if(args.page)
       {
         // what is this??
@@ -576,7 +646,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             bins[++curBin] = [];
           }
 
-          if (eraser)
+          if(eraser)
             for (var j = 1; j < bins.length; j += 2) {
               bins[j].push(curPath);
             }
@@ -584,7 +654,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         }
       }
 
-      //console.log(args);
 
       return m("div.pdf-page-holder",
         m("img.pdf-page", {
@@ -593,10 +662,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             /*if (isInit || ctrl.redrawing) {
                 return;
             }*/
-            var currentDocument = args.currentDocument();
+            var currentDocument = args.pageNumbers()[args.user];
             var doc = args.docs()[currentDocument];
             if(doc && doc.page[args.pageNum] && ((typeof args.lastDrawn()[args.pageNum]) === "undefined")) {
-                console.log("here");
                 el.src = args.docs()[currentDocument].page[args.pageNum];
                 args.lastDrawn()[args.pageNum] = true;
             }
@@ -610,7 +678,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
 
             ctrl.redrawing = true;
             args.pdf().getPage(args.pageNum + 1).then(function(page) {
-              console.log(args.pdf());
               var viewport = page.getViewport(1000 / page.getViewport(1).width * 1);
               canvas.height = viewport.height;
               canvas.width = viewport.width;
@@ -757,4 +824,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
       });
     }
   };
+
+
+
 });
