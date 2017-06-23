@@ -1,4 +1,4 @@
-define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "modules/activityEditor", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor, dataVis, activityEditor, bs) {
+define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor, dataVis, bs) {
   var Classroom = models.Classroom;
   var User = models.User;
   var ClassroomSession = models.ClassroomSession;
@@ -9,7 +9,6 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var UserPicker = userPicker.userPicker;
   var GroupEditor = groupEditor.groupEditor;
   var DataVis = dataVis.dataVis;
-  var ActivityEditor = activityEditor.ActivityEditor;
 
   var Shell = {
     controller: function(args) {
@@ -947,7 +946,5 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     "/classroom/:classroomId": m.component(Shell, GroupEditor),
     "/session/:sessionId": m.component(Shell, GroupEditor),
     "/visualize/:sessionId": m.component(Shell, DataVis),
-    "/activity/:activityId": m.component(Shell, ActivityEditor),
-    //"/activity/": m.component(Shell, ActivityEditor)
   });
 });
