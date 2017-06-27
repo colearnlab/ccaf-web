@@ -1,11 +1,12 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "interact", "css", "userColors"], function(exports, pdfjs, m, models, interact, css, userColors) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", "interact", "css", "userColors"], function(exports, pdfjs, m, /*fabric,*/ models, interact, css, userColors) {
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
       ClassroomSession = models.ClassroomSession;
   var getUserColor = userColors.getColor; 
   var array;
-  
+
+ 
   var colors = {
     0: "#000000",
     1: "#FF0000",
@@ -70,8 +71,32 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         session: args.session,
         activity: m.prop(null),
         docs: m.prop({}),
+
         lastDrawn: m.prop({}),
-        
+
+        getCanvasId: function(docIdx, pageNum) {
+            return "drawSurface-" + docIdx + "-" + pageNum;
+        },
+        parseCanvasId: function(canvasId) {
+            var rest = canvasId.slice("drawSurface-".length);
+            var hyphenIdx = res.indexOf('-');
+            return {
+                doc: rest.slice(0, hyphenIdx),
+                page: rest.slice(hyphenIdx + 1)
+            };
+        },
+
+        saveCanvases: function(docId) {
+            var docs = ctrl.docs();
+            var canvases = docs[docId].canvas;
+
+            for(var pn in canvases) {
+                docs[docId].canvasContents[pn] = canvases[pn].toJSON();
+            }
+
+            ctrl.docs(docs);
+        },
+ 
         userList: m.prop([]),
 
         // for recording which document each user is looking at
@@ -214,10 +239,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
                   PDFJS.getDocument("/media/" + activitypage.filename).then(function(pdf) {
                     ctrl.numPages()[activitypage.pageNumber] = pdf.numPages;
                     //ctrl.pdfs()[activitypage.pageNumber] = m.prop(pdf);
-                    ctrl.docs()[activitypage.pageNumber] = {page:{}};
+                    ctrl.docs()[activitypage.pageNumber] = {
+                        page: {},
+                        canvas: {},
+                        canvasWidth: {},
+                        canvasHeight: {},
+                        canvasContents: {}
+                    };
 
                     for(var i = 0, len = pdf.numPages; i < len; i++) {
                         // Render page
+                        // TODO create canvas (same size as pdf image) for use with fabric!
                         (function(pn) {
                             var canvas = document.createElement('canvas');
                             pdf.getPage(pn + 1).then(function(page) {
@@ -260,9 +292,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             ctrl.setScroll(el.scrollTop / (el.scrollHeight - window.innerHeight));
           }
         },
-        // TODO choose which pdf to view!
+        
         m.component(PDFViewer, ctrl),
-        //m.component(Minimap, ctrl),
         m.component(Scrollbar, ctrl),
         m.component(Controls, ctrl)
       );
@@ -277,6 +308,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         m("img.tool-icon", {
             onclick: function() {
                 var doc = args.pageNumbers()[args.user];
+                args.saveCanvases(doc);
+                $('.canvas-container').remove();
                 if(doc > 0) {
                     doc--;
                     args.lastDrawn({});
@@ -291,6 +324,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         args.activity().pages.map(function(page) {
             return m("img.tool-icon", {
                 onclick: function() {
+                    args.saveCanvases(args.pageNumbers()[args.user]);
+                    $('.canvas-container').remove();
                     args.pageNumbers()[args.user] = page.pageNumber;
                     args.lastDrawn({});
                     m.redraw(true);
@@ -306,6 +341,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         m("img.tool-icon", {
             onclick: function() {
                 var doc = args.pageNumbers()[args.user];
+                args.saveCanvases(doc);
+                $('.canvas-container').remove();
                 if(doc < (args.activity().pages.length - 1)) {
                     doc++;
                     args.lastDrawn({});
@@ -316,17 +353,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
         
-        // Not used since we're doing away with the minimap.
-        /*
-        m("span.glyphicon#minimap-chevron", {
-          class: args.scroll() === "open" ? "glyphicon-chevron-right" : "glyphicon-chevron-left",
-          onclick: function() {
-            args.scroll(args.scroll() === "open" ? "closed" : "open");
-          },
-          ontouchend: function() {
-            args.scroll(args.scroll() === "open" ? "closed" : "open");
-          }
-        }),*/
         m("img.tool-right.pull-right#clear-screen", {
           onmousedown: args.clear,
           ontouchend: args.clear,
@@ -454,16 +480,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     }
   };
 
-  var PDFViewer = {
-    controller: function(args) {
-      return {
-        interactable: null
-      };
-    },
-    view: function(ctrl, args) {
-      return m("#pdf-container", drawPDF(ctrl, args, 1));
-    }
-  };
+    var PDFViewer = {
+      controller: function(args) {
+        return {
+          interactable: null
+        };
+      },
+      view: function(ctrl, args) {
+        return m("#pdf-container", drawPDF(ctrl, args, 1));
+      }
+    };
 
   var Scrollbar = {
       controller: function(args) {
@@ -506,85 +532,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     }
   };
 
-  var Minimap = {
-    controller: function(args) {
-      return {
-
-      };
-    },
-    view: function(ctrl, args) {
-      return m("#minimap",
-        args.userList().map(function(user) {
-          return m.component(MinimapScreen, {
-            scrollPositions: args.scrollPositions,
-            setScroll: args.setScroll,
-            user: user,
-            userList: args.userList,
-            pointerEvents: args.user === user.id
-          });
-        }),
-        m("#minimap-overlay", " "),
-        drawPDF(ctrl, args, 1)
-      );
-    }
-  };
-
-  var MinimapScreen = {
-    controller: function(args) {
-      return {
-        interactable: null
-      };
-    },
-    view: function(ctrl, args) {
-      return m(".minimap-screen", {
-        style: "height: " + (window.innerHeight / 10) + "px; ",
-        class: (!args.pointerEvents ? "no-events" : ""),
-        config: function(el, isInit, ctx) {
-          var scrollPosition = args.scrollPositions()[args.user.id];
-
-          var minimapRect = el.parentNode.getBoundingClientRect();
-          var screenRect = el.getBoundingClientRect();
-
-          var percentage = scrollPosition;
-          var totalLength = minimapRect.height - screenRect.height;
-          var currentPos = percentage * totalLength;
-
-          el.style.transform = "translate(0px, " + currentPos + "px)";
-
-          if (isInit)
-            return;
-
-          ctrl.interactable = interact(el).draggable({
-            onmove: function(e) {
-              var scrollPosition = args.scrollPositions()[args.user.id];
-
-              var minimapRect = document.getElementById("minimap").getBoundingClientRect();
-              var screenRect = el.getBoundingClientRect();
-
-              var percentage = scrollPosition;
-              var totalLength = minimapRect.height - screenRect.height;
-              var currentPos = percentage * totalLength;
-
-              var newY = currentPos + e.dy;
-              var newPercentage = newY / totalLength;
-
-              if (newPercentage >= 0 && newPercentage <= 1)
-                args.setScroll(newPercentage);
-            }
-          });
-
-          ctx.onunload = function() {
-            if (ctrl.interactable)
-              ctrl.interactable.unset();
-          };
-        }
-      }, m(".minimap-background", {
-        style: "background-color: " + userColors.getColor(args.userList(), args.user.id) + "; "
-
-      }));
-    }
-  };
-
   function drawPDF(ctrl, args, scale) {
     return Array.apply(null, {length: args.numPages()[args.pageNumbers()[args.user]]}).map(function(__, i) {
         return m.component(PDFPageHolder, {
@@ -598,8 +545,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
           pdf: args.pdfs()[args.pageNumbers()[args.user]], 
           //pdfs: args.pdfs,
           pageNumbers: args.pageNumbers,
+          getCanvasId: args.getCanvasId,
           user: args.user,
           docs: args.docs,
+
           lastDrawn: args.lastDrawn,
           pageNum: i, 
       });
@@ -616,44 +565,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         target: null,
         localPenDown: false,
         uniqueId: uniqueCode++, 
+
+        canvas: null,
       };
 
       return ctrl;
     },
     view: function(ctrl, args) {
-      if(args.page)
-      {
-        // what is this??
-        var bins = [[]];
-        var curBin = 0;
-        var eraser = false;
 
-        var i = 0;
-        var len = array.length(args.page.paths);
-        if (len > 0) {
-          while (args.page.paths[i] && args.page.paths[i][0] && args.page.paths[i][0].eraser)
-            i++;
-        }
-
-        for (; i < len; i++) {
-          var curPath = args.page.paths[i];
-
-          if (!curPath || !curPath[0])
-            continue;
-
-          if (curPath[0].eraser !== eraser) {
-            eraser = curPath[0].eraser;
-            bins[++curBin] = [];
-          }
-
-          if(eraser)
-            for (var j = 1; j < bins.length; j += 2) {
-              bins[j].push(curPath);
-            }
-          else bins[curBin].push(curPath);
-        }
-      }
-
+      var currentDocument = args.pageNumbers()[args.user];
+      var canvasId = args.getCanvasId(currentDocument, args.pageNum);
+      var doc = args.docs()[currentDocument];
 
       return m("div.pdf-page-holder",
         m("img.pdf-page", {
@@ -662,36 +584,63 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             /*if (isInit || ctrl.redrawing) {
                 return;
             }*/
-            var currentDocument = args.pageNumbers()[args.user];
-            var doc = args.docs()[currentDocument];
             if(doc && doc.page[args.pageNum] && ((typeof args.lastDrawn()[args.pageNum]) === "undefined")) {
-                el.src = args.docs()[currentDocument].page[args.pageNum];
+                el.src = doc.page[args.pageNum];
                 args.lastDrawn()[args.pageNum] = true;
+
+                var docs = args.docs();
+                docs[currentDocument].canvasWidth[args.pageNum] = el.clientWidth;
+                docs[currentDocument].canvasHeight[args.pageNum] = el.clientHeight;
+                args.docs(docs);
             }
-
-            /*if(ctrl.redrawing) {
-                return;
-            }*/
-
-              /*
-            var canvas = document.createElement("canvas");
-
-            ctrl.redrawing = true;
-            args.pdf().getPage(args.pageNum + 1).then(function(page) {
-              var viewport = page.getViewport(1000 / page.getViewport(1).width * 1);
-              canvas.height = viewport.height;
-              canvas.width = viewport.width;
-              ctrl.canvas = canvas;
-              ctrl.canvasctx = canvas.getContext("2d");
-              ctrl.imgel = el;
-
-              page.render({canvasContext: ctrl.canvasctx, viewport: viewport}).then(function() {
-                el.src = canvas.toDataURL();
-                ctrl.redrawing = false;
-              });
-              */
+            
           }
         }),
+        
+        m("div.drawing-surface", 
+            m("canvas.drawing-surface", {
+                config: function(el, isInit) {
+                    if(isInit)
+                        return;
+                    
+                    var docs = args.docs();
+                    console.log("create canvas " + canvasId);
+
+                    ctrl.canvas = new fabric.Canvas(canvasId, {
+                        isDrawingMode: true
+                    });
+                    docs[currentDocument].canvas[args.pageNum] = ctrl.canvas;
+
+                    var w = docs[currentDocument].canvasWidth[args.pageNum];
+                    var h = docs[currentDocument].canvasHeight[args.pageNum];
+                    
+                    // TODO handle better
+                    if(w)
+                        ctrl.canvas.setWidth(w);
+                    else
+                        ctrl.canvas.setWidth(document.body.clientWidth);
+
+                    if(h)
+                        ctrl.canvas.setHeight(h);
+                    else
+                        ctrl.canvas.setHeight(document.body.clientWidth * 11 / 8.5);
+                    
+
+                    // Load canvas data if any
+                    var contents = docs[currentDocument].canvasContents[args.pageNum];
+                    if(contents) {
+                        ctrl.canvas.loadFromJSON(contents);
+                    }
+
+                    // save out data
+                    args.docs(docs);
+                },
+                id: canvasId
+            })
+        )
+
+
+        /*
         m("svg.drawing-surface", {
           "color-rendering": "optimizeSpeed",
           config: function(el) {
@@ -766,7 +715,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
             el.style.width = size + "px";
             el.style.transform = "translate(" + (ctrl.localX - size / 2) + "px, " + (ctrl.localY - size / 2) + "px";
           }
-        }, " ")
+        }, " ")*/
       );
     }
   };
@@ -825,6 +774,25 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
     }
   };
 
+/*
+setTimeout(function() {
+  var $ = function(id){return document.getElementById(id)};
 
+  var canvas = this.__canvas = new fabric.Canvas('c', {
+    isDrawingMode: true
+  });
+
+  fabric.Object.prototype.transparentCorners = false;
+
+
+  canvas.isDrawingMode = true;
+  canvas.freeDrawingBrush = new fabric['PencilBrush'](canvas);
+
+  canvas.freeDrawingBrush.color = 'black';
+  canvas.freeDrawingBrush.width = 1;
+  canvas.freeDrawingBrush.shadowBlur = 0;
+
+}, 5000);
+*/
 
 });
