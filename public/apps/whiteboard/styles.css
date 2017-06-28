@@ -36,9 +36,11 @@ html, body {
   line-height: 50px;
 }
 
+/*
 #clear-screen {
   right: calc(8vw + 50px);
 }
+*/
 
 .scroll-open > #controls > #minimap-chevron {
     right: 8vw;
@@ -228,6 +230,7 @@ img.tool-icon {
     position: relative;
     top: 50%;
     margin-top: -18px;
+    margin-right: 1em;
 }
 
 

@@ -14,6 +14,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
     3: "#0000FF",
     4: "#FFFFFF"
   };
+
+   var toolNames = [
+       'pen',
+       'highlighter',
+       'eraser',
+       'finger',
+       'shapes'
+   ];
+
   exports.load = function(connection, el, params) {
     array = connection.array;
     css.load("/apps/whiteboard/styles.css");
@@ -96,21 +105,60 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
 
             ctrl.docs(docs);
         },
+
+          /*
+        setTool: function(toolId) {
+            
+            var docs = ctrl.docs();
+            if(toolId == 0) {
+                // pen
+
+                // Set brush for all canvases
+                docs.map(function(doc) {
+                    doc.map(function(docpage) {
+                        if(docpage.canvas) {
+                            docpage.canvas.map(function(canvas) {
+                                canvas.free
+                            });
+                        }
+                    });
+                });
+            } else if(toolId == 1) {
+                // highlighter
+
+            } else if(toolId == 2) {
+                // eraser
+            } else if(toolId == 3) {
+                // pointer
+            } else {
+                console.log("unknown tool");
+            }
+
+            // ctrl.docs(docs);
+        },
+        */
  
         userList: m.prop([]),
 
         // for recording which document each user is looking at
         setPage: function(pageNum) {
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
+                //console.log("page numbers");
+                //console.log(userCurrentPages);
+                /*
                 pageNumbers()[args.user] = pageNum;
                 pageNumbers().s = args.session;
+                */
+                userCurrentPages[args.user] = pageNum;
             });
         },
 
+        dummycounter: 0,
         setScroll: function(pos) {
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
             scrollPositions[args.user] = pos;
             scrollPositions.s = args.session;
+            console.log(scrollPositions);
           });
         },
         startStroke: function(page, x, y) {
@@ -201,6 +249,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             });
           });
         },
+        
+        ///////////
+        addDrawPath: function(path) {
+            args.connection.transaction([["pages", ctrl.pageNumbers()[args.user], "paths", path]], function(p) {
+                console.log(p);
+            });
+        },
+        ///////////
+          
         undo: function() {
           args.connection.transaction([["undoStack", args.user]], function(undoStack) {
             var toUndo = array.pop(undoStack);
@@ -327,6 +384,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     args.saveCanvases(args.pageNumbers()[args.user]);
                     $('.canvas-container').remove();
                     args.pageNumbers()[args.user] = page.pageNumber;
+                    
+                    args.setPage(page.pageNumber);
+                    
                     args.lastDrawn({});
                     m.redraw(true);
                 },
@@ -352,6 +412,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             },
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
+
         
         m("img.tool-right.pull-right#clear-screen", {
           onmousedown: args.clear,
@@ -363,16 +424,45 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           //ontouchend: args.undo
           src: "/shared/icons/Icons_F_Undo_W.png"
         }),
+       
+            m("img.tool-right.pull-right#pointer-tool", {
+                onmousedown: function() {
+                    args.tool(3);
+                },
+                src: "/shared/icons/Icons_F_Pointer_W.png"
+            }),
+            m("img.tool-right.pull-right#eraser-tool", {
+                onmousedown: function() {
+                    args.tool(2);
+                },
+                src: "/shared/icons/Icons_F_Erase_W.png"
+            }),
+           /* 
+          m("img.tool-right.pull-right#highlighter-tool", {
+                onmousedown: function() {
+                    args.tool(1);
+                },
+                src: "/shared/icons/Icons_F_Highlight_W.png"
+            }),
+            */
+            m("img.tool-right.pull-right#pen-tool", {
+                onmousedown: function() {
+                    args.tool(0);
+                },
+                src: "/shared/icons/Icons_F_Pen_W.png"
+            }),
+
         m("#tools",
-          m.component(Tool, {tool: args.tool, color: args.color, toolId: 0, hasTray: true}),
-          m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true}),
-          m.component(Tool, {tool: args.tool, color: {2: 4}, toolId: 2, hasTray: false}),
-          m.component(SizeSelect, {size: args.size, color: args.color, tool: args.tool})
+          //m.component(Tool, {tool: args.tool, color: args.color, toolId: 0, hasTray: true}),
+          //m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true}),
+          //m.component(Tool, {tool: args.tool, color: {2: 4}, toolId: 2, hasTray: false}),
+          //m.component(SizeSelect, {size: args.size, color: args.color, tool: args.tool})
         )
       );
     }
   };
 
+    /*
   var SizeSelect = {
     controller: function() {
       return {
@@ -422,7 +512,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
       );
     }
   };
-
+    */
+/*
   var Tool = {
     controller: function() {
       return {
@@ -479,7 +570,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
       );
     }
   };
-
+*/
     var PDFViewer = {
       controller: function(args) {
         return {
@@ -548,6 +639,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           getCanvasId: args.getCanvasId,
           user: args.user,
           docs: args.docs,
+            tool: args.tool,
 
           lastDrawn: args.lastDrawn,
           pageNum: i, 
@@ -566,7 +658,62 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         localPenDown: false,
         uniqueId: uniqueCode++, 
 
+
         canvas: null,
+        erasing: false,
+        setPen: function() {
+            if(!ctrl.canvas)
+                return;
+
+            // TODO would be cool to use custom cursors
+            //ctrl.canvas.setCursor('url(/shared/icons/Cursor_F_Pen_B.png), auto');
+            //console.log("set pen!");
+            ctrl.canvas.isDrawingMode = true;
+            ctrl.canvas.freeDrawingBrush = new fabric['PencilBrush'](ctrl.canvas);
+            ctrl.canvas.freeDrawingBrush.opacity = 1.0;
+        },
+        setTool: function() {
+            if(!ctrl.canvas)
+                return;
+            
+            ctrl.erasing = false;
+
+            var toolId = args.tool();
+            if(toolId == 0) {
+                // pen tool
+                ctrl.setPen();
+            } else if(toolId == 1) {
+                // highlighter tool
+                ctrl.setPen();
+                ctrl.canvas.freeDrawingBrush.opacity = 0.5;
+            } else if(toolId == 2) {
+                // TODO implement eraser
+                ctrl.canvas.isDrawingMode = false;
+                ctrl.erasing = true;
+            } else if(toolId == 3) {
+                // pointer tool
+                ctrl.canvas.isDrawingMode = false;
+            }
+        },
+
+        deleteSelected: function() {
+            if(!ctrl.canvas)
+                return;
+
+            var activeObject = ctrl.canvas.getActiveObject(),
+                activeGroup = ctrl.canvas.getActiveGroup();
+
+            if(activeObject)
+                ctrl.canvas.remove(activeObject);
+
+            if(activeGroup) {
+                var objects = activeGroup.getObjects();
+                ctrl.canvas.discardActiveGroup();
+                objects.forEach(function(obj) {
+                    ctrl.canvas.remove(obj);
+                });
+            }
+        }
       };
 
       return ctrl;
@@ -593,21 +740,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                 docs[currentDocument].canvasHeight[args.pageNum] = el.clientHeight;
                 args.docs(docs);
             }
-            
           }
         }),
         
         m("div.drawing-surface", 
             m("canvas.drawing-surface", {
                 config: function(el, isInit) {
-                    if(isInit)
+                    // set tool?
+
+                    if(isInit) {
+                        ctrl.setTool();
                         return;
+                    }
                     
                     var docs = args.docs();
                     console.log("create canvas " + canvasId);
 
                     ctrl.canvas = new fabric.Canvas(canvasId, {
-                        isDrawingMode: true
+                        isDrawingMode: ((args.tool() == 0) || (args.tool() == 1))
                     });
                     docs[currentDocument].canvas[args.pageNum] = ctrl.canvas;
 
@@ -619,11 +769,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                         ctrl.canvas.setWidth(w);
                     else
                         ctrl.canvas.setWidth(document.body.clientWidth);
-
-                    if(h)
-                        ctrl.canvas.setHeight(h);
-                    else
-                        ctrl.canvas.setHeight(document.body.clientWidth * 11 / 8.5);
+                    ctrl.canvas.setHeight(document.body.clientWidth * 11 / 8.5);
                     
 
                     // Load canvas data if any
@@ -632,10 +778,37 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                         ctrl.canvas.loadFromJSON(contents);
                     }
 
+                    // Use the right tool
+                    ctrl.setTool();
+
+                    // Set up event handlers
+                    // TODO shared state things here
+                    ctrl.canvas.on({
+                        "object:selected": function() {
+                            if(ctrl.erasing) {
+                                console.log("should erase! (object.selected)");
+                                ctrl.deleteSelected();
+                            }
+                        },
+                        "selection:created": function() {
+                            if(ctrl.erasing) {
+                                console.log("should erase! (selection.created)");
+                                ctrl.deleteSelected();
+                            }
+                        },
+
+                    });
+
                     // save out data
                     args.docs(docs);
                 },
-                id: canvasId
+                id: canvasId,
+                onmousedown: function() {
+                    // Update tool?
+                },
+                onmouseup: function() {
+                
+                },
             })
         )
 
@@ -720,6 +893,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
     }
   };
 
+    var DrawingSurface = {
+        controller: function(args) {
+
+        },
+        view: function(ctrl, args) {
+
+        }
+    };
+
+      /*
   var Path = {
     controller: function() {
       return {
@@ -773,6 +956,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
       });
     }
   };
+  */
 
 /*
 setTimeout(function() {
