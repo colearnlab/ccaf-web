@@ -1,5 +1,5 @@
 define("main", ["exports", "mithril", "synchronizedStateClient", "models", "multicast"], function(exports, m, synchronizedStateClient, models, multicast) {
-  var REFRESH_INTERVAL = 5000;
+  var REFRESH_INTERVAL = 10000;
 
   var User = models.User;
   var Classroom = models.Classroom;
