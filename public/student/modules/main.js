@@ -4,7 +4,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
   var User = models.User;
   var Classroom = models.Classroom;
   var ClassroomSession = models.ClassroomSession;
-  var wsAddress = 'ws://' + window.location.host + "/ws";
+  var wsAddress = 'wss://' + window.location.host + "/ws";
   var Activity = models.Activity;
   var ActivityPage = models.ActivityPage;
   var appPath = "whiteboard";

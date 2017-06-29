@@ -1,11 +1,13 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", "interact", "css", "userColors"], function(exports, pdfjs, m, /*fabric,*/ models, interact, css, userColors) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", "userColors"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, userColors) {
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
       ClassroomSession = models.ClassroomSession;
   var getUserColor = userColors.getColor; 
   var array;
-
+  
+// stop fabric from stealing finger touches
+  fabric.isTouchSupported = false;
  
   var colors = {
     0: "#000000",
@@ -365,14 +367,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         m("img.tool-icon", {
             onclick: function() {
                 var doc = args.pageNumbers()[args.user];
-                args.saveCanvases(doc);
-                $('.canvas-container').remove();
                 if(doc > 0) {
+                    args.saveCanvases(doc);
+                    $('.canvas-container').remove();
                     doc--;
                     args.lastDrawn({});
+                    args.pageNumbers()[args.user] = doc;
+                    m.redraw(true);
                 }
-                args.pageNumbers()[args.user] = doc;
-                m.redraw(true);
             },
             src: "/shared/icons/Icons_F_Left_W.png"
         }, "Prev"),
@@ -381,14 +383,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         args.activity().pages.map(function(page) {
             return m("img.tool-icon", {
                 onclick: function() {
-                    args.saveCanvases(args.pageNumbers()[args.user]);
-                    $('.canvas-container').remove();
-                    args.pageNumbers()[args.user] = page.pageNumber;
-                    
-                    args.setPage(page.pageNumber);
-                    
-                    args.lastDrawn({});
-                    m.redraw(true);
+                    if(args.pageNumbers()[args.user] != page.pageNumber) {
+                        args.saveCanvases(args.pageNumbers()[args.user]);
+                        $('.canvas-container').remove();
+                        args.pageNumbers()[args.user] = page.pageNumber;
+                        
+                        args.setPage(page.pageNumber);
+                        
+                        args.lastDrawn({});
+                        m.redraw(true);
+                    }
                 },
                 // Use the filled-in circle if it's the current page
                 src: ((page.pageNumber == args.pageNumbers()[args.user])
@@ -401,14 +405,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         m("img.tool-icon", {
             onclick: function() {
                 var doc = args.pageNumbers()[args.user];
-                args.saveCanvases(doc);
-                $('.canvas-container').remove();
                 if(doc < (args.activity().pages.length - 1)) {
+                    args.saveCanvases(doc);
+                    $('.canvas-container').remove();
                     doc++;
                     args.lastDrawn({});
+                    args.pageNumbers()[args.user] = doc;
+                    m.redraw(true);
                 }
-                args.pageNumbers()[args.user] = doc;
-                m.redraw(true);
             },
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
@@ -450,14 +454,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     args.tool(0);
                 },
                 src: "/shared/icons/Icons_F_Pen_W.png"
-            }),
+            })
 
-        m("#tools",
-          //m.component(Tool, {tool: args.tool, color: args.color, toolId: 0, hasTray: true}),
-          //m.component(Tool, {tool: args.tool, color: args.color, toolId: 1, hasTray: true}),
-          //m.component(Tool, {tool: args.tool, color: {2: 4}, toolId: 2, hasTray: false}),
-          //m.component(SizeSelect, {size: args.size, color: args.color, tool: args.tool})
-        )
       );
     }
   };
@@ -668,9 +666,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             // TODO would be cool to use custom cursors
             //ctrl.canvas.setCursor('url(/shared/icons/Cursor_F_Pen_B.png), auto');
             //console.log("set pen!");
+            
             ctrl.canvas.isDrawingMode = true;
             ctrl.canvas.freeDrawingBrush = new fabric['PencilBrush'](ctrl.canvas);
             ctrl.canvas.freeDrawingBrush.opacity = 1.0;
+            
+            // Try to improve performance
+            ctrl.canvas.selection = false;
         },
         setTool: function() {
             if(!ctrl.canvas)
@@ -689,9 +691,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             } else if(toolId == 2) {
                 // TODO implement eraser
                 ctrl.canvas.isDrawingMode = false;
+                ctrl.canvas.selection = true;
                 ctrl.erasing = true;
             } else if(toolId == 3) {
                 // pointer tool
+                ctrl.canvas.selection = true;
                 ctrl.canvas.isDrawingMode = false;
             }
         },
@@ -743,7 +747,32 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           }
         }),
         
-        m("div.drawing-surface", 
+        m("div.drawing-surface", {
+                /*
+                config: function(el) {
+                    el.addEventListener("touchstart", function(e) {
+                        el.style = 'z-index: 4;';
+                    }, true);
+                    el.addEventListener("touchend", function(e) {
+                        el.style = 'z-index: 0;';
+                    }, true);
+                },
+ 
+                onmousedown: function() {
+                    // Update tool?
+                    console.log("mouse down");
+                },
+                onmouseup: function() {
+                    console.log("mouse up");
+                },
+                ontouchstart: function() {
+                    console.log("touch start");
+                },
+                ontouchend: function() {
+                    console.log("touch end");
+                }
+                */
+            },
             m("canvas.drawing-surface", {
                 config: function(el, isInit) {
                     // set tool?
@@ -757,7 +786,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     console.log("create canvas " + canvasId);
 
                     ctrl.canvas = new fabric.Canvas(canvasId, {
-                        isDrawingMode: ((args.tool() == 0) || (args.tool() == 1))
+                        isDrawingMode: ((args.tool() == 0) || (args.tool() == 1)),
+                        allowTouchScrolling: true
                     });
                     docs[currentDocument].canvas[args.pageNum] = ctrl.canvas;
 
@@ -784,6 +814,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     // Set up event handlers
                     // TODO shared state things here
                     ctrl.canvas.on({
+                        "touch:drag": function(e) {
+                            console.log(e);
+                        },
+                        "mouse:down": function(e) {
+                            console.log(e);
+                        },
+                        "mouse:up": function(e) {
+                            console.log(e);
+                        },
                         "object:selected": function() {
                             if(ctrl.erasing) {
                                 console.log("should erase! (object.selected)");
@@ -803,12 +842,20 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     args.docs(docs);
                 },
                 id: canvasId,
+                
                 onmousedown: function() {
                     // Update tool?
+                    console.log("mouse down");
                 },
                 onmouseup: function() {
-                
+                    console.log("mouse up");
                 },
+                ontouchstart: function() {
+                    console.log("touch start");
+                },
+                ontouchend: function() {
+                    console.log("touch end");
+                }
             })
         )
 
