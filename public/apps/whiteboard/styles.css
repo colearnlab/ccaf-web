@@ -66,11 +66,15 @@ html, body {
   padding: 0;
 }
 
-.color-swatch-holder {
+.color-swatch-holder, .mechanics-objects-holder {
   border: 2px solid rgba(0, 0, 0, 0);
   height: 40px;
   width: 40px;
   border-radius: 2px;
+}
+
+.mech-obj-button {
+    display: inline-block;
 }
 
 .tool-button > .color-swatch-holder {
@@ -82,8 +86,16 @@ html, body {
 }
 
 .tray-open {
-  height: 300px;
-  width: 40px;
+    position: relative;
+  /*height: 80vh;*/
+  width: 30vw;
+  left: -15vw;
+  background-color: rgba(0,0,0,0.5);
+  background-clip: padding-box;
+  border: 1em;
+  border-style: solid;
+  border-radius: 0.5em;
+  border-color: rgba(0,0,0,0.5);
 }
 
 .selected {

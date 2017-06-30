@@ -1,4 +1,4 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", "userColors"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, userColors) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, userColors, mechanicsObjects) {
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
@@ -6,9 +6,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
   var getUserColor = userColors.getColor; 
   var array;
   
-// stop fabric from stealing finger touches
-  fabric.isTouchSupported = false;
- 
   var colors = {
     0: "#000000",
     1: "#FF0000",
@@ -50,6 +47,32 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
     var d = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
     return d;
   }
+    
+    /*
+    var getPageNumber = function(scrollPos, npages) { 
+        // estimated fraction of a page the student can see
+        // TODO have the whiteboard app report this? or just measure how it 
+        // appears on the tablets and hard-code? The current value is from
+        // my laptop
+        var viewsize = 0.4;
+
+        // The first and last pages are special cases because they have less
+        // scrollable area than inner pages
+        var p1bound = (1 - viewsize / 2) / (npages - viewsize);
+        var pnbound = (npages - viewsize - (1 - viewsize / 2)) / (npages - viewsize);
+        var onpage = -1;
+        if(scrollPos < p1bound) {
+            onpage = 0;
+        } else if(scrollPos >= pnbound) {
+            onpage = npages - 1;
+        } else {
+            onpage = Math.floor((npages - 2) * (scrollPos - p1bound) / (pnbound - p1bound)) + 1;
+        }
+
+        // zero-indexed
+        return onpage;
+    };
+    */
 
   var Main = {
     controller: function(args) {
@@ -90,7 +113,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         },
         parseCanvasId: function(canvasId) {
             var rest = canvasId.slice("drawSurface-".length);
-            var hyphenIdx = res.indexOf('-');
+            var hyphenIdx = rest.indexOf('-');
             return {
                 doc: rest.slice(0, hyphenIdx),
                 page: rest.slice(hyphenIdx + 1)
@@ -108,38 +131,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             ctrl.docs(docs);
         },
 
-          /*
-        setTool: function(toolId) {
-            
-            var docs = ctrl.docs();
-            if(toolId == 0) {
-                // pen
-
-                // Set brush for all canvases
-                docs.map(function(doc) {
-                    doc.map(function(docpage) {
-                        if(docpage.canvas) {
-                            docpage.canvas.map(function(canvas) {
-                                canvas.free
-                            });
-                        }
-                    });
-                });
-            } else if(toolId == 1) {
-                // highlighter
-
-            } else if(toolId == 2) {
-                // eraser
-            } else if(toolId == 3) {
-                // pointer
-            } else {
-                console.log("unknown tool");
-            }
-
-            // ctrl.docs(docs);
-        },
-        */
- 
         userList: m.prop([]),
 
         // for recording which document each user is looking at
@@ -253,10 +244,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         },
         
         ///////////
-        addDrawPath: function(path) {
-            args.connection.transaction([["pages", ctrl.pageNumbers()[args.user], "paths", path]], function(p) {
+        addDrawPath: function(pathObj) {
+            /*args.connection.transaction([[]], function(p) {
                 console.log(p);
-            });
+
+            });*/
+            //args.connection.transactionJSON(
         },
         ///////////
           
@@ -428,6 +421,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           //ontouchend: args.undo
           src: "/shared/icons/Icons_F_Undo_W.png"
         }),
+          
+          m.component(MechanicsObjectSelect, args),
        
             m("img.tool-right.pull-right#pointer-tool", {
                 onmousedown: function() {
@@ -435,6 +430,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                 },
                 src: "/shared/icons/Icons_F_Pointer_W.png"
             }),
+
+
             m("img.tool-right.pull-right#eraser-tool", {
                 onmousedown: function() {
                     args.tool(2);
@@ -456,6 +453,238 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                 src: "/shared/icons/Icons_F_Pen_W.png"
             })
 
+      );
+    }
+  };
+  
+    
+  var MechanicsObjectSelect = {
+    controller: function(args) {
+      var ctrl = {
+        open: m.prop(false),
+
+          // this is dumb
+        recalcOffset: function() {
+            // The element at the center of the screen is the upper canvas, 
+            // so the previousSibling is the lower canvas with id information
+            var canvasElement = document.elementFromPoint(
+                document.body.clientWidth / 2,
+                document.body.clientHeight / 2
+            ).previousSibling;
+
+            // Get the fabric canvas based on the id
+            var canvInfo = args.parseCanvasId(canvasElement.id);
+            ctrl.canvas = args.docs()[canvInfo.doc].canvas[canvInfo.page];
+            
+            // Get the vertical offset so new objects will be created at the
+            // center of the window
+            if(ctrl.canvas) {
+                var jqCanvasElement = $(canvasElement);
+                ctrl.left = ctrl.canvas.width / 2;
+                ctrl.top = document.body.clientHeight / 2 - jqCanvasElement.offset().top;
+                // vertical scrolling only so don't bother with left offset
+            }
+        },
+        addObject: function(drawObj) {
+            // Add the object
+            if(drawObj instanceof Array) {
+                ctrl.canvas.add.apply(ctrl.canvas, drawObj);
+            } else {
+                ctrl.canvas.add(drawObj);
+            }
+        },
+
+          canvas: null,
+
+          // object properties (just guesses for now!)
+          left: 0, // left and top to be set in recalcOffset
+          top: 0,
+          distURange: 100,
+          distTRange: 100,
+          gridsize: 30,
+          arrowLength: 60,
+          
+          // triangular arrow lengths
+          minThickness: 5,
+          maxThickness: 50,
+        
+          strokeWidth: 4,
+          handleRadius: 4
+      };
+      return ctrl;
+    },
+    view: function(ctrl, args) {
+      return m("div.tool-button.tool-right.pull-right", {
+          style: "color: white",
+          config: function(el, isInit) {
+            if (!isInit) {
+                /*
+              document.addEventListener("mousedown", ctrl.open.bind(null, false), true);
+              document.addEventListener("touchstart", ctrl.open.bind(null, false), true);
+            */
+            }
+          }
+        },
+        m("div.mechanics-objects-holder", {
+          onmousedown: function(e) {
+            ctrl.open(!ctrl.open());
+          },
+          ontouchend: function() {
+            ctrl.open(!ctrl.open());
+          },
+          onclick: function() {
+              // Choose pointer tool on open or close
+              args.tool(3);
+          }
+        },
+        "Objects"
+        ),
+        m("div#mech-objs-tray", {
+          class: ctrl.open() ? "tray-open" : "tray-closed"
+        },
+            
+        // TODO get icons!
+        // Object buttons here!
+        m("strong", "FBD Concentrated Forces"),
+        m("p", ["FU", "FD", "FL", "FR"].map(function(letters) {
+            return m("button.btn.btn-info.mech-obj-button#add" + letters, {
+                onclick: function() {
+                    var angles = {FU: -90, FD: 90, FL: 180, FR: 0}; 
+                    ctrl.recalcOffset();
+                    ctrl.addObject(
+                        new mechanicsObjects.Arrow({                   
+                            left: ctrl.left,  
+                            top: ctrl.top, 
+                            width: 2 * ctrl.arrowLength,
+                            angle: angles[letters], 
+                            name: letters,
+                            stroke: 'green',
+                            strokeWidth: 2.5, 
+				            originX:'center', 
+                            originY: 'center', 
+                            padding: 6
+                        })
+                    );
+                }
+           }, "Add " + letters);
+        })),
+
+        m("strong", "FBD Distributed Load"),
+        m("p", ["DUU", "DUD"].map(function(letters) {
+            return m("button.btn.btn-info.mech-obj-button#add" + letters, {
+                onclick: function() {
+                    var angles = {DUU: -90, DUD: 90, };
+                    ctrl.recalcOffset();
+                    ctrl.addObject(
+                        mechanicsObjects.makeDistUnifLoad({
+                            left: ctrl.left, 
+                            top: ctrl.top, 
+                            range: ctrl.distURange, 
+                            thickness: ctrl.arrowLength, 
+                            angle: angles[letters], 
+                            spacing: ctrl.gridsize / 2
+                        })
+                    );
+                }
+           }, "Add DUU");
+        }), ["DTUA", "DTUD", "DTDA", "DTDD"].map(function(letters) {
+           return m("button.btn.btn-info.mech-obj-button#add" + letters, {
+                onclick: function() {
+                    var angles = {DTUA: -90, DTUD: -90, DTDA: 90, DTDD: 90};
+                    var flipped = {DTUA: false, DTUD: true, DTDA: false, DTDD: true};
+                    ctrl.recalcOffset();
+                    ctrl.addObject(
+                        mechanicsObjects.makeDistTrianLoad({
+                            left: ctrl.left, 
+                            top: ctrl.top, 
+                            range: ctrl.distTRange, 
+                            thickness: ctrl.arrowLength / 4, 
+                            angle: angles[letters], 
+                            spacing: ctrl.gridsize / 2,
+                            flipped: flipped[letters],
+                            minThickness: ctrl.minThickness,
+                            maxThickness: ctrl.maxThickness
+                        })
+                    );
+                }
+           }, "Add " + letters);
+        })),
+        
+        m("strong", "FBD Moments"),
+        m("p", ["MC", "MCC"].map(function(letters) {
+            return m("button.btn.btn-info.mech-obj-button#add" + letters, {
+                onclick: function() {
+                    ctrl.recalcOffset();
+                    ctrl.addObject(
+                        new mechanicsObjects.Arc({                
+                            left: ctrl.left, top: ctrl.top,    
+                            originX: 'center', originY: 'center',                
+                            width: 2 * ctrl.arrowLength, 
+                            height: 2 * ctrl.arrowLength, 
+                            radius: ctrl.arrowLength, 
+                            startAngle: -110, endAngle: 110,    
+                            strokeWidth: 2,  fill: 'magenta', stroke: 'magenta',
+                            clockwise: (letters == "MC"),
+                            angle: -20,
+                            name: letters
+                        })
+                    );
+                }    
+            }, "Add " + letters);
+        })),
+        
+        m("strong", "V and M lines"),
+        m("p",
+           m("button.btn.btn-info.mech-obj-button#addControlledLine", {
+                onclick: function() {
+                    ctrl.recalcOffset();
+                    ctrl.addObject(
+                        mechanicsObjects.addControlledLine(null, {
+                            x1: ctrl.left,
+                            y1: ctrl.top,
+                            x2: ctrl.left + 50,
+                            y2: ctrl.top + 50,
+                            handleRadius: ctrl.handleRadius,
+                            strokeWidth: ctrl.strokeWidth
+                        })
+                    ); 
+                }    
+           }, "Add Controlled Line"),
+           m("button.btn.btn-info.mech-obj-button#addQuadratic", {
+                onclick: function() {
+                    ctrl.recalcOffset();
+                    ctrl.addObject(
+                        mechanicsObjects.addControlledCurvedLine(null, {
+                            x1: ctrl.left,
+                            y1: ctrl.top,
+                            x2: ctrl.left + 100,
+                            y2: ctrl.top + 50,
+                            x3: ctrl.left + 100,
+                            y3: ctrl.top + 100,
+                            handleRadius: ctrl.handleRadius,
+                            strokeWidth: ctrl.strokeWidth
+                        })
+                    ); 
+                }    
+           }, "Add Quadratic")
+        ),
+        
+        /*
+        m("strong", "Help buttons (not graded):"),
+        m("p",
+            m("button.btn.btn-info.mech-obj-button#addHelpLine", {
+                onclick: function() {
+                    ctrl.recalcOffset();
+                    ctrl.addObject(
+
+                    );
+                }
+           
+           }, "Add Help Line")
+        )
+        */
+
+        )
       );
     }
   };
@@ -814,24 +1043,38 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     // Set up event handlers
                     // TODO shared state things here
                     ctrl.canvas.on({
-                        "touch:drag": function(e) {
+                        "object:added": function(e) {
+                            console.log("object added");
                             console.log(e);
                         },
-                        "mouse:down": function(e) {
+                        "object:modified": function(e) {
+                            console.log("object modified");
                             console.log(e);
                         },
-                        "mouse:up": function(e) {
+                        "object:removed": function(e) {
+                            console.log("object removed");
                             console.log(e);
                         },
+
+                        "path:created": function(e) {
+                            console.log("path created");
+                            console.log(e);
+
+                            // path: e.path
+                            //
+                        },
+
+
+                        // erasing
                         "object:selected": function() {
                             if(ctrl.erasing) {
-                                console.log("should erase! (object.selected)");
+                                //console.log("should erase! (object.selected)");
                                 ctrl.deleteSelected();
                             }
                         },
                         "selection:created": function() {
                             if(ctrl.erasing) {
-                                console.log("should erase! (selection.created)");
+                                //console.log("should erase! (selection.created)");
                                 ctrl.deleteSelected();
                             }
                         },
