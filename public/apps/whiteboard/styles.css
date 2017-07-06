@@ -266,7 +266,7 @@ svg.scrollbar {
     right: 1em;
     top: 9vh; 
     height: 89vh;
-    width: 2em;
+    width: 20px;
 
     background-color: #f3f8fb;
     border-radius: 2em;

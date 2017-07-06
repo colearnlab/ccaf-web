@@ -1,4 +1,4 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, userColors, mechanicsObjects) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", /*"uuidv1",*/ "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, /*uuidv1,*/ userColors, mechanicsObjects) {
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
@@ -38,6 +38,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
       }
       ctrl.remotePages(store.pages || {});
       requestAnimationFrame(m.redraw);
+    });
+
+    connection.addObserver(function(store) {
+        console.log(store);
     });
 
     window.addEventListener("resize", m.redraw.bind(null, true));
@@ -91,6 +95,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         
         // stores index of current document for each user
         pageNumbers: m.prop({}),
+
+        addObserver: args.connection.addObserver.bind(args.connection),
 
         drawn: m.prop([]),
         pdfs: m.prop([]),
@@ -178,6 +184,51 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             });
           }
         },
+        addObjectSimple: function(doc, page, newobj) {
+            ctrl.currentPage = page;
+            args.connection.transaction([["doc", doc, "pages"]], function(pages) {
+              ctrl.curId = pages._id || 0;
+              var res = args.connection.transaction([["doc", doc, "pages", page, "paths", "+"]], function(newobj) {
+                path[0] = newobj;
+                path[1] = args.user;
+
+                /*
+                args.connection.transaction([["undoStack", args.user]], function(undoStack) {
+                  var undoStackHeight = array.length(undoStack);
+                  if (undoStackHeight > 25) {
+                    array.splice(undoStack, undoStack.height - 25);
+                  }
+
+                  array.push(undoStack, {action: "add-path", page: page, path: newPath});
+                });
+                */
+              });
+              return false;
+            });
+          },
+
+          addObjectSimple2: function(addMapping) {
+            args.connection.transaction([["objectAdd"]], function(objectAddList) {
+                objectAddList.append(addMapping);
+            });
+          },
+          // TODO !!!!!!!!!!!!
+          // updateMapping: {uuid -> update diff object}
+          modifyObjectSimple: function(updateMapping) {
+            args.connection.transaction([["objectMods"]], function(objectModList) {
+                objectModList.append(updateMapping);
+            });
+          },
+
+        // Producer
+        modifyObject: function(newModList) {
+            // maps uuid to object
+            args.connection.transaction([["modQueue"]], function(objectModList) {
+                // Add to queue!
+                objectModList.concat(newModList);
+            });
+        },
+
         addPoint: function(x, y) {
           if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
             if (ctrl.currentPath === null) return;
@@ -276,10 +327,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           // TODO get correct position!
         // Update users' page positions
         ctrl.userList().map(function(user) {
-            ctrl.pageNumbers()[user.id] = 0;
+            if(!(user.id in ctrl.pageNumbers()))
+                ctrl.pageNumbers()[user.id] = 0;
         });
         m.redraw(true);
       });
+
+        /*
+      args.connection.addObserver(function(store) {
+          
+      });
+      */
 
       // Load all pdfs right away
       ClassroomSession.get(args.session).then(function(session) {
@@ -410,12 +468,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
 
-        
+        /* Disable clear-screen button for now 
         m("img.tool-right.pull-right#clear-screen", {
           onmousedown: args.clear,
           ontouchend: args.clear,
           src: "/shared/icons/Icons_F_Delete Pages_W.png"
-        }),
+        }),*/
         m("img.tool-right.pull-right#undo", {
           onmousedown: args.undo,
           //ontouchend: args.undo
@@ -812,21 +870,27 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
   var Scrollbar = {
       controller: function(args) {
           var ctrl = {
+              scrollbarHeight: m.prop(null)
           };
+
           return ctrl;
       },
       view: function(ctrl, args) {
-          return m("svg.scrollbar", 
+          return m("svg.scrollbar", {
+              config: function(el) {
+                  ctrl.scrollbarHeight(el.clientHeight);
+              }},
               args.userList().map(function(user) {
                   return m.component(ScrollbarCircle, {
                       scrollPositions: args.scrollPositions,
                       setScroll: args.setScroll,
                       user: user,
                       userList: args.userList,
-                      pointerEvents: args.user === user.id
+                      pointerEvents: args.user === user.id,
+                      scrollbarHeight: ctrl.scrollbarHeight
                   });
               }),
-              "Scrollbar here"
+              "Scrollbar"
           );
       }
   };
@@ -834,16 +898,26 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
   var ScrollbarCircle = {
     controller: function(args) {
         return {
+            radius: 9
         };
     },
     view: function(ctrl, args) {
         // TODO 
         var scrollPosition = args.scrollPositions()[args.user.id];
-        return m("circle.scrollbar-circle", {
+        /*return m("circle.scrollbar-circle", {
             cx: "calc(1em - 1px)",
             //cy: "calc(1em + " + Math.round(89 * scrollPosition) + "vh)",
             cy: "" + Math.round(scrollPosition * 100) + "%",
             r: "calc(1em - 2px)",
+            fill: getUserColor(args.userList(), args.user.id),
+            stroke: "none"
+        }, "");*/
+        return m("circle.scrollbar-circle", {
+            cx: "" + ctrl.radius + "px",
+            //cy: "calc(1em + " + Math.round(89 * scrollPosition) + "vh)",
+            //cy: "" + Math.round(scrollPosition * 100) + "%",
+            cy: "" + (ctrl.radius + (args.scrollbarHeight() - 2 * ctrl.radius) * scrollPosition) + "px",
+            r: "" + ctrl.radius + "px",
             fill: getUserColor(args.userList(), args.user.id),
             stroke: "none"
         }, "");
@@ -864,9 +938,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           //pdfs: args.pdfs,
           pageNumbers: args.pageNumbers,
           getCanvasId: args.getCanvasId,
+          startStrokeSimple: args.startStrokeSimple,
           user: args.user,
           docs: args.docs,
             tool: args.tool,
+            addObserver: args.addObserver,
 
           lastDrawn: args.lastDrawn,
           pageNum: i, 
@@ -946,6 +1022,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     ctrl.canvas.remove(obj);
                 });
             }
+        },
+        addObject: function(newobj) {
+            if(!ctrl.canvas)
+                return;
+
+            ctrl.canvas.add(newobj);
+            ctrl.canvas.objsByUUID[newobj.uuid] = newobj;
         }
       };
 
@@ -1036,6 +1119,46 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     if(contents) {
                         ctrl.canvas.loadFromJSON(contents);
                     }
+                    ctrl.canvas.objsByUUID = {};
+
+                    console.log("Canvas:");
+                    console.log(ctrl.canvas);
+
+                    
+                    args.addObserver(function(store) {
+                        // Add any new paths or modify
+                        if(!store.doc
+                            || !store.doc[currentDocument]
+                            || !store.doc[currentDocument].pages
+                            || !store.doc[currentDocument].pages[args.pageNum]
+                            || !store.doc[currentDocument].pages[args.pageNum].paths
+                        ) {
+                            return;
+                        }
+
+                        var paths = store.doc[currentDocument].pages[args.pageNum].paths;
+                        if(!(paths instanceof Object))
+                            return;
+
+                        // Check on each path in store
+                        for(var pathstring in paths) {
+                            var pathobj = JSON.parse(pathstring);
+                            // Ignore if this path is our own
+                            if(pathobj.user == args.user)
+                                return;
+
+                            // Check if path already exists on canvas
+                            if(ctrl.canvas.objsByUUID[pathobj.uuid])
+                                return;
+
+                            // Otherwise add the object, building based on type
+                            ctrl.addObject(pathobj);
+                        }
+
+                        // TODO check for erased objects, or moved/modified
+
+                    });
+                    
 
                     // Use the right tool
                     ctrl.setTool();
@@ -1046,6 +1169,20 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                         "object:added": function(e) {
                             console.log("object added");
                             console.log(e);
+                            
+                            // Identify object by owner and unique ID
+                            e.target.user = args.user;
+                            e.target.uuid = uuidv1();
+                            e.target.doc = currentDocument;
+                            e.target.page = args.pageNum;
+                            ctrl.canvas.objsByUUID[e.target.uuid] = e.target;
+                            //ctrl.addObject(e.target);
+                            //args.addObjectSimple(currentDocument, args.pageNum, JSON.stringify(e.target.toJSON(['user', 'uuid'])));
+                            var newObjDict = {};
+                            newObjDict[e.target.uuid] = JSON.stringify(
+                                e.target.toJSON(['user', 'uuid', 'doc', 'page'])
+                            );
+                            args.addObjectSimple2(newObjDict);
                         },
                         "object:modified": function(e) {
                             console.log("object modified");
@@ -1054,16 +1191,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                         "object:removed": function(e) {
                             console.log("object removed");
                             console.log(e);
+
+                            // TODO send object removed to store
+                            // args.removeObjectSimple(e.target.uuid);
                         },
 
+                        /*
                         "path:created": function(e) {
                             console.log("path created");
-                            console.log(e);
-
-                            // path: e.path
-                            //
+                            //console.log(e);
                         },
-
+                        */
 
                         // erasing
                         "object:selected": function() {
