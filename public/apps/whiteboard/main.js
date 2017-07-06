@@ -667,7 +667,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     ); 
                 }    
            }, "Add Quadratic")
-        ),
+        )
         
         /*
         m("strong", "Help buttons (not graded):"),
