@@ -40,9 +40,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
       requestAnimationFrame(m.redraw);
     });
 
+    /*
     connection.addObserver(function(store) {
         console.log(store);
     });
+    */
 
     window.addEventListener("resize", m.redraw.bind(null, true));
   };
@@ -581,7 +583,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
               document.addEventListener("touchstart", ctrl.open.bind(null, false), true);
             */
             }
-          }
+
+          },
+          onclick: m.redraw
         },
         m("div.mechanics-objects-holder", {
           onmousedown: function(e) {
@@ -1124,7 +1128,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     console.log("Canvas:");
                     console.log(ctrl.canvas);
 
-                    
+                    /*
                     args.addObserver(function(store) {
                         // Add any new paths or modify
                         if(!store.doc
@@ -1157,7 +1161,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
 
                         // TODO check for erased objects, or moved/modified
 
-                    });
+                    });*/
                     
 
                     // Use the right tool
@@ -1165,7 +1169,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
 
                     // Set up event handlers
                     // TODO shared state things here
-                    ctrl.canvas.on({
+                    ctrl.canvas.on({/*
                         "object:added": function(e) {
                             console.log("object added");
                             console.log(e);
@@ -1194,7 +1198,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
 
                             // TODO send object removed to store
                             // args.removeObjectSimple(e.target.uuid);
-                        },
+                        },*/
 
                         /*
                         "path:created": function(e) {
