@@ -7,6 +7,7 @@ requirejs.config({
     'jquery': '/lib/jquery',
     'bootstrap': '/lib/bootstrap',
     "typeahead": "/lib/bootstrap3-typeahead",
+    "uuidv1": "/lib/uuidv1",
 
     "models": "/shared/models",
     "userPicker": "/shared/userPicker",
