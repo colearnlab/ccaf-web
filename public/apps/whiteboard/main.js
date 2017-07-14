@@ -1,4 +1,4 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", "uuidv1", "userColors", "./mechanicsObjects2.js"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, uuidv1, userColors, mechanicsObjects) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", "uuidv1", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, uuidv1, userColors, mechanicsObjects) {
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
@@ -154,22 +154,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
 
         // for recording which document each user is looking at
         setPage: function(pageNum) {
-            // Load any new changes to the pages
-            /*
-            var docs = ctrl.docs();
-            for(var pn in docs[pageNum].changeQueue) {
-                var queue = docs[pageNum].changeQueue[pn];
-                var canvas = docs[pageNum].canvas[pn];
-                while(queue.length) {
-                    var update = queue.splice(0,1);
-                    docs[pageNum].changeQueue[pn] = queue.slice(1);
-                    
-                    var updateObj = JSON.parse(update.data);
-                    updateObj.uuid = JSON.parse(update.meta).uuid;
-                    ctrl.applyUpdate(updateObj, canvas);
-                }
-            }
-            */
             var canvases = ctrl.docs()[pageNum].canvas,
                 queue = ctrl.updateQueue;
             for(var i = 0; i < queue.length; i++) {
@@ -618,7 +602,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           src: "/shared/icons/Icons_F_Undo_W.png"
         }),
           
-          m.component(MechanicsObjectSelect, args),
+          // Only show the objects menu if we're on the third page (the sketch page)
+          (args.pageNumbers()[args.user] == 2) ? m.component(MechanicsObjectSelect, args) : "",
        
             m("img.tool-right.pull-right#pointer-tool", {
                 onmousedown: function() {
