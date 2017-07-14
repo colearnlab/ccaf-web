@@ -98,9 +98,12 @@ define(["exports"], function(exports) {
       updates: updates
     });
 
+      // Don't run own observers
+    /*
     this.observers.forEach((function(observer) {
       observer(this.store);
     }).bind(this));
+    */
   };
 
   function getByPath(obj, path, i, createdPropPaths) {
@@ -169,6 +172,7 @@ define(["exports"], function(exports) {
     var channel = envelope.channel,
         message = envelope.message;
 
+    console.log(message);
     var p, path;
     switch(channel) {
       case "set-store":
@@ -206,6 +210,7 @@ define(["exports"], function(exports) {
           path = p.split(".");
           getByPath(this.store, path.slice(0, -1))[path.pop()] = message.updates[p];
         }
+            console.log(transaction);
         this.transaction(transaction.paths, transaction.action, message.seq);
         break;
       case "connected-users":
