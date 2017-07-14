@@ -10,7 +10,7 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     // These are all classes that create and return the object, but don't add it to the canvas.
 
 	mechanicsObjects.Arrow = fabric.util.createClass(fabric.Object, {
-		type: 'arrow',
+		type: 'Arrow',
 		initialize: function(options) {
 			options = options || {};
 			this.callSuper("initialize", options);
@@ -58,7 +58,26 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     // ======================================================================================
     
     mechanicsObjects.Arc = fabric.util.createClass(fabric.Object, {
-		type: 'arc',
+		type: 'Arc',
+        getDefaultOptions: function() {
+            return { 
+                type: "Arc",
+                left: 0, 
+                top: 0,    
+                originX: 'center', 
+                originY: 'center',                
+                width: 120, 
+                height: 120, 
+                radius: 60, 
+                startAngle: -110, 
+                endAngle: 110,    
+                strokeWidth: 2,  
+                fill: 'magenta', 
+                stroke: 'magenta',
+                clockwise: false,
+                angle: -20
+            };
+        },
 		initialize: function(options) {
 			options = options || {};
 			this.callSuper("initialize", options);
@@ -76,10 +95,10 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			this.setControlVisible('mb',false);   
 			this.setControlVisible('ml',false);
 			this.setControlVisible('mr',false); 
-			this.setControlVisible('mtr',false);   
+			this.setControlVisible('mtr',false);
 		},
 		toObject: function() {
-			return fabric.util.object.extend(this.callSuper('toObject'), {
+			return fabric.util.object.extend(this.callSuper('toObject', Object.keys(this.getDefaultOptions())), {
                 name: this.get('name')
 				//arrowheadOffsetRatio: this.get('arrowheadOffsetRatio'),
 				//arrowheadWidthRatio: this.get('arrowheadWidthRatio'),
@@ -373,64 +392,68 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     //     range: horizontal width of the load
     //     spacing: horizontal spacing of the arrows
     //     thickness: vertical thickness of the load
+    
+    mechanicsObjects.DistUnifLoad = fabric.util.createClass(fabric.Group, {
+		type: 'DistUnifLoad',
+	    getDefaultOptions: function() {
+            return {
+                name: "arrow",
+                left: 0,  
+                top: 0, 
+                arrowWidth: 120,
+                arrowAngle: 0, 
+                //stroke: 'green',
+                strokeWidth: 2.5, 
+                originX: 'center', 
+                originY: 'center', 
+                padding: 6,
+                range: 100,
+                spacing: 15,
+                thickness: 60 
+            };
+        },
+		initialize: function(options) {
+			options = options || {};
+            var optionsWithDefaults = Object.assign({}, this.getDefaultOptions(), options);
 
-    mechanicsObjects.addDistUnifLoad = function(canvas, options, submittedAnswer, answerName) {
-        var obj = this.makeDistUnifLoad(options);
-        canvas.add(obj);
-        if (!submittedAnswer) return obj;
+            // construct fabric.Group base
+            this.callSuper("initialize", [], optionsWithDefaults);
 
-        // save location for updates
-        var initSubObjLeft = options.left;
-        var initSubObjTop = options.top;
-        var initObjLeft = obj.left;
-        var initObjTop = obj.top;
+            // Make arrows
+            var arrowTop = this.top,
+                arrowLeft = this.left,
+                arrowSpacing = this.spacing;
+            var nSpaces = this.range / this.spacing;
+            for(var i = 0; i <= nSpaces; i++) {
+                var eachArrow = new mechanicsObjects.Arrow({
+                    left: arrowLeft + i * arrowSpacing,
+                    top: arrowTop,
+                    width: this.thickness,
+                    angle: this.arrowAngle
+                });
+                //this.callSuper('addWithUpdate', eachArrow);
+                this.addWithUpdate(eachArrow);
+            }
 
-        var subObj = _.clone(options);
-        if (!subObj.id) subObj.id = this.newID();
-        subObj.type = 'distUnifLoad';
-        this.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-
-        var that = this;
-        obj.on('modified', function() {
-            subObj.left = initSubObjLeft + obj.left - initObjLeft,
-            subObj.top = initSubObjTop + obj.top - initObjTop,
-            that.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-        obj.on('removed', function() {
-            that.removeSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-
-        return obj;
-    };
-
-    mechanicsObjects.byType['distUnifLoad'] = mechanicsObjects.addDistUnifLoad;
-
-    mechanicsObjects.makeDistUnifLoad = function(options) { 
-        var nSpaces = options.range/options.spacing;
-        var groupName = '';
-        if (options.angle == -90)  groupName = 'DUU';
-        else if (options.angle == 90)  groupName = 'DUD';
-        var group = new fabric.Group([ ], { left: 0, top: 0 , name: groupName}); 
-        for (i=0;i<=nSpaces;i++) {
-            var eachArrow = new mechanicsObjects.Arrow({
-                left: options.left + i*options.spacing,
-                top: options.top,
-                width: options.thickness,
-                angle: options.angle,
-            });
-            group.addWithUpdate(eachArrow);
-        }  
-		group.setControlVisible('bl',false);
-		group.setControlVisible('tl',false);
-		group.setControlVisible('br',false);
-		group.setControlVisible('tr',false);
-		group.setControlVisible('mt',false);
-		group.setControlVisible('mb',false);   
-		group.setControlVisible('ml',false);
-		group.setControlVisible('mr',false); 
-		group.setControlVisible('mtr',false);           
-        return group;
-    };
+            // Hide controls
+            this.setControlVisible('bl', false);
+			this.setControlVisible('tl', false);
+			this.setControlVisible('br', false);
+			this.setControlVisible('tr', false);
+			this.setControlVisible('mt', false);
+			this.setControlVisible('mb', false);   
+			this.setControlVisible('ml', false);
+			this.setControlVisible('mr', false); 
+			this.setControlVisible('mtr', false);
+		},
+		toObject: function(extra) {
+            // Call parent toObject but discard information about the arrows
+            var keys = Object.keys(this.getDefaultOptions());
+			var wholeObject = this.callSuper('toObject', keys.concat(extra || []));
+            delete wholeObject.objects;
+            return wholeObject;
+		}
+    });
     
     // ======================================================================================
     // distTrianLoad
@@ -443,69 +466,78 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     //     spacing: horizontal spacing of the arrows
     //     minThickness: minimum vertical thickness of the load
     //     maxThickness: maximum vertical thickness of the load
+    
+    mechanicsObjects.DistTrianLoad = fabric.util.createClass(fabric.Group, {
+		type: 'DistTrianLoad',
+	    getDefaultOptions: function() {
+            return {
+                name: "arrow",
+                left: 0,  
+                top: 0, 
+                arrowWidth: 120,
+                arrowAngle: 0, 
+                //stroke: 'green',
+                strokeWidth: 2.5, 
+                originX: 'center', 
+                originY: 'center', 
+                padding: 6,
+                range: 100,
+                spacing: 15,
+                thickness: 60,
+                flipped: false,
+                minThickness: 5,
+                maxThickness: 50
+            };
+        },
+        initialize: function(options) {
+			options = options || {};
+            var optionsWithDefaults = Object.assign({}, this.getDefaultOptions(), options);
 
-    mechanicsObjects.addDistTrianLoad = function(canvas, options, submittedAnswer, answerName) {
-        var obj = this.makeDistTrianLoad(options);
-        canvas.add(obj);
-        if (!submittedAnswer) return obj;
+            // construct fabric.Group base
+            this.callSuper("initialize", [], optionsWithDefaults);
 
-        // save location for updates
-        var initSubObjLeft = options.left;
-        var initSubObjTop = options.top;
-        var initObjLeft = obj.left;
-        var initObjTop = obj.top;
+            // Make arrows
+            var arrowTop = this.top,
+                arrowLeft = this.left,
+                arrowSpacing = this.spacing;
+            var nSpaces = this.range / this.spacing;
+            for(var i = 0; i <= nSpaces; i++) {
+                var eachArrow = new mechanicsObjects.Arrow({
+                    left: arrowLeft + i * arrowSpacing,
+                    top: arrowTop,
+                    width: this.minThickness + (i / nSpaces) * (this.maxThickness - this.minThickness),
+                    angle: this.arrowAngle
+                });
+                //this.callSuper('addWithUpdate', eachArrow);
+                this.addWithUpdate(eachArrow);
+            }
+            this.set('flipX', this.flipped);
 
-        var subObj = _.clone(options);
-        if (!subObj.id) subObj.id = this.newID();
-        subObj.type = 'distTrianLoad';
-        this.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
+            // Hide controls
+            this.setControlVisible('bl', false);
+			this.setControlVisible('tl', false);
+			this.setControlVisible('br', false);
+			this.setControlVisible('tr', false);
+			this.setControlVisible('mt', false);
+			this.setControlVisible('mb', false);   
+			this.setControlVisible('ml', false);
+			this.setControlVisible('mr', false); 
+			this.setControlVisible('mtr', false);
+		
+        },
+		toObject: function(extra) {
+            // Call parent toObject but discard information about the arrows
+            var keys = Object.keys(this.getDefaultOptions());
+			var wholeObject = this.callSuper('toObject', keys.concat(extra || []));
+            delete wholeObject.objects;
+            return wholeObject;
+		},
+        /*
+		_render: function(ctx) {
+            
+        }*/
+    });
 
-        var that = this;
-        obj.on('modified', function() {
-            subObj.left = initSubObjLeft + obj.left - initObjLeft,
-            subObj.top = initSubObjTop + obj.top - initObjTop,
-            that.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-        obj.on('removed', function() {
-            that.removeSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-
-        return obj;
-    };
-
-    mechanicsObjects.byType['distTrianLoad'] = mechanicsObjects.addDistTrianLoad;
-
-    mechanicsObjects.makeDistTrianLoad = function(options) { 
-        var nSpaces = options.range/options.spacing;
-        var groupName = '';
-        if (options.angle == -90 && !options.flipped)  groupName = 'DTUA';
-        else if (options.angle == -90 && options.flipped)  groupName = 'DTUD';
-        else if (options.angle == 90 && options.flipped)  groupName = 'DTDD';
-        else if (options.angle == 90 && !options.flipped)  groupName = 'DTDA';
-        var group = new fabric.Group([ ], { left: 0, top: 0 , name: groupName}); 
-        for (i=0;i<=nSpaces;i++) {
-            var eachArrow = new mechanicsObjects.Arrow({     
-                left: options.left + i*options.spacing,
-                top: options.top,
-                width: options.minThickness + (i/nSpaces) * (options.maxThickness - options.minThickness),
-                //width: options.thickness,
-                angle: options.angle,
-            });
-            console.log(eachArrow.width);
-            group.addWithUpdate(eachArrow);
-        }  
-		group.setControlVisible('bl',false);
-		group.setControlVisible('tl',false);
-		group.setControlVisible('br',false);
-		group.setControlVisible('tr',false);
-		group.setControlVisible('mt',false);
-		group.setControlVisible('mb',false);   
-		group.setControlVisible('ml',false);
-		group.setControlVisible('mr',false); 
-		group.setControlVisible('mtr',false);
-        group.set({flipX:options.flipped});
-        return group;
-    };
     
     // ======================================================================================
     // controlledLine
@@ -517,11 +549,128 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     //     y2: top coordinate of second end
     //     handleRadius: radius of the control circles on each end
     //     strokeWidth: stroke width of the line
+   
+    /*
+    mechanicsObjects.Line = fabric.util.createClass(fabric.Group, {
+        type: "Line",
+        getDefaultOptions: function() {
+            return {
+                strokeWidth: 4,
+                stroke: 'red',
+                handleRadius: 4,
+                handleFill: 'white',
+                handleStroke: '#666',
+                selectable: true
+            };
+        },
+        initialize: function(options) {
+			options = options || {};
+            
+            var optionsWithDefaults = Object.assign({}, options, this.getDefaultOptions());
+            var members = [];
+            members.push(new fabric.Line([
+                optionsWithDefaults.x1, 
+                optionsWithDefaults.y1, 
+                optionsWithDefaults.x2, 
+                optionsWithDefaults.y2
+              ], {
+                stroke: optionsWithDefaults.stroke,
+                strokeWidth: optionsWithDefaults.strokeWidth,
+                selectable: false,
+                name: "controlledLine",
+                originX: 'center',
+                originY: 'center'
+            }));
+            members.push(new fabric.Circle({
+                left: optionsWithDefaults.x1,
+                top: optionsWithDefaults.y1,
+                strokeWidth: optionsWithDefaults.strokeWidth,
+                radius: optionsWithDefaults.handleRadius,
+                fill: optionsWithDefaults.handleFill,
+                stroke: optionsWithDefaults.handleStroke,
+                originX: 'center',
+                originY: 'center',
+                excludeFromExport: true,
+                name: "controlHandle",
+                hasControls: false,
+                selectable: true
+            }));
+            members.push(new fabric.Circle({
+                left: optionsWithDefaults.x2,
+                top: optionsWithDefaults.y2,
+                strokeWidth: optionsWithDefaults.strokeWidth,
+                radius: optionsWithDefaults.handleRadius,
+                fill: optionsWithDefaults.handleFill,
+                stroke: optionsWithDefaults.handleStroke,
+                originX: 'center',
+                originY: 'center',
+                excludeFromExport: true,
+                name: "controlHandle",
+                hasControls: false
+            }));
+
+
+            members[1].on('modified', (function() {
+                members[0].set(this.x1 = members[1].left);
+                members[0].set(this.y1 = members[1].top);
+            }).bind(this));
+        
+            members[2].on('modified', (function() {
+                members[0].set(this.x2 = members[2].left);
+                members[0].set(this.y2 = members[2].top);
+            }).bind(this));
+
+            members[1].on('moving', (function() {
+                members[0].set({ 
+                    x1: this.x1 = members[1].left,
+                    y1: this.y1 = members[1].top 
+                });
+            }).bind(this));
+        
+            members[2].on('moving', (function() {
+                members[0].set({ 
+                    x1: this.x1 = members[2].left,
+                    y1: this.y1 = members[2].top 
+                });
+            }).bind(this));
+        
+            members[0].on('removed', this.remove)
+            members[1].on('removed', this.remove)
+            members[2].on('removed', this.remove)
+            
+            this.callSuper('initialize', members, optionsWithDefaults);
+            
+
+            // Hide controls
+            this.setControlVisible('bl', false);
+			this.setControlVisible('tl', false);
+			this.setControlVisible('br', false);
+			this.setControlVisible('tr', false);
+			this.setControlVisible('mt', false);
+			this.setControlVisible('mb', false);   
+			this.setControlVisible('ml', false);
+			this.setControlVisible('mr', false); 
+			this.setControlVisible('mtr', false);
+            this.hasControls = false;
+		},
+		toObject: function(extra) {
+            var keys = Object.keys(this.getDefaultOptions());
+			var wholeObject = this.callSuper('toObject', keys.concat(extra || []));
+            return wholeObject;
+        } 
+    });
+    */
 
     mechanicsObjects.addControlledLine = function(canvas, options, submittedAnswer, answerName) {
         var line = mechanicsObjects.makeControlStraightLine(options.x1, options.y1, options.x2, options.y2, options.strokeWidth);
+        line.left = options.left;
+        line.top = options.top;
         var c1 = mechanicsObjects.makeControlHandle(options.x1, options.y1, options.handleRadius, options.strokeWidth/2);
+        c1.left = options.left;
+        c1.top = options.top;
         var c2 = mechanicsObjects.makeControlHandle(options.x2, options.y2, options.handleRadius, options.strokeWidth/2);
+        c2.left = options.left;
+        c2.top = options.top;
         //canvas.add(line, c1, c2);
         //if (!submittedAnswer) return [line, c1, c2];
 
@@ -529,6 +678,13 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
         if (!subObj.id) subObj.id = this.newID();
         subObj.type = 'controlledLine';
         //this.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
+
+        line.on('modified', function() {
+            c1.left = line.x1;
+            c1.top = line.y1;
+            c2.left = line.x2;
+            c2.top = line.y2;
+        });
 
         //var that = this;
         c1.on('modified', function() {
@@ -558,12 +714,14 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             //that.removeSubmittedAnswerObject(submittedAnswer, answerName, subObj);
         });
 
+        // TODO make group?
+
         return [line, c1, c2];
     };
 
     mechanicsObjects.byType['controlledLine'] = mechanicsObjects.addControlledLine;
 	
-    mechanicsObjects.makeControlHandle = function(left, top, handleRadius, strokeWidth) {
+    mechanicsObjects.makeControlHandle = function(left, top, handleRadius, strokeWidth, num) {
         var c = new fabric.Circle({
             left: left,
             top: top,
@@ -586,8 +744,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             strokeWidth: strokeWidth,
             selectable: false,
             name: "controlledLine",
-            originX: 'center',
-            originY: 'center',
+            originX: 'left',
+            originY: 'top',
         });
         return line;
     };
