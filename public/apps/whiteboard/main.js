@@ -1,4 +1,4 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", /*"uuidv1",*/ "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, /*uuidv1,*/ userColors, mechanicsObjects) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "models", /*"interact",*/ "css", "uuidv1", "userColors", "./mechanicsObjects2.js"], function(exports, pdfjs, m, /*fabric,*/ models, /*interact,*/ css, uuidv1, userColors, mechanicsObjects) {
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
@@ -40,11 +40,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
       requestAnimationFrame(m.redraw);
     });
 
-    /*
-    connection.addObserver(function(store) {
-        console.log(store);
-    });
-    */
+    
+    //connection.addObserver(function(store) {
+        //console.log(store);
+    //});
+  
 
     window.addEventListener("resize", m.redraw.bind(null, true));
   };
@@ -108,17 +108,23 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         fireScrollEvent: true,
         lastX: 0,
         lastY: 0,
-        curId: 0,
+        curId: {},
         user: args.user,
         session: args.session,
         activity: m.prop(null),
         docs: m.prop({}),
+        firstLoad: true,
 
         lastDrawn: m.prop({}),
 
+        updateQueue: [],
+
+        // make a canvas ID string from document and page numbers
         getCanvasId: function(docIdx, pageNum) {
             return "drawSurface-" + docIdx + "-" + pageNum;
         },
+
+        // parse document and page numbers from a canvas ID string
         parseCanvasId: function(canvasId) {
             var rest = canvasId.slice("drawSurface-".length);
             var hyphenIdx = rest.indexOf('-');
@@ -131,11 +137,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         saveCanvases: function(docId) {
             var docs = ctrl.docs();
             var canvases = docs[docId].canvas;
-
             for(var pn in canvases) {
-                docs[docId].canvasContents[pn] = canvases[pn].toJSON();
+                var contents = docs[docId].canvasContents[pn] = [];
+                canvases[pn].forEachObject(function(obj) {
+                    console.log("Here");
+                    contents.push(obj.toObject(["name", "uuid"]));
+                });
+            //console.log(contents);
             }
 
+            
             ctrl.docs(docs);
         },
 
@@ -143,13 +154,39 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
 
         // for recording which document each user is looking at
         setPage: function(pageNum) {
+            // Load any new changes to the pages
+            /*
+            var docs = ctrl.docs();
+            for(var pn in docs[pageNum].changeQueue) {
+                var queue = docs[pageNum].changeQueue[pn];
+                var canvas = docs[pageNum].canvas[pn];
+                while(queue.length) {
+                    var update = queue.splice(0,1);
+                    docs[pageNum].changeQueue[pn] = queue.slice(1);
+                    
+                    var updateObj = JSON.parse(update.data);
+                    updateObj.uuid = JSON.parse(update.meta).uuid;
+                    ctrl.applyUpdate(updateObj, canvas);
+                }
+            }
+            */
+            var canvases = ctrl.docs()[pageNum].canvas,
+                queue = ctrl.updateQueue;
+            for(var i = 0; i < queue.length; i++) {
+                var update = queue[i];
+                if(update) {
+                    // If the update belongs on the current document, apply
+                    // and delete the entry in the queue
+                    if(update.meta.doc == pageNum) {
+                        ctrl.applyUpdate(update.data, canvases[update.meta.page]);
+                        delete queue[i];
+                        i--;
+                    }
+                }
+            }
+            
+            // Notify group
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
-                //console.log("page numbers");
-                //console.log(userCurrentPages);
-                /*
-                pageNumbers()[args.user] = pageNum;
-                pageNumbers().s = args.session;
-                */
                 userCurrentPages[args.user] = pageNum;
             });
         },
@@ -159,7 +196,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
             scrollPositions[args.user] = pos;
             scrollPositions.s = args.session;
-            console.log(scrollPositions);
+            ctrl.scrollPositions(scrollPositions || {});
           });
         },
         startStroke: function(page, x, y) {
@@ -186,50 +223,93 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             });
           }
         },
-        addObjectSimple: function(doc, page, newobj) {
-            ctrl.currentPage = page;
-            args.connection.transaction([["doc", doc, "pages"]], function(pages) {
-              ctrl.curId = pages._id || 0;
-              var res = args.connection.transaction([["doc", doc, "pages", page, "paths", "+"]], function(newobj) {
-                path[0] = newobj;
-                path[1] = args.user;
 
-                /*
-                args.connection.transaction([["undoStack", args.user]], function(undoStack) {
-                  var undoStackHeight = array.length(undoStack);
-                  if (undoStackHeight > 25) {
-                    array.splice(undoStack, undoStack.height - 25);
-                  }
+          doObjectTransaction: function(obj, canvas) {
+            args.connection.transaction([["objects", obj.uuid]], function(objects) {
+                ctrl.curId[obj.uuid] = objects._id || 0;
 
-                  array.push(undoStack, {action: "add-path", page: page, path: newPath});
+                var uuid = obj.uuid; // preserve uuid in case it's lost in toObject
+                if(obj.name != "remove") {
+                    obj = obj.toObject();
+                }
+                
+                // Damn son that was easy!
+                objects.data = JSON.stringify(obj);
+                objects.meta = JSON.stringify({
+                    page: canvas.page,
+                    doc: canvas.doc,
+                    u: args.user,
+                    uuid: uuid,
+                    _id: ctrl.curId[uuid]
                 });
-                */
-              });
-              return false;
             });
           },
 
-          addObjectSimple2: function(addMapping) {
-            args.connection.transaction([["objectAdd"]], function(objectAddList) {
-                objectAddList.append(addMapping);
-            });
-          },
-          // TODO !!!!!!!!!!!!
-          // updateMapping: {uuid -> update diff object}
-          modifyObjectSimple: function(updateMapping) {
-            args.connection.transaction([["objectMods"]], function(objectModList) {
-                objectModList.append(updateMapping);
-            });
-          },
+        addObject: function(obj, canvas, doAdd, doTransaction) {
+            if(doAdd) {
+                // Make
+                if(obj.type == "path") {
+                    obj = new fabric.Path(obj.path, obj);
+                } else if(obj.type == "line" || obj.type == "Line") {
+                    obj = mechanicsObjects.addControlledLine(null, obj);
+                } else if(obj.type && obj.type != 'circle') {
+                    console.log(obj.type);
+                    obj = new mechanicsObjects[obj.type](obj);
+                } else {
+                    // Do nothing if obj.type isn't defined
+                    return;
+                }
+                console.log(obj);
 
-        // Producer
-        modifyObject: function(newModList) {
-            // maps uuid to object
-            args.connection.transaction([["modQueue"]], function(objectModList) {
-                // Add to queue!
-                objectModList.concat(newModList);
-            });
+                // Add
+                if(obj instanceof Array) {
+                    canvas.add.apply(canvas, obj);
+                } else {
+                    canvas.add(obj);
+                }
+            }
+
+            console.log("add object");
+
+            // Generate UUID if none present for object
+            if(!('uuid' in obj)) {
+                obj.uuid = uuidv1();
+            }
+
+            // Store object with canvas by uuid
+            canvas.objsByUUID[obj.uuid] = obj;
+            
+            // if it's a controlled line/curve, don't include the control handles
+            if(obj instanceof Array) {
+                 obj[0].uuid = obj.uuid;
+                 obj[1].uuid = obj.uuid;
+                 obj[2].uuid = obj.uuid;
+                 obj = obj[0];
+            }
+
+            // Send the object
+            if(doTransaction)
+                ctrl.doObjectTransaction(obj, canvas);
         },
+
+
+        modifyObject: function(obj, canvas) {
+            ctrl.doObjectTransaction(obj, canvas);
+        },
+
+
+        removeObject: function(obj, canvas, doRemove, doTransaction) {
+            if(doRemove)
+                canvas.remove(obj);
+            
+            if(obj.uuid in canvas.objsByUUID)
+                delete canvas.objsByUUID[obj.uuid];
+
+            if(doTransaction)
+                ctrl.doObjectTransaction({uuid: obj.uuid, name: "remove"}, canvas);
+        },
+        /////////////////////////////////////////////////////////////////////////////
+
 
         addPoint: function(x, y) {
           if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
@@ -296,16 +376,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           });
         },
         
-        ///////////
-        addDrawPath: function(pathObj) {
-            /*args.connection.transaction([[]], function(p) {
-                console.log(p);
-
-            });*/
-            //args.connection.transactionJSON(
-        },
-        ///////////
-          
         undo: function() {
           args.connection.transaction([["undoStack", args.user]], function(undoStack) {
             var toUndo = array.pop(undoStack);
@@ -321,8 +391,28 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
               break;
             }
           });
-        }
+        },
+
+          applyUpdate: function(updateObj, canvas) {
+              if(updateObj.uuid in canvas.objsByUUID) {
+                  var canvasObj = canvas.objsByUUID[updateObj.uuid];
+                  
+                  if(updateObj.name == "remove") {
+                      // Remove object
+                      ctrl.removeObject(canvasObj, canvas, true, false);
+                  } else {
+                      // object exists so modify it
+                      canvasObj.set(updateObj);
+                  }
+                  canvas.renderAll();
+              } else {
+                  // object does not exist so create (no transaction)
+                  ctrl.addObject(updateObj, canvas, true, false);
+              }
+          } 
       };
+
+        //ctrl.pageNumbers()[args.user] = 0;
 
       args.connection.userList.addObserver(function(users) {
         ctrl.userList(users);
@@ -335,11 +425,50 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
         m.redraw(true);
       });
 
-        /*
-      args.connection.addObserver(function(store) {
-          
-      });
-      */
+      // Handle object updates
+      ctrl.objectObserver = function(store) {
+          console.log(store);
+          /*
+        for(var doc in store.objects) {
+            var pages = store.objects[doc];
+            for(var page in pages) {
+                var objmap = pages[page];
+                */
+                for(var uuid in store.objects /*objmap*/) {
+                    var update = store.objects[uuid]; /*objmap[uuid];*/
+                    var updateObj = JSON.parse(update.data),
+                        updateMeta = JSON.parse(update.meta);
+                    updateObj.uuid = updateMeta.uuid;
+                    //console.log(updateObj);
+                    //console.log(ctrl.curId);
+                    if(!(uuid in ctrl.curId)) {
+                        ctrl.curId[uuid] = updateMeta._id - 1;
+                    }
+
+                    if(updateMeta._id > ctrl.curId[uuid]) {
+                        ctrl.curId[uuid] = updateMeta._id;
+
+                        if(updateMeta.doc == ctrl.pageNumbers()[args.user]) {
+                            ctrl.applyUpdate(updateObj, ctrl.docs()[updateMeta.doc].canvas[updateMeta.page]);
+                        } else {
+                            console.log("queued update");
+                            //console.log(update);
+                            //ctrl.docs()[updateMeta.doc].changeQueue[updateObj.page].push(update);
+                            ctrl.updateQueue.push({data: updateObj, meta: updateMeta});
+                        }
+                    }
+                }
+
+          if(ctrl.firstLoad) {
+              ctrl.firstLoad = false;
+          }
+          /*
+            }
+        }
+        */
+      }
+
+      args.connection.addObserver(ctrl.objectObserver);
 
       // Load all pdfs right away
       ClassroomSession.get(args.session).then(function(session) {
@@ -356,7 +485,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                         canvas: {},
                         canvasWidth: {},
                         canvasHeight: {},
-                        canvasContents: {}
+                        canvasContents: {},
+                        //changeQueue: {}
                     };
 
                     for(var i = 0, len = pdf.numPages; i < len; i++) {
@@ -369,9 +499,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                                 canvas.height = viewport.height;
                                 canvas.width = viewport.width;
                                 canvasctx = canvas.getContext("2d");
+                                //ctrl.docs()[activitypage.pageNumber].changeQueue[pn] = [];
 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
+
+                                    // Make sure objects are shown
+                                    
+                                    ctrl.setPage(0);
+                                    
                                 });
                             });
                         })(i);
@@ -427,6 +563,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     args.lastDrawn({});
                     args.pageNumbers()[args.user] = doc;
                     m.redraw(true);
+                    args.setPage(doc);
                 }
             },
             src: "/shared/icons/Icons_F_Left_W.png"
@@ -439,12 +576,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     if(args.pageNumbers()[args.user] != page.pageNumber) {
                         args.saveCanvases(args.pageNumbers()[args.user]);
                         $('.canvas-container').remove();
-                        args.pageNumbers()[args.user] = page.pageNumber;
-                        
-                        args.setPage(page.pageNumber);
-                        
                         args.lastDrawn({});
+                        args.pageNumbers()[args.user] = page.pageNumber;
                         m.redraw(true);
+                        args.setPage(page.pageNumber);
                     }
                 },
                 // Use the filled-in circle if it's the current page
@@ -465,6 +600,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     args.lastDrawn({});
                     args.pageNumbers()[args.user] = doc;
                     m.redraw(true);
+                    args.setPage(doc);
                 }
             },
             src: "/shared/icons/Icons_F_Right_W.png"
@@ -545,14 +681,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                 // vertical scrolling only so don't bother with left offset
             }
         },
-        addObject: function(drawObj) {
-            // Add the object
-            if(drawObj instanceof Array) {
-                ctrl.canvas.add.apply(ctrl.canvas, drawObj);
-            } else {
-                ctrl.canvas.add(drawObj);
-            }
-        },
 
           canvas: null,
 
@@ -613,19 +741,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                 onclick: function() {
                     var angles = {FU: -90, FD: 90, FL: 180, FR: 0}; 
                     ctrl.recalcOffset();
-                    ctrl.addObject(
-                        new mechanicsObjects.Arrow({                   
+                    args.addObject(
+                        {
+                            type: "Arrow",
                             left: ctrl.left,  
                             top: ctrl.top, 
                             width: 2 * ctrl.arrowLength,
                             angle: angles[letters], 
-                            name: letters,
+                            //name: letters,
                             stroke: 'green',
                             strokeWidth: 2.5, 
 				            originX:'center', 
                             originY: 'center', 
                             padding: 6
-                        })
+                        },
+                        ctrl.canvas, true, true
                     );
                 }
            }, "Add " + letters);
@@ -637,15 +767,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                 onclick: function() {
                     var angles = {DUU: -90, DUD: 90, };
                     ctrl.recalcOffset();
-                    ctrl.addObject(
-                        mechanicsObjects.makeDistUnifLoad({
+                    args.addObject(
+                        {
+                            type: "DistUnifLoad",
                             left: ctrl.left, 
                             top: ctrl.top, 
                             range: ctrl.distURange, 
                             thickness: ctrl.arrowLength, 
-                            angle: angles[letters], 
+                            arrowAngle: angles[letters], 
                             spacing: ctrl.gridsize / 2
-                        })
+                        },
+                        ctrl.canvas, true, true
                     );
                 }
            }, "Add DUU");
@@ -655,18 +787,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     var angles = {DTUA: -90, DTUD: -90, DTDA: 90, DTDD: 90};
                     var flipped = {DTUA: false, DTUD: true, DTDA: false, DTDD: true};
                     ctrl.recalcOffset();
-                    ctrl.addObject(
-                        mechanicsObjects.makeDistTrianLoad({
+                    args.addObject(
+                        {
+                            type: "DistTrianLoad",
                             left: ctrl.left, 
                             top: ctrl.top, 
                             range: ctrl.distTRange, 
                             thickness: ctrl.arrowLength / 4, 
-                            angle: angles[letters], 
+                            angle: 0, 
+                            arrowAngle: angles[letters], 
                             spacing: ctrl.gridsize / 2,
                             flipped: flipped[letters],
                             minThickness: ctrl.minThickness,
                             maxThickness: ctrl.maxThickness
-                        })
+                        },
+                        ctrl.canvas, true, true
                     );
                 }
            }, "Add " + letters);
@@ -677,8 +812,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             return m("button.btn.btn-info.mech-obj-button#add" + letters, {
                 onclick: function() {
                     ctrl.recalcOffset();
-                    ctrl.addObject(
-                        new mechanicsObjects.Arc({                
+                    args.addObject(
+                        {
+                            type: "Arc",
                             left: ctrl.left, top: ctrl.top,    
                             originX: 'center', originY: 'center',                
                             width: 2 * ctrl.arrowLength, 
@@ -688,8 +824,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                             strokeWidth: 2,  fill: 'magenta', stroke: 'magenta',
                             clockwise: (letters == "MC"),
                             angle: -20,
-                            name: letters
-                        })
+                        },
+                        ctrl.canvas, true, true
                     );
                 }    
             }, "Add " + letters);
@@ -700,23 +836,28 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
            m("button.btn.btn-info.mech-obj-button#addControlledLine", {
                 onclick: function() {
                     ctrl.recalcOffset();
-                    ctrl.addObject(
-                        mechanicsObjects.addControlledLine(null, {
+                    args.addObject(
+                        {
+                            type: "Line",
+                            left: ctrl.left,
+                            top: ctrl.top,
                             x1: ctrl.left,
                             y1: ctrl.top,
                             x2: ctrl.left + 50,
                             y2: ctrl.top + 50,
                             handleRadius: ctrl.handleRadius,
-                            strokeWidth: ctrl.strokeWidth
-                        })
+                            strokeWidth: ctrl.strokeWidth,
+                            name: "controlledline"
+                        },
+                        ctrl.canvas, true, true
                     ); 
                 }    
            }, "Add Controlled Line"),
            m("button.btn.btn-info.mech-obj-button#addQuadratic", {
                 onclick: function() {
                     ctrl.recalcOffset();
-                    ctrl.addObject(
-                        mechanicsObjects.addControlledCurvedLine(null, {
+                    args.addObject(
+                        {
                             x1: ctrl.left,
                             y1: ctrl.top,
                             x2: ctrl.left + 100,
@@ -724,8 +865,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                             x3: ctrl.left + 100,
                             y3: ctrl.top + 100,
                             handleRadius: ctrl.handleRadius,
-                            strokeWidth: ctrl.strokeWidth
-                        })
+                            strokeWidth: ctrl.strokeWidth,
+                            name: "controlledcurvedline"
+                        },
+                        ctrl.canvas, true, true
                     ); 
                 }    
            }, "Add Quadratic")
@@ -751,115 +894,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
     }
   };
 
-    /*
-  var SizeSelect = {
-    controller: function() {
-      return {
-        open: m.prop(false)
-      };
-    },
-    view: function(ctrl, args) {
-      return m("div.tool-button", {
-          config: function(el, isInit) {
-            if (!isInit) {
-              document.addEventListener("mousedown", ctrl.open.bind(null, false));
-              document.addEventListener("touchstart", ctrl.open.bind(null, false));
-            }
-          }
-        },
-        m("div.color-swatch-holder", {
-          onmousedown: function(e) {
-            ctrl.open(!ctrl.open());
-          },
-          ontouchend: function() {
-            ctrl.open(!ctrl.open());
-          }
-        },
-          m("div.pen-size", {
-            style: "background-color: " + (colors[args.color[args.tool()]] || "black") + "; width: " + args.size() + "px; height:" + args.size() + "px; margin-top: " + (36 - args.size())/2 + "px; margin-left: " + (36 - args.size())/2 + "px;"
-          })
-        ),
-        m("div#pen-tray", {
-          class: ctrl.open() ? "tray-open" : "tray-closed"
-        },
-          [4, 8, 16, 24, 32].map(function(size) {
-            var handler = function() {
-              args.size(size);
-              ctrl.open(false);
-            };
-
-            return m("div.color-swatch-holder", {
-                onmousedown: handler,
-                ontouchend: handler
-              },
-              m(".pen-size", {
-                style: "background-color: " + (colors[args.color[args.tool()]] || "black") + "; width: " + size + "px; height:" + size + "px; margin-top: " + (36 - size)/2 + "px; margin-left: " + (36 - size)/2 + "px;",
-              })
-            );
-          })
-        )
-      );
-    }
-  };
-    */
-/*
-  var Tool = {
-    controller: function() {
-      return {
-        open: m.prop(false)
-      };
-    },
-    view: function(ctrl, args) {
-      return m("div.tool-button", {
-        config: function(el, isInit) {
-            if (!isInit) {
-              document.addEventListener("mousedown", ctrl.open.bind(null, false));
-              document.addEventListener("touchstart", ctrl.open.bind(null, false));
-            }
-          }
-        },
-        m("div.color-swatch-holder", {
-          class: (args.tool() === args.toolId ? "selected" : "")
-        },
-          m("div.color-swatch", {
-            style: "background-color: " + colors[args.color[args.toolId]],
-            onmousedown: function(e) {
-              if (args.tool() !== args.toolId)
-                args.tool(args.toolId);
-              else
-                ctrl.open(!ctrl.open());
-            },
-            ontouchend: function() {
-              if (args.tool() !== args.toolId)
-                args.tool(args.toolId);
-              else
-                ctrl.open(!ctrl.open());
-            }
-          })
-        ),
-        m("div#pen-tray", {
-          class: ctrl.open() && args.hasTray ? "tray-open" : "tray-closed"
-        },
-          Object.keys(colors).map(function(colorId) {
-            var handler = function() {
-              args.color[args.toolId] = colorId;
-              ctrl.open(false);
-            };
-
-            if (colorId == 4)
-              return "";
-
-            return m("div.color-swatch", {
-              onmousedown: handler,
-              ontouchend: handler,
-              style: "background-color: " + colors[colorId] + "; " + (args.color[args.toolId] == colorId ? "display: none; " : ""),
-            });
-          })
-        )
-      );
-    }
-  };
-*/
     var PDFViewer = {
       controller: function(args) {
         return {
@@ -908,14 +942,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
     view: function(ctrl, args) {
         // TODO 
         var scrollPosition = args.scrollPositions()[args.user.id];
-        /*return m("circle.scrollbar-circle", {
-            cx: "calc(1em - 1px)",
-            //cy: "calc(1em + " + Math.round(89 * scrollPosition) + "vh)",
-            cy: "" + Math.round(scrollPosition * 100) + "%",
-            r: "calc(1em - 2px)",
-            fill: getUserColor(args.userList(), args.user.id),
-            stroke: "none"
-        }, "");*/
         return m("circle.scrollbar-circle", {
             cx: "" + ctrl.radius + "px",
             //cy: "calc(1em + " + Math.round(89 * scrollPosition) + "vh)",
@@ -949,7 +975,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             addObserver: args.addObserver,
 
           lastDrawn: args.lastDrawn,
-          pageNum: i, 
+          pageNum: i,
+            addObject: args.addObject,
+            modifyObject: args.modifyObject,
+            removeObject: args.removeObject,
       });
     });
   }
@@ -1009,6 +1038,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             }
         },
 
+        // TODO send delete object message!
         deleteSelected: function() {
             if(!ctrl.canvas)
                 return;
@@ -1016,21 +1046,26 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
             var activeObject = ctrl.canvas.getActiveObject(),
                 activeGroup = ctrl.canvas.getActiveGroup();
 
-            if(activeObject)
-                ctrl.canvas.remove(activeObject);
+            if(activeObject) {
+                //ctrl.canvas.remove(activeObject);
+                args.removeObject(activeObject, ctrl.canvas, true, true);
+            }
 
             if(activeGroup) {
                 var objects = activeGroup.getObjects();
-                ctrl.canvas.discardActiveGroup();
+                ctrl.canvas.discardActiveGroup(); // TODO find out if this is this doing remove?
                 objects.forEach(function(obj) {
-                    ctrl.canvas.remove(obj);
+                    //ctrl.canvas.remove(obj);
+                    args.removeObject(obj, ctrl.canvas, true, true);
                 });
             }
         },
+          // still necessary?
         addObject: function(newobj) {
             if(!ctrl.canvas)
                 return;
 
+            console.log(newobj);
             ctrl.canvas.add(newobj);
             ctrl.canvas.objsByUUID[newobj.uuid] = newobj;
         }
@@ -1063,47 +1098,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
           }
         }),
         
-        m("div.drawing-surface", {
-                /*
-                config: function(el) {
-                    el.addEventListener("touchstart", function(e) {
-                        el.style = 'z-index: 4;';
-                    }, true);
-                    el.addEventListener("touchend", function(e) {
-                        el.style = 'z-index: 0;';
-                    }, true);
-                },
- 
-                onmousedown: function() {
-                    // Update tool?
-                    console.log("mouse down");
-                },
-                onmouseup: function() {
-                    console.log("mouse up");
-                },
-                ontouchstart: function() {
-                    console.log("touch start");
-                },
-                ontouchend: function() {
-                    console.log("touch end");
-                }
-                */
-            },
+        m("div.drawing-surface",
             m("canvas.drawing-surface", {
                 config: function(el, isInit) {
-                    // set tool?
-
                     if(isInit) {
                         ctrl.setTool();
                         return;
                     }
                     
                     var docs = args.docs();
-                    console.log("create canvas " + canvasId);
 
                     ctrl.canvas = new fabric.Canvas(canvasId, {
                         isDrawingMode: ((args.tool() == 0) || (args.tool() == 1)),
-                        allowTouchScrolling: true
+                        allowTouchScrolling: true,
+                        doc: currentDocument,
+                        page: args.pageNum
                     });
                     docs[currentDocument].canvas[args.pageNum] = ctrl.canvas;
 
@@ -1111,112 +1120,106 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     var h = docs[currentDocument].canvasHeight[args.pageNum];
                     
                     // TODO handle better
+                    // Set canvas dimensions
                     if(w)
                         ctrl.canvas.setWidth(w);
                     else
                         ctrl.canvas.setWidth(document.body.clientWidth);
                     ctrl.canvas.setHeight(document.body.clientWidth * 11 / 8.5);
                     
-
+                    ////////////////////////////////////////////////////////////////////////////////
+                    // TODO is this right? reloading contents from page flip
                     // Load canvas data if any
-                    var contents = docs[currentDocument].canvasContents[args.pageNum];
-                    if(contents) {
-                        ctrl.canvas.loadFromJSON(contents);
-                    }
                     ctrl.canvas.objsByUUID = {};
-
-                    console.log("Canvas:");
-                    console.log(ctrl.canvas);
-
-                    /*
-                    args.addObserver(function(store) {
-                        // Add any new paths or modify
-                        if(!store.doc
-                            || !store.doc[currentDocument]
-                            || !store.doc[currentDocument].pages
-                            || !store.doc[currentDocument].pages[args.pageNum]
-                            || !store.doc[currentDocument].pages[args.pageNum].paths
-                        ) {
-                            return;
+                    var contents = docs[currentDocument].canvasContents[args.pageNum];
+                    //console.log("draw canvas");
+                    //console.log(contents);
+                    if(contents) {
+                        for(var i = 0, len = contents.length; i < len; i++) {
+                            var obj = contents[i];
+                            if(obj.type == "path") {
+                                ctrl.addObject(new fabric.Path(obj.path, obj));
+                            } else {
+                                ctrl.addObject(new mechanicsObjects[obj.type](obj));
+                            }
                         }
+                        // New approach:
+                        // add loadfromjson method to mechanicsobjects?
 
-                        var paths = store.doc[currentDocument].pages[args.pageNum].paths;
-                        if(!(paths instanceof Object))
-                            return;
-
-                        // Check on each path in store
-                        for(var pathstring in paths) {
-                            var pathobj = JSON.parse(pathstring);
-                            // Ignore if this path is our own
-                            if(pathobj.user == args.user)
-                                return;
-
-                            // Check if path already exists on canvas
-                            if(ctrl.canvas.objsByUUID[pathobj.uuid])
-                                return;
-
-                            // Otherwise add the object, building based on type
-                            ctrl.addObject(pathobj);
-                        }
-
-                        // TODO check for erased objects, or moved/modified
-
-                    });*/
+                        // Canvas: get from dataless JSON
+                        
+                        // old
+                        //ctrl.canvas.loadFromJSON(contents);
+                    }
                     
+                    // Rebuild UUID map
+                    /*
+                    for(var obji = 0, len = ctrl.canvas._objects; obji < len; obji++) {
+                        var obj = ctrl.canvas._objects[obji];
+                        if(uuid in obj) {
+                            ctrl.canvas.objsByUUID[uuid] = obj;
+                        }
+                    }
+                    */
+                    /////////////////////////////////////////////////////////////////////////////////
 
                     // Use the right tool
                     ctrl.setTool();
 
                     // Set up event handlers
-                    // TODO shared state things here
-                    ctrl.canvas.on({/*
-                        "object:added": function(e) {
-                            console.log("object added");
-                            console.log(e);
-                            
-                            // Identify object by owner and unique ID
-                            e.target.user = args.user;
-                            e.target.uuid = uuidv1();
-                            e.target.doc = currentDocument;
-                            e.target.page = args.pageNum;
-                            ctrl.canvas.objsByUUID[e.target.uuid] = e.target;
-                            //ctrl.addObject(e.target);
-                            //args.addObjectSimple(currentDocument, args.pageNum, JSON.stringify(e.target.toJSON(['user', 'uuid'])));
-                            var newObjDict = {};
-                            newObjDict[e.target.uuid] = JSON.stringify(
-                                e.target.toJSON(['user', 'uuid', 'doc', 'page'])
-                            );
-                            args.addObjectSimple2(newObjDict);
-                        },
+                    // TODO finish
+                    ctrl.canvas.on({
                         "object:modified": function(e) {
-                            console.log("object modified");
-                            console.log(e);
+                            if(e.target.type == "circle") {
+                                return;
+                            }
+                            //var modobject = e.target.options;
+                            /*
+                            e.target.u = args.user;
+                            e.target.doc = ctrl.canvas.doc;
+                            e.target.page = ctrl.canvas.page; // TODO necessary?
+                            */
+                            //modobject.uuid = e.target.uuid;
+                            if(e.target.type == "group") {
+                                e.target.forEachObject(function(obj) {
+                                    //obj.options = null;
+                                    args.modifyObject(obj, ctrl.canvas);
+                                });
+                            } else if(e.target.type == "path") {
+                                //e.target.path = null;
+                                args.modifyObject(e.target, ctrl.canvas);
+                            } else {
+                                //e.target.options = null;
+                                /*if(e.target.options) {
+                                    args.modifyObject(e.target.options, ctrl.canvas);
+                                } else {*/
+                                    args.modifyObject(e.target, ctrl.canvas);
+                                
+                            }
                         },
-                        "object:removed": function(e) {
-                            console.log("object removed");
-                            console.log(e);
-
-                            // TODO send object removed to store
-                            // args.removeObjectSimple(e.target.uuid);
-                        },*/
-
-                        /*
                         "path:created": function(e) {
-                            console.log("path created");
-                            //console.log(e);
-                        },
-                        */
+                            //var newPath = e.path;
+                            // e.path
+                            // Add object but no need to create!
+                            //newPath.u = args.user;
+                            //newPath.name = "path";
+                            
+                            //newPath.hasControls = false;
+                            args.addObject(e.path, ctrl.canvas, false, true);
 
+                        },
                         // erasing
                         "object:selected": function() {
+                            // TODO sync this event
                             if(ctrl.erasing) {
-                                //console.log("should erase! (object.selected)");
                                 ctrl.deleteSelected();
                             }
                         },
-                        "selection:created": function() {
+                        "selection:created": function(e) {
+                            e.target.hasControls = false;
+                            
+                            // TODO sync this event
                             if(ctrl.erasing) {
-                                //console.log("should erase! (selection.created)");
                                 ctrl.deleteSelected();
                             }
                         },
@@ -1226,189 +1229,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", /*"fabric",*/ "mo
                     // save out data
                     args.docs(docs);
                 },
-                id: canvasId,
-                
-                onmousedown: function() {
-                    // Update tool?
-                    console.log("mouse down");
-                },
-                onmouseup: function() {
-                    console.log("mouse up");
-                },
-                ontouchstart: function() {
-                    console.log("touch start");
-                },
-                ontouchend: function() {
-                    console.log("touch end");
-                }
+                id: canvasId
             })
         )
-
-
-        /*
-        m("svg.drawing-surface", {
-          "color-rendering": "optimizeSpeed",
-          config: function(el) {
-            var h = el.parentNode.children[0].getBoundingClientRect().height;
-            el.style.marginTop = (-h) + "px";
-            el.style.transform = "scale(" + (h / ctrl.virtualHeight) + ")";
-            ctrl.target = el;
-          },
-          onmousedown: function(e) {
-            var targetRect = ctrl.target.getBoundingClientRect();
-            var localX = ctrl.localX = (e.pageX - targetRect.left);
-            var localY = ctrl.localY = (e.pageY - targetRect.top);
-            var x = localX / targetRect.width * ctrl.virtualWidth;
-            var y = localY / targetRect.height * ctrl.virtualHeight;
-
-            console.log("down", x, y);
-            requestAnimationFrame(args.startStroke.bind(null, args.pageNum, parseInt(x), parseInt(y)));
-            ctrl.localPenDown = true;
-            m.redraw.strategy("none");
-          },
-          onmousemove: function(e) {
-            var targetRect = ctrl.target.getBoundingClientRect();
-            var localX = ctrl.localX = (e.pageX - targetRect.left);
-            var localY = ctrl.localY = (e.pageY - targetRect.top);
-            var x = localX / targetRect.width * ctrl.virtualWidth;
-            var y = localY / targetRect.height * ctrl.virtualHeight;
-            //console.log("move", x, y);
-            requestAnimationFrame(args.addPoint.bind(null, parseInt(x), parseInt(y)));
-            m.redraw.strategy("none");
-          },
-          onmouseup: function(e) {
-            var targetRect = ctrl.target.getBoundingClientRect();
-            var x = (e.pageX - targetRect.left) / targetRect.width * ctrl.virtualWidth;
-            var y = (e.pageY - targetRect.top) / targetRect.height * ctrl.virtualHeight;
-            //console.log("up", x, y);
-            requestAnimationFrame(args.endStroke);
-            m.redraw.strategy("none");
-            ctrl.localPenDown = false;
-          },
-          onmouseleave: function(e) {
-            args.endStroke();
-            m.redraw.strategy("none");
-            ctrl.localPenDown = false;
-          }
-        },
-        args.page ?
-
-        bins.map(function(bin, i) {
-          return m((i % 2 === 0 ? "g" : "mask"),
-          {
-            mask: (i % 2 === 0 ? "url(#collection" + ctrl.uniqueId + "" + (i+1) + ")": ""),
-            id: "collection" + ctrl.uniqueId + "" + i
-          },
-            (i % 2 == 1 ? (m("rect", {height: "100%", width: "100%", fill: "white"})) : ""),
-            bin.map(function(path) {
-              if (!path[0])
-                return "";
-              return m.component(Path, path);
-            })
-          );
-        })
-         : ""
-        ),
-        m(".eraser", {
-          style: !ctrl.localPenDown ? "display: none;" : "",
-          config: function(el) {
-            var h = el.parentNode.children[0].getBoundingClientRect().height;
-            el.style.marginTop = (-h) + "px";
-
-            var size = args.size() * h / ctrl.virtualHeight;
-            el.style.height = size + "px";
-            el.style.width = size + "px";
-            el.style.transform = "translate(" + (ctrl.localX - size / 2) + "px, " + (ctrl.localY - size / 2) + "px";
-          }
-        }, " ")*/
       );
     }
   };
 
-    var DrawingSurface = {
-        controller: function(args) {
-
-        },
-        view: function(ctrl, args) {
-
-        }
-    };
-
-      /*
-  var Path = {
-    controller: function() {
-      return {
-        drawn: false,
-        lastErased: null,
-        hidden: false
-      };
-    },
-    view: function(ctrl, path) {
-      if (ctrl.drawn && path[0].lastErased === ctrl.lastErased && path[0].hidden === ctrl.hidden)
-        return {subtree: "retain"};
-      else if (path[0].currentlyDrawing === false) {
-        ctrl.drawn = true;
-      }
-
-      var xM = 1;
-      var yM = 1;
-
-      var dStr = "";
-
-      if (!path[0].hidden) {
-        var len = array.length(path);
-
-        if (len < 3) {
-          var tmp = [path[0], path[1], {x: path[1].x - 0.005, y: path[1].y}, path[1]];
-          path = tmp;
-          len = 4;
-        }
-
-        dStr += " M " + path[1].x * xM + " " + path[1].y * yM;
-
-        for (var i = 2; i < len - 1; i++) {
-          var xc = (path[i].x * xM + path[i + 1].x * xM) / 2;
-          var yc = (path[i].y * yM + path[i + 1].y * yM) / 2;
-          dStr += " Q " + (path[i].x * xM) + " " + (path[i].y * yM) + ", " + xc + " " + yc;
-        }
-      }
-
-      ctrl.lastErased = path[0].lastErased;
-      ctrl.hidden = path[0].hidden;
-
-      return m("path", {
-        "shape-rendering": (ctrl.drawn ? "auto" : "optimizeSpeed"),
-        stroke: path[0].color || "black",
-        "stroke-opacity": path[0].opacity,
-        fill: "transparent",
-        "stroke-width": path[0].size,
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        d: dStr
-      });
-    }
-  };
-  */
-
-/*
-setTimeout(function() {
-  var $ = function(id){return document.getElementById(id)};
-
-  var canvas = this.__canvas = new fabric.Canvas('c', {
-    isDrawingMode: true
-  });
-
-  fabric.Object.prototype.transparentCorners = false;
-
-
-  canvas.isDrawingMode = true;
-  canvas.freeDrawingBrush = new fabric['PencilBrush'](canvas);
-
-  canvas.freeDrawingBrush.color = 'black';
-  canvas.freeDrawingBrush.width = 1;
-  canvas.freeDrawingBrush.shadowBlur = 0;
-
-}, 5000);
-*/
 
 });
