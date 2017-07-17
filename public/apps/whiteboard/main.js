@@ -34,7 +34,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
     connection.addObserver(function(store) {
       if (store.scrollPositions) {
-        ctrl.scrollPositions(store.scrollPositions || {});
+        ctrl.scrollPositions = store.scrollPositions || {};
       }
       ctrl.remotePages(store.pages || {});
       requestAnimationFrame(m.redraw);
@@ -78,7 +78,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
     controller: function(args) {
       var ctrl = {
         numPages: m.prop([]),
-        scrollPositions: m.prop({}),
+        scrollPositions: {},
         scroll: m.prop("open"),
 
         pages: [],
@@ -108,6 +108,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         activity: m.prop(null),
         docs: m.prop({}),
         firstLoad: true,
+        user: args.user,
 
         lastDrawn: m.prop({}),
 
@@ -167,13 +168,32 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         },
 
         dummycounter: 0,
+
         setScroll: function(pos) {
-          args.connection.transaction([["scrollPositions"]], function(scrollPositions) {
-            scrollPositions[args.user] = pos;
-            scrollPositions.s = args.session;
-            ctrl.scrollPositions(scrollPositions || {});
+          //var scrollPositions = ctrl.scrollPositions();
+          args.connection.transaction([["scrollPositions", args.user, ctrl.pageNumbers()[args.user]]], function(userScrollPositions) {
+            userScrollPositions.pos = pos;
+            userScrollPositions.s = args.session;
+
+            // dumb
+            if(!ctrl.scrollPositions) {
+                ctrl.scrollPositions = {};
+            }
+            if(!ctrl.scrollPositions[args.user]) {
+                ctrl.scrollPositions[args.user] = {};
+            }
+            ctrl.scrollPositions[args.user][ctrl.pageNumbers()[args.user]] = userScrollPositions;
           });
         },
+
+        getScroll: function(userId, pageNumber) {
+            return (ctrl.scrollPositions[userId]) 
+            ? ((ctrl.scrollPositions[userId][pageNumber]) 
+                ? ctrl.scrollPositions[userId][pageNumber].pos
+                : 0)
+            : 0;
+        },
+
         startStroke: function(page, x, y) {
           if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
             ctrl.currentPage = page;
@@ -322,6 +342,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         ctrl.userList(users);
           // TODO get correct position!
         // Update users' page positions
+          console.log("user list update");
         ctrl.userList().map(function(user) {
             if(!(user.id in ctrl.pageNumbers()))
                 ctrl.pageNumbers()[user.id] = 0;
@@ -385,7 +406,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                                 canvas.height = viewport.height;
                                 canvas.width = viewport.width;
                                 canvasctx = canvas.getContext("2d");
-
+                                
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
 
@@ -402,6 +423,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
               });
           });
       });
+        ctrl.scrollPositions[args.user] = {};
 
       return ctrl;
     },
@@ -412,7 +434,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           class: "scroll-" + ctrl.scroll(),
           config: function(el) {
             ctrl.fireScrollEvent = false;
-            el.scrollTop = parseInt(ctrl.scrollPositions()[args.user] * (el.scrollHeight - window.innerHeight));
+            el.scrollTop = parseInt(ctrl.getScroll(args.user, ctrl.pageNumbers()[args.user]) * (el.scrollHeight - window.innerHeight));
           },
           onscroll: function(e) {
             var el = e.target;
@@ -455,22 +477,32 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         // Specific page buttons
         (args.activity() ? 
         args.activity().pages.map(function(page) {
-            return m("img.tool-icon", {
-                onclick: function() {
-                    if(args.pageNumbers()[args.user] != page.pageNumber) {
-                        args.saveCanvases(args.pageNumbers()[args.user]);
-                        $('.canvas-container').remove();
-                        args.lastDrawn({});
-                        args.pageNumbers()[args.user] = page.pageNumber;
-                        m.redraw(true);
-                        args.setPage(page.pageNumber);
-                    }
-                },
-                // Use the filled-in circle if it's the current page
-                src: ((page.pageNumber == args.pageNumbers()[args.user])
-                    ? "/shared/icons/Icons_F_Selected Circle_W.png"
-                    : "/shared/icons/Icons_F_Deselect Circle_W.png")
-            }, page.pageNumber);
+            var usersHere = [];
+            // TODO fix user page icons
+            /*
+            args.userList().map(function(user) {
+                if(args.pageNumbers()[user.id] == page.pageNumber)
+                    usersHere.push(m("p", {style: "color: " + getUserColor(args.userList(), user.id)}, m.trust("&#9679;")));
+            });
+            */
+            var samepage = (page.pageNumber == args.pageNumbers()[args.user]);
+            return [m("img.tool-icon", {
+                    onclick: function() {
+                        if(args.pageNumbers()[args.user] != page.pageNumber) {
+                            args.saveCanvases(args.pageNumbers()[args.user]);
+                            $('.canvas-container').remove();
+                            args.lastDrawn({});
+                            args.pageNumbers()[args.user] = page.pageNumber;
+                            m.redraw(true);
+                            args.setPage(page.pageNumber);
+                        }
+                    },
+                    // Use the filled-in circle if it's the current page
+                    src: samepage
+                        ? "/shared/icons/Icons_F_Selected Circle_W.png"
+                        : "/shared/icons/Icons_F_Deselect Circle_W.png"
+                }, page.pageNumber)/*,
+                samepage ? "" : m("div.tiny-page-marker", {style: "display: inline-block"}, usersHere)*/];
         })
         : ""),
         // Next page button
@@ -790,6 +822,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
       }
     };
 
+
   var Scrollbar = {
       controller: function(args) {
           var ctrl = {
@@ -802,16 +835,31 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           return m("svg.scrollbar", {
               config: function(el) {
                   ctrl.scrollbarHeight(el.clientHeight);
+              },
+              onclick: function(e) {
+                console.log(e);
+                
+                  // TODO set own scroll position to match click point
+                  var scrollDest = e.offsetY / ctrl.scrollbarHeight();
+                  console.log(scrollDest);
+                  args.setScroll(scrollDest);
               }},
               args.userList().map(function(user) {
-                  return m.component(ScrollbarCircle, {
-                      scrollPositions: args.scrollPositions,
-                      setScroll: args.setScroll,
-                      user: user,
-                      userList: args.userList,
-                      pointerEvents: args.user === user.id,
-                      scrollbarHeight: ctrl.scrollbarHeight
-                  });
+                  // Draw circle on scroll bar if the user is on our page.
+                  if(args.pageNumbers()[user.id] == args.pageNumbers()[args.user]) {
+                      return m.component(ScrollbarCircle, {
+                          scrollPositions: args.scrollPositions,
+                          setScroll: args.setScroll,
+                          getScroll: args.getScroll,
+                          user: user,
+                          userList: args.userList,
+                          pointerEvents: args.user === user.id,
+                          scrollbarHeight: ctrl.scrollbarHeight,
+                          pageNumber: args.pageNumbers()[args.user]
+                      });
+                  } else {
+                      return "";
+                  }
               }),
               "Scrollbar"
           );
@@ -826,7 +874,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
     },
     view: function(ctrl, args) {
         // TODO 
-        var scrollPosition = args.scrollPositions()[args.user.id];
+        var scrollPosition = args.getScroll(args.user.id, args.pageNumber); 
         return m("circle.scrollbar-circle", {
             cx: "" + ctrl.radius + "px",
             //cy: "calc(1em + " + Math.round(89 * scrollPosition) + "vh)",
