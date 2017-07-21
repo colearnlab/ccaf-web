@@ -11,6 +11,9 @@ exports.mkdb = function(dbPath) {
       "INSERT INTO user_types VALUES(2, 'student')",
     "CREATE TABLE users(id INTEGER UNIQUE PRIMARY KEY NOT NULL, name TEXT, email TEXT UNIQUE NOT NULL, type INTEGER NOT NULL REFERENCES user_types(type_id))",
       "INSERT INTO users VALUES(0, '" + process.env.ADMIN_NAME + "', '" + process.env.ADMIN_EMAIL + "', 0)",
+      "INSERT INTO users VALUES(1, '" + process.env.DEMO_TEACHER_NAME + "', '" + process.env.DEMO_TEACHER_EMAIL + "', 1)",
+      "INSERT INTO users VALUES(2, '" + process.env.DEMO_STUDENT0_NAME + "', '" + process.env.DEMO_STUDENT0_EMAIL + "', 2)",
+      "INSERT INTO users VALUES(3, '" + process.env.DEMO_STUDENT1_NAME + "', '" + process.env.DEMO_STUDENT1_EMAIL + "', 2)",
     "CREATE TABLE classrooms(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
     "CREATE TABLE classroom_user_mapping(classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(classroom, user) ON CONFLICT REPLACE)",
     "CREATE TABLE groups(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)",
@@ -19,11 +22,15 @@ exports.mkdb = function(dbPath) {
     "CREATE TABLE group_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom_session INTEGER REFERENCES classroom_sessions(id) ON DELETE SET NULL, groupId INTEGER REFERENCES groups(id) ON DELETE SET NULL)",
     "CREATE TABLE user_sessions(id INTEGER UNIQUE PRIMARY KEY NOT NULL, group_session INTEGER REFERENCES group_sessions(id), user INTEGER REFERENCES users(id))",
     "CREATE TABLE media(owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, filename TEXT UNIQUE PRIMARY KEY NOT NULL, mime TEXT, metadata TEXT)",
-    "CREATE TABLE student_points_drawn(timestamp INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
-    "CREATE TABLE group_points_drawn(timestamp INTEGER NOT NULL, count INTEGER NOT NULL, groupSessionId INTEGER NOT NULL REFERENCES group_sessions(id) ON DELETE CASCADE)",
-    "CREATE TABLE scroll_position(position REAL NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
-    "CREATE TABLE page_complete(complete INTEGER NOT NULL, pagenumber INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
+    //"CREATE TABLE student_points_drawn(timestamp INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
+    //"CREATE TABLE group_points_drawn(timestamp INTEGER NOT NULL, count INTEGER NOT NULL, groupSessionId INTEGER NOT NULL REFERENCES group_sessions(id) ON DELETE CASCADE)",
+    //"CREATE TABLE scroll_position(position REAL NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
+    //"CREATE TABLE page_complete(complete INTEGER NOT NULL, pagenumber INTEGER NOT NULL, userId INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
   
+      // For saving/restoring data in the student stats module
+      "CREATE TABLE stats_events(type TEXT NOT NULL, timestamp INTEGER NOT NULL, data TEXT NOT NULL, meta TEXT NOT NULL, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE)",
+
+
       // Tables to store multi-document activities
     "CREATE TABLE activities(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT NOT NULL, timeUpdated INTEGER NOT NULL, owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
     "CREATE TABLE activity_pages(id INTEGER UNIQUE PRIMARY KEY NOT NULL, owner INTEGER NOT NULL REFERENCES users(id), originalFilename TEXT NOT NULL, timeUploaded INTEGER NOT NULL, filename TEXT NOT NULL, numPages INTEGER NOT NULL)",
