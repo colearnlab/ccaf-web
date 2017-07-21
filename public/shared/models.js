@@ -44,6 +44,12 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     "student": 2
   };
 
+  User.typeNames = {
+    0: "administrator",
+    1: "teacher",
+    2: "student"
+  };
+
   User.prettyPrintTypes = {
     0: "Administrator",
     1: "Teacher",
