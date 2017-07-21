@@ -38,30 +38,52 @@ var authObj = auth.initialize(app, db);
 //  in and are not in the system.)
 app.all("/*", auth.ensureAuthenticated);
 
-//  Serve the public directory as the root.
-app.use("/", express.static("public"));
-
-//  Instead of an index.html in the root, forward to the appropriate app depending
-//  on user type.
-app.get("/", function(req, res) {
+var redirectToUserHomepage = function(req, res) {
   if (req.user.type === 0)
     res.redirect("/admin");
   else if (req.user.type === 1)
     res.redirect("/teacher");
   else if (req.user.type === 2)
     res.redirect("/student");
+};
+
+app.use("/admin", function(req, res, next) {
+    if(req.user.type != 0) {
+        redirectToUserHomepage(req, res);
+    } else {
+        next();
+    }
+});
+app.use("/teacher", function(req, res, next) {
+    if(req.user.type == 2) {
+        redirectToUserHomepage(req, res);
+    } else {
+        next();
+    }
 });
 
-var studentstats = require("./studentStats").createstats(db);
+//  Serve the public directory as the root.
+app.use("/", express.static("public"));
+
+//  Instead of an index.html in the root, forward to the appropriate app depending
+//  on user type.
+app.get("/", redirectToUserHomepage);
+
+// For each active session create a stats tracker
+var studentStats = require("./studentStats");
+db.each("SELECT id FROM classroom_sessions WHERE endTime IS NULL;", {}, function(row) {
+    studentStats.makeStudentStatsTracker(db, row.id);
+});
+
 
 //  Create API routes.
 require("./api/users").createRoutes(app, db);
 require("./api/classrooms").createRoutes(app, db);
 require("./api/groups").createRoutes(app, db);
 require("./api/userMappings").createRoutes(app, db);
-require("./api/classroom_sessions").createRoutes(app, db, studentstats);
+require("./api/classroom_sessions").createRoutes(app, db, studentStats);
 require("./api/media").createRoutes(app, db);
-require("./api/visualize").createRoutes(app, db, studentstats);
+require("./api/visualize").createRoutes(app, db, studentStats);
 require("./api/activity").createRoutes(app, db);
 
 
@@ -99,7 +121,7 @@ var synchronizedStateServer = require("./synchronizedState/main").server(
   httpServer,
   path.resolve(__dirname, "..", "stores"),
   verifyClient,
-  studentstats
+  studentStats
 );
 
 // Give the 
@@ -107,7 +129,10 @@ var synchronizedStateServer = require("./synchronizedState/main").server(
 function exitHandler(err) {
     if (err) console.log(err.stack);
     fs.writeFileSync(dbPath, new Buffer(db.export()));
-    synchronizedStateServer.close(process.exit);
+    synchronizedStateServer.close(function() {
+        console.log("stopped server");
+        process.exit(0);
+    });
 }
 
 //do something when app is closing
