@@ -1,14 +1,19 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "interact"], function(exports, pdfjs, m, models, interact) {
-    var ClassroomSession = models.ClassroomSession;
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","userColors"], function(exports, pdfjs, m, models, css, userColors) {
+    var PDFJS = pdfjs.PDFJS,
+        getUserColor = userColors.getColor,
 
-    var PDFJS = pdfjs.PDFJS;
-    PDFJS.disableWorker = true;
-    
+        Classroom = models.Classroom,
+        Activity = models.Activity,
+        ClassroomSession = models.ClassroomSession;
+
+    PDFJS.disableWorker = true; 
+
     // for tuning the look of the group progress views
     var scaleDim = function(d) {
         return Math.floor(d * 0.75); // TODO change?
     }
-
+    
+    
     // line chart styles
     var normalStrokeStyle = '#555',
         normalFillStyle = 'transparent',
@@ -30,465 +35,298 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "intera
         barStep = scaleDim(5),
         barLineWidth = 2;
 
-    // colors for each student in a group
-    var colormap = {
-        0: '#e98039',
-        1: '#6ab1b6',
-        2: '#face57',
-        3: '#ac63a5',
-        4: '#29e663',
-        5: '#898989',
-        6: '#000000',
-    };
-
-    var groupSelected = null;
-    var doRefresh = null; // to keep refreshVisualizations later
-    var gctrl = null;
-
-    // The scroll position number reported by Whiteboard is a real number
-    // in [0,1] representing the position of the student's view in the 
-    // entire document. This function calculates the page number (with the
-    // first page numbered 0).
-    var getPageNumber = function(scrollPos, npages) { 
-        // estimated fraction of a page the student can see
-        // TODO have the whiteboard app report this? or just measure how it 
-        // appears on the tablets and hard-code? The current value is from
-        // my laptop
-        var viewsize = 0.4;
-
-        // The first and last pages are special cases because they have less
-        // scrollable area than inner pages
-        var p1bound = (1 - viewsize / 2) / (npages - viewsize);
-        var pnbound = (npages - viewsize - (1 - viewsize / 2)) / (npages - viewsize);
-        var onpage = -1;
-        if(scrollPos < p1bound) {
-            onpage = 0;
-        } else if(scrollPos >= pnbound) {
-            onpage = npages - 1;
-        } else {
-            onpage = Math.floor((npages - 2) * (scrollPos - p1bound) / (pnbound - p1bound)) + 1;
-        }
-
-        // zero-indexed
-        return onpage;
-    };
-
-    // per group?
-    var refreshProgressCanvas = function(ctx, pdfcanvas, data, npages) {
-        // If the shared PDF render is available, draw it first
-        if(pdfcanvas) {
-            ctx.drawImage(pdfcanvas, pageXOffset, pageYOffset);
-        }
-        
-        var markernum = 0;
-        var markermap = {};
-
-        // Draw boxes
-        //ctx.imageSmoothingEnabled = false;
-        ctx.translate(1, 1); // for crisper lines
-        for(var i = 0; i < npages; i++) {
-            var pageBaseX = pageXOffset + i * pageWidth;
-            var pageBaseY = pageYOffset;
-
-            // Page outline
-            ctx.strokeStyle = outlineStrokeStyle;
-            ctx.lineWidth = outlineLineWidth;
-            ctx.strokeRect(pageBaseX, pageBaseY, pageWidth, pageHeight);
-
-            /*
-            // completion box
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(pageBaseX - pageXOffset, 0, boxWidth, boxWidth);
-            */
-
-            // Draw student page completion markers
-            var total = -1;
-            markernum = 0;
-            for(var studentId in data) {
-                if(studentId == "total") {
-                    total = data[studentId];
-                } else {
-
-                    /*
-                    // draw completion marker
-                    if((i in data[studentId].complete) && data[studentId].complete[i]) {
-                        ctx.fillStyle = colormap[markernum];
-                        var markerX = pageBaseX - pageXOffset + (markernum % 2) * (boxWidth / 2),
-                            markerY = pageBaseY - pageYOffset + Math.floor(markernum / 2) * (boxWidth / 2);
-                        ctx.fillRect(markerX, markerY, boxWidth / 2, boxWidth / 2);
-                    }
-                    */
-
-
-                    // keep track of which marker number we're using for each student
-                    markermap[studentId] = markernum;
-                    markernum++;
-                }
-            }
-            /*
-            // completion marker outline
-            ctx.strokeStyle = outlineStrokeStyle;
-            ctx.lineWidth = outlineLineWidth;
-            ctx.strokeRect(pageWidth * i, 0, boxWidth, boxWidth);
-            */
-        }
-        
-        // Draw student relative contribution bars
-        ctx.lineWidth = barLineWidth;
-        var onPageCounts = {};
-        for(var studentId in data) {
-            if(studentId != "total") {
-                var studentRelativeContribution = data[studentId].count / total;
-                var barFillHeight = studentRelativeContribution * barHeight;
-
-                // determine which page student is on and how many other students are on that page
-                var _markernum = markermap[studentId];       
-                var currentPage = getPageNumber(data[studentId].position, npages);
-                if(!(currentPage in onPageCounts)) {
-                    onPageCounts[currentPage] = 0;
-                }
-
-                var barX = currentPage * pageWidth + pageXOffset + onPageCounts[currentPage] * (barStep + barWidth) + barStep;
-                var barY = pageYOffset + pageHeight - 22;
-                onPageCounts[currentPage]++;
-
-                // draw bar background
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(barX, barY, barWidth, barHeight);
-
-                // draw bar outline
-                ctx.strokeStyle = colormap[_markernum];
-                ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-                // draw bar fill
-                ctx.fillStyle = colormap[_markernum];
-                ctx.fillRect(barX, barY + barHeight - barFillHeight, barWidth, barFillHeight);
-            }
-        }
-        //m.redraw();
-    };
-
-    var generateProgressView = function(data, pdfcanvas, npages) {
-        var groupViewList = [], groupData = data.latest.groups;
-        
-        for(var gkey in groupData) {
-            if(!(gkey === "total")) {
-                var groupId = parseInt(gkey),
-                    oneGroup = groupData[gkey],
-                    groupTotal = oneGroup.total,
-                    studentList = [];
-
-                var progressviewClickHandler = function(gid) {
-                    return function(_) {
-                        
-                        // Set the group selection and redraw everything
-                        groupSelected = gid;
-                        refreshVisualizations(gctrl);
-                    };
-                };
-
-                var createGroupCanvas = function(gid) {
-                    return function(canvas) {
-                        // refresh canvas
-                        var ctx = canvas.getContext("2d");
-                        canvas.width = pageWidth * npages + 2 * pageXOffset;
-                        canvas.height = pageHeight + pageYOffset + 25;
-                        refreshProgressCanvas(
-                            ctx,
-                            pdfcanvas,
-                            groupData[gid],
-                            npages
-                        );        
-                    };
-                };
-
-                // Highlight the group number if the group is selected
-                var groupSelector = "div.group-number";
-                if(parseInt(gkey) == groupSelected) {
-                    groupSelector += ".group-number-selected";
-                }
-
-                groupViewList.push(m("div.group-progress-container",
-                    m(groupSelector, 
-                        {onclick: progressviewClickHandler(gkey)},
-                        gkey),
-                    m("div.group-progress-view",
-                        {onclick: progressviewClickHandler(gkey)},
-                        m("canvas.group-progress-canvas", 
-                            {config: createGroupCanvas(gkey)}, 
-                            "canvas not supported"),
-                        studentList
-                    )
-                ));
-            }
-        }
-
-        return groupViewList;
-    };
-
-    var generateLineChartSVG = function(data) {
-        var lcdata = data.old;
-        if((typeof lcdata) === "undefined") {
-            lcdata = [];
-        }
-
-        var chartXOffset = 20,
-            chartYOffset = 20;
-        var svgwidth = Math.floor(0.9 * document.body.clientWidth);
-        var svgheight = Math.floor(0.15 * svgwidth);
-        var chartWidth = svgwidth - chartXOffset,
-            chartHeight = svgheight - chartYOffset;
-        var sessionDuration = 60 * 60 * 1000,
-            updateInterval = 1 * 60 * 1000;
-
-        var drawlist = [];
-        
-        var drawPoint = function(time, count, prevtime, prevcount, isSelected, gkey) {
-            var x = (time / sessionDuration) * chartWidth + chartXOffset,
-                y = svgheight - (chartHeight * count / maxPoints) - chartYOffset,
-                prevX = (prevtime / sessionDuration) * chartWidth + chartXOffset,
-                prevY = svgheight - (chartHeight * prevcount / maxPoints) - chartYOffset;
-            
-            // Choose style based on whether the group is selected
-            var strokeStyle, fillStyle, lineWidth;
-            if(isSelected) {
-                strokeStyle = selectedStrokeStyle;
-                fillStyle = selectedFillStyle;
-                lineWidth = selectedLineWidth;
-            } else {
-                strokeStyle = normalStrokeStyle;
-                fillStyle = normalFillStyle;
-                lineWidth = normalLineWidth;
-            }
-            
-            // Draw a line from the old point to the new one
-            drawlist.push(m("line", {
-                "stroke-width": lineWidth,
-                stroke: strokeStyle,
-                x1: prevX, y1: prevY, x2: x, y2: y
-            }));
-
-            // Draw circle
-            drawlist.push(m("circle", {
-                fill: fillStyle,
-                stroke: strokeStyle,
-                cx: x, cy: y, r: 4.0,
-                onclick: (function(gid) {
-                    return function(ev) {
-                        console.log(gid);
-                        groupSelected = parseInt(gid);
-                        refreshVisualizations(gctrl);
-                    };
-                })(gkey)
-            }));    
-        }; // drawPoint
-
-        var drawTick = function(time) {
-            var x = (time / sessionDuration) * chartWidth + chartXOffset,
-                y = chartHeight;
-            drawlist.push(m("line", {
-                "stroke-width": 1, stroke: "black",
-                x1: x, y1: y - 4, x2: x, y2: y
-            }));
-        };
-        
-        var timestamp, basetime;
-        var prevTime = {}, prevCount = {};
-
-        // Find max count to determine scale for y axis
-        var maxPoints = -1;
-        for(var i = 0, len = lcdata.length; i < len; i++) {
-            for(var gkey in lcdata[i].groups) {
-                if(gkey !== "total") {
-                    var thistotal = lcdata[i].groups[gkey].total;
-                    if(thistotal > maxPoints) {
-                        maxPoints = thistotal;
-                    }
-                }
-            }
-        }
-        // avoid cutting off tops of circles
-        maxPoints *= 1.05;
-
-        // Draw points and connecting lines
-        for(var i = 0, len = lcdata.length; i < len; i++) {
-            if(i == 0) {
-                basetime = lcdata[i].time;
-            }
-            timestamp = lcdata[i].time - basetime;
-
-            // Draw a point for each group
-            for(var gkey in lcdata[i].groups) {
-                if(gkey === "total") 
-                    continue;
-                
-                // we are interested in per-group totals
-                if(!(gkey in prevTime)) {
-                    prevTime[gkey] = 0;
-                }
-                if(!(gkey in prevCount)) {
-                    prevCount[gkey] = 0;
-                }
-                var count = lcdata[i].groups[gkey].total;
-                drawPoint(
-                    timestamp, 
-                    count, 
-                    prevTime[gkey], 
-                    prevCount[gkey], 
-                    (parseInt(gkey) == groupSelected),
-                    gkey
-                );
-                
-                prevTime[gkey] = timestamp;
-                prevCount[gkey] = count;
-            }
-
-            // Draw the time marker on the x axis
-            drawTick(timestamp);
-        }
-
-        // Draw axes and points
-        return m("svg.linechart", {width: svgwidth, height: svgheight},
-            m("line.xaxis", {
-                "stroke-width": 1, stroke: "black", 
-                x1: chartXOffset, y1: 0, x2: chartXOffset, y2: svgheight - chartYOffset
-            }),
-            m("line.yaxis", {
-                "stroke-width": 1, stroke: "black", 
-                x1: chartXOffset, y1: svgheight - chartYOffset, x2: svgwidth, y2: svgheight - chartYOffset
-            }),
-            drawlist
-        );
-    };
-
-
-    // Make sure summary data is fresh and reload everything.
-    var refreshVisualizations = function(ctrl) {
-        var recreateView = function(data) {
-            ctrl.summaryData = data;
-            
-            // Make chart tracking relative activity of groups
-            //ctrl.linechartview = generateLineChart(data);
-            ctrl.linechartview = generateLineChartSVG(data);
-
-            // Make per-group progress views
-            ctrl.progressview = generateProgressView(data, ctrl.pdfcanvas, ctrl.npages);
-            m.redraw();
-        };
-
-        // Check if we just reloaded summary data recently
-        if(ctrl.summaryDataLoaded && (ctrl.summaryDataLoaded > (Date.now() - 10000))) {
-            recreateView(ctrl.summaryData);
-        } else {
-            // Fetch latest summary data for the session
-            var ret = m.request({
-                method: "GET",
-                url: "/api/v1/visualize/:sessionId",
-                data: {sessionId: m.route.param("sessionId")}
-            }).then(function(result) {
-                ctrl.summaryDataLoaded = Date.now();
-                recreateView(result);
-            });
-        }
-
-        //console.log(ret);
-        return ret;
-    };
-
-
-    exports.dataVis = {
+    exports.DataVis = {
         controller: function(args) {
-            //console.log(args);
+            var sessionId = m.route.param("sessionId");
             var ctrl = {
+                sessionId: m.prop(m.route.param("sessionId")),
+                
                 session: m.prop(null),
-                summaryData: "summary data hasn't loaded yet",
-                summaryDataLoaded: null,
-                pdfthumbs: null // to be filled in when we've downloaded and rendered
+                groups: m.prop([]),
+                studentsByGroup: m.prop({}),
+                activity: m.prop(null),
+
+                thumbnails: m.prop([]),
+
+                summaryData: m.prop({}),
+                groupHistoryMax: m.prop(null),
+
+                selectedGroupNumber: m.prop(null),
+
+                // Get summary data
+                refreshData: function() {
+                    m.request({
+                        method: "GET",
+                        url: "/api/v1/visualize/:sessionId",
+                        data: {sessionId: sessionId}
+                    }).then(ctrl.summaryData).then(function() {
+                        // Find maximum history data point for scaling the graph.
+                        var maxPoint = 0;
+                        gh = ctrl.summaryData().groupHistory;
+                        for(var i = 0, len = gh.length; i < len; i++) {
+                            for(var k in gh[i]) {
+                                if((k != 'time') && (gh[i][k] > maxPoint))
+                                    maxPoint = gh[i][k];
+                            }
+                        }
+                        ctrl.groupHistoryMax(maxPoint);
+                    }).then(m.redraw);  
+                }
             };
-            
-            ClassroomSession.get(m.route.param("sessionId")).then(function(classroomSession) {
-                //console.log(classroomSession);
-              ctrl.session = classroomSession;
-            }).then(function () {
-            
-                console.log(ctrl.session);
-                ctrl.session.metadata = JSON.parse(ctrl.session.metadata);
-                var pdffile = ctrl.session.metadata.pdf.filename;
 
-                // Get pdf and render thumbnails
-                PDFJS.getDocument("/media/" + pdffile).then(function(pdf) {
-                    console.log("loaded pdf");
-                    var npages = pdf.numPages;
-                    ctrl.npages = npages;
-                    var pdfcanvas = document.createElement("canvas");
-                    var pdfctx = pdfcanvas.getContext("2d");
+            // Load PDFs and generate thumbnails
+            ClassroomSession.get(sessionId).then(function(session) {
+                ctrl.session(session);
+                args.toolbarText(session.title);
+
+                // get groups
+                Classroom.get(ctrl.session().classroom).then(function(classroom) {
                     
-                    // TODO finish removing hard-coded values
-                    pdfcanvas.width = pageWidth * npages;
-                    pdfcanvas.height = pageHeight;
+                    classroom.groups().then(function(groups) {
+                        ctrl.groups(groups);
 
-
-                    // Render all pages and lay out on pdfcanvas
-                    for(var i = 1; i <= npages; i++) {
-                        pdf.getPage(i).then(function(page) {
-                            // Render page onto temporary canvas
-                            var tempcanvas = document.createElement("canvas");
-                            tempcanvas.width = pageWidth * 2;
-                            tempcanvas.height = pageHeight * 2;
-                            var tempctx = tempcanvas.getContext('2d');
-
-                            
-                            // get viewport scaling width to the target width defined above
-                            var viewport = page.getViewport(1);
-                            viewport = page.getViewport(tempcanvas.width / viewport.width);
-
-                            // render to drawing context
-                            page.render({viewport: viewport, canvasContext: tempctx}).then(function() {
-                                // move the page over to proper location
-                                pdfctx.drawImage(tempcanvas, 
-                                    0, 0, pageWidth, pageHeight,
-                                    page.pageIndex * pageWidth, 0, pageWidth, pageHeight);
-                                
-                                // trigger mithril redrawing DOM
-                                refreshVisualizations(ctrl);
-                            });
-            
+                        // get lists of students belonging to each group
+                        var sbg = ctrl.studentsByGroup();
+                        groups.map(function(group) {
+                            sbg[group.id] = group.users();
                         });
-                    }
-                    ctrl.pdfcanvas = pdfcanvas;
+                        ctrl.studentsByGroup(sbg);
 
+                        m.redraw();
+                    });
                 });
 
-                //refreshVisualizations(ctrl);
-                setInterval(function() { refreshVisualizations(ctrl); }, 15000);
+                Activity.get(session.activityId).then(function(activity) {
+                    ctrl.activity(activity);
+                    
+                    // For each document in the activity, render a thumbnail
+                    activity.pages.map(function(activitypage) {
+                        PDFJS.getDocument("/media/" + activitypage.filename).then(function(pdf) {
+                            // just the first page
+                            pdf.getPage(1).then(function(page) {
+                                var canvas = document.createElement('canvas'),
+                                    viewport = page.getViewport(2 * pageWidth / page.getViewport(1).width);
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                canvasctx = canvas.getContext("2d");
+                                
+                                // Do render and store as image data
+                                page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
+                                    var thumbs = ctrl.thumbnails();
+                                    thumbs[activitypage.pageNumber] = canvas.toDataURL();
+                                    ctrl.thumbnails(thumbs);
+                                    m.redraw(true);
+                                });
+                            });
+                        });
+                    });
 
-                // TODO put this elsewhere?
-                gctrl = ctrl;
-            });
+                }); // Activity.get
+            }); // ClassroomSession.get
+
+            // Start repeatedly updating summary data
+            ctrl.refreshInterval = setInterval(ctrl.refreshData, 10000);
+
+            // Provide a way to kill the updates
+            exports.DataVis.exitCallback = function() {
+                clearInterval(ctrl.refreshInterval);
+            };
+
             return ctrl;
         },
-        
         view: function(ctrl, args) {
-            //console.log("in view");
-            // Page structure:
-            // activity graph (canvas?)
-            // grid with groups
-            //  need: pdf thumbs
-
-            //return m("div", "Hello session " + ctrl.sessionId);      
-
-            //generateProgressView(null);
-            return m("div",
+        
+            var chartXOffset = 20,
+                chartYOffset = 20;
+            var svgwidth = Math.floor(0.9 * document.body.clientWidth);
+            var svgheight = Math.floor(0.25 * document.body.clientHeight);
+            var chartWidth = svgwidth - chartXOffset,
+                chartHeight = svgheight - chartYOffset;
+            var sessionDuration = 60 * 60 * 1000;
+                // = Date.now() - ctrl.session().startTime//,  // TODO should this be an m.prop?
+                //updateInterval = 1 * 60 * 1000;
+            return m("div", {
+                // config here?
+                },
                 m("div.graph-view",
                     m("div.linechart-y-label", "Class Activity"),
-                    ctrl.linechartview
+                    m("svg.linechart", {
+                            width: svgwidth, 
+                            height: svgheight
+                        }, 
+                        m("line.xaxis", {
+                            "stroke-width": 1, stroke: "black", 
+                            x1: chartXOffset, 
+                            y1: 0, 
+                            x2: chartXOffset, 
+                            y2: svgheight - chartYOffset
+                        }),
+                        m("line.yaxis", {
+                            "stroke-width": 1, stroke: "black", 
+                            x1: chartXOffset, 
+                            y1: svgheight - chartYOffset, 
+                            x2: svgwidth, 
+                            y2: svgheight - chartYOffset
+                        }),
+                        
+                        ctrl.groups().map(function(group, idx) {
+                            var drawList = [],
+                                historyData = ctrl.summaryData().groupHistory || [];
+                            var numPoints = historyData.length;
+
+                            var lineWidth, x, y, prevX, prevY, fillStyle, strokeStyle;
+                            
+                            // Style the line and points differently if we're drawing the
+                            // selected group.
+                            if(ctrl.selectedGroupNumber() == idx) {
+                                strokeStyle = selectedStrokeStyle;
+                                fillStyle = selectedFillStyle;
+                                lineWidth = selectedLineWidth;
+                            } else {
+                                strokeStyle = normalStrokeStyle;
+                                fillStyle = normalFillStyle;
+                                lineWidth = normalLineWidth;
+                            }
+
+                            // First line starts at chart origin
+                            prevX = chartXOffset;
+                            prevY = chartHeight;
+                            for(var i = 0; i < numPoints; i++) {
+                                var elapsedTime = historyData[i].time - ctrl.session().startTime;
+                                
+                                // If a data point is missing for a group at this time, simply skip
+                                if(!(group.id in historyData[i]))
+                                    continue;
+
+                                // Calculate new point location
+                                x = (elapsedTime / sessionDuration) * chartWidth + chartXOffset;
+                                y = svgheight - (chartHeight * historyData[i][group.id] / (ctrl.groupHistoryMax() * 1.05)) - chartYOffset;
+                                
+                                // Draw line to connect to previous point
+                                drawList.push(m("line", {
+                                    "stroke-width": lineWidth,
+                                    stroke: strokeStyle,
+                                    x1: prevX, 
+                                    y1: prevY, 
+                                    x2: x, 
+                                    y2: y,
+                                    onclick: function() {
+                                        ctrl.selectedGroupNumber(idx);
+                                        m.redraw();
+                                    }
+                                }));
+                                
+                                // Make point
+                                drawList.push(m("circle", {
+                                    fill: fillStyle,
+                                    stroke: strokeStyle,
+                                    cx: x, 
+                                    cy: y, 
+                                    r: 4.0,
+                                    onclick: function() {
+                                        ctrl.selectedGroupNumber(idx);
+                                        m.redraw();
+                                    }
+                                }));
+
+                                // Draw a tick on the x axis
+                                drawList.push(m("line", {
+                                    "stroke-width": 1, 
+                                    stroke: "black",
+                                    x1: x, 
+                                    y1: y - 4, 
+                                    x2: x, 
+                                    y2: y
+                                }));
+
+                                prevX = x;
+                                prevY = y;
+                            }
+                            
+                            return drawList;
+                        })
+                    )
                 ),
+
                 m("div.progress-view",
-                    //getGroupList(ctrl.sessionId);
-                    //generateProgressView(ctrl.summaryData, ctrl.pdfcanvas, ctrl.npages)
-                    ctrl.progressview
+                    ctrl.groups().map(function(group, idx) {
+                        var selectThisGroup = function() {
+                            ctrl.selectedGroupNumber(idx);
+                            m.redraw();
+                        }
+
+                        // TODO define group-selector
+                        var groupSelector = "div.group-number";
+                        if(idx == ctrl.selectedGroupNumber()) {
+                            groupSelector += ".group-number-selected";
+                        }
+
+                        return m("div.group-progress-container",
+                            m(groupSelector, {
+                                    onclick: selectThisGroup
+                                }, 
+                                idx + 1
+                            ),
+                            m("div.group-progress-view", {
+                                    onclick: selectThisGroup
+                                }, 
+                                ctrl.thumbnails().map(function(thumb, pageIdx) {
+                                    return m("canvas", {
+                                        width: pageWidth,
+                                        height: pageHeight + 22,
+                                        config: function(el, isInit) {
+                                            var ctx = el.getContext('2d'),
+                                                img = new Image;
+
+                                            // Draw pdf thumbnail
+                                            ctx.fillStyle = '#ffffff';
+                                            ctx.fillRect(0, 0, el.width, el.height);
+                                            img.src = thumb;
+                                            //console.log(thumb);
+                                            ctx.drawImage(img, 0, 0, pageWidth, pageHeight, 0, 0, pageWidth, pageHeight);
+                                            ctx.strokeStyle = '#000000';
+                                            ctx.strokeRect(0, 0, pageWidth, pageHeight);
+                                            
+                                            var contrib = ctrl.summaryData().contributionToGroup;
+                                            if(typeof contrib != "undefined") {
+                                                console.log(ctrl.studentsByGroup());
+                                                // Draw student bars
+                                                ctrl.studentsByGroup()[group.id]().map(function(student, studentIdx, students) {
+                                                    if(ctrl.summaryData().pageNumber && ctrl.summaryData().pageNumber[student.id] == pageIdx) {
+
+                    contrib[group.id] = contrib[group.id] || {};
+                    contrib[group.id][student.id] = contrib[group.id][student.id] || 0;
+                    var barFillHeight = contrib[group.id][student.id] / contrib[group.id].total * barHeight;
+
+                    var barX = pageXOffset + studentIdx * (barStep + barWidth) + barStep;
+                    var barY = pageYOffset + pageHeight - 22;
+
+                    // draw bar background
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                    // draw bar outline
+                    var barColor = getUserColor(students, student.id);
+                    ctx.strokeStyle = barColor;
+                    ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                    // draw bar fill
+                    ctx.fillStyle = barColor;
+                    ctx.fillRect(barX, barY + barHeight - barFillHeight, barWidth, barFillHeight);
+                                                    }
+                                                });
+                                            }
+
+                                        }
+                                    }) // canvas
+                                }))
+                            ); // progress-container
+                    })
                 )
+
             );
-        }
+        } // view
     };
+
 });
+
