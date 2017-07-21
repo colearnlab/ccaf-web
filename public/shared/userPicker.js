@@ -8,11 +8,23 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
    */
   exports.userPicker = {
     controller: function(args) {
+      var restrictFilter = function(userList) {
+          return userList.filter(function(el) {
+            return args.restrictTo.includes(User.typeNames[el.type]);
+          });
+      };
       return {
         currentUser: "",
         classroom: args.classroom,
-        currentUsers: args.classroom.users(),
-        availableUsers: User.list()
+        currentUsers: (function() {
+            var userList = args.classroom.users();
+            if(userList.then)
+                return userList.then(restrictFilter);
+            else
+                return m.prop([]);
+        })(),
+        availableUsers: User.list().then(restrictFilter),
+        restrictFilter: restrictFilter,
       };
     },
     view: function(ctrl, args) {
@@ -36,7 +48,7 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
                       User.get(user.id).then(function(user) {
                         user.removeClassroom(ctrl.classroom.id).then(function() {
                           ctrl.currentUser = "";
-                          ctrl.classroom.users().then(ctrl.currentUsers).then(function() {
+                          ctrl.classroom.users().then(ctrl.restrictFilter).then(ctrl.currentUsers).then(function() {
                             m.redraw(true);
                           });
                         });
@@ -91,7 +103,7 @@ define(["exports", "mithril", "css", "models", "bootstrap", "typeahead"], functi
                       User.get(userId).then(function(user) {
                         user.addClassroom(ctrl.classroom.id).then(function() {
                           ctrl.currentUser = "";
-                          ctrl.classroom.users().then(ctrl.currentUsers).then(function() {
+                          ctrl.classroom.users().then(ctrl.restrictFilter).then(ctrl.currentUsers).then(function() {
                             m.redraw(true);
                           });
                         });
