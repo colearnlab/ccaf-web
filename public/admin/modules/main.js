@@ -17,6 +17,12 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
         m("row",
           m("div.col-sm-4.col-md-3",
             m("ul.nav.nav-pills.nav-stacked",
+              m("li",
+                  m("a", {
+                      href: "/teacher"
+                    }, "Teacher mode"
+                  )
+              ),
               // Take the mapping of links; turn them into pairs; turn each pair into a list item
               // with an link to the key and the text of the value.
               _.pairs(ctrl.links).map(function(pair) {
