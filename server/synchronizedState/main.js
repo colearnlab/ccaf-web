@@ -204,15 +204,23 @@ Server.prototype.processTransaction = function(connection, transaction) {
   //  If all three preconditions have passed:
   if (p3_passed) {
     //  Apply the client's changes.
-    console.log(transaction);
     store.applyUpdates(transaction.updates);
 
     // Get the current time, to be saved with point counts
     var currentTime = Date.now();
-    // tabulate
-    //this.stats.update(currentTime, transaction.updates);
 
-     
+      // Run any stats update hooks
+      //var updateObj = JSON.parse(transaction.updates);
+      //console.log(transaction);
+      for(var key in transaction.updates) {
+          var updateObj = Object.assign({}, transaction.updates[key]);
+          if('meta' in updateObj) {
+              updateObj.meta = JSON.parse(updateObj.meta);
+              updateObj.data = JSON.parse(updateObj.data);
+              console.log(updateObj);
+              this.stats.sessionStats[updateObj.meta.s].processUpdate(updateObj, currentTime);
+          }
+      }
     //  Iterate through all other clients subscribed to that store to update
     //  them on changes made.
     store.subscriptions.forEach(function(subscription) {
