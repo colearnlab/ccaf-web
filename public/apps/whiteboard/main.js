@@ -29,7 +29,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
       pdf: params.pdf,
       user: params.user.id,
       session: params.session.id,
-      connection: connection
+      connection: connection,
+        group: params.group
     }));
 
     connection.addObserver(function(store) {
@@ -163,7 +164,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             
             // Notify group
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
-                userCurrentPages[args.user] = pageNum;
+                userCurrentPages.data = userCurrentPages.data || "{}";
+                var pageNumData = JSON.parse(userCurrentPages.data);
+                pageNumData[args.user] = pageNum;
+                userCurrentPages.data = JSON.stringify(pageNumData);
+                userCurrentPages.meta = ctrl.makeTransactionMetadata("setPage");
             });
         },
 
@@ -173,7 +178,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           //var scrollPositions = ctrl.scrollPositions();
           args.connection.transaction([["scrollPositions", args.user, ctrl.pageNumbers()[args.user]]], function(userScrollPositions) {
             userScrollPositions.pos = pos;
-            userScrollPositions.s = args.session;
 
             // dumb
             if(!ctrl.scrollPositions) {
@@ -219,7 +223,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           }
         },
 
-          doObjectTransaction: function(obj, canvas) {
+          // Make a JSON string with default metadata and any additional properties to include
+          makeTransactionMetadata: function(transactionType, optExtra) {
+            optExtra = optExtra || {};
+            return JSON.stringify(Object.assign({
+                type: transactionType,
+                u: args.user,
+                g: args.group,
+                s: args.session
+            }, optExtra));
+          },
+
+          doObjectTransaction: function(obj, canvas, transactionType) {
             args.connection.transaction([["objects", obj.uuid]], function(objects) {
                 ctrl.curId[obj.uuid] = objects._id || 0;
 
@@ -230,17 +245,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 
                 // Damn son that was easy!
                 objects.data = JSON.stringify(obj);
-                objects.meta = JSON.stringify({
+                objects.meta = ctrl.makeTransactionMetadata(transactionType, {
                     page: canvas.page,
                     doc: canvas.doc,
-                    u: args.user,
                     uuid: uuid,
                     _id: ctrl.curId[uuid]
                 });
             });
           },
 
-        addObject: function(obj, canvas, doAdd, doTransaction) {
+        addObject: function(obj, canvas, doAdd, doTransaction, transactionType) {
             if(doAdd) {
                 // Make
                 if(obj.type == "path") {
@@ -284,14 +298,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
             // Send the object
             if(doTransaction)
-                ctrl.doObjectTransaction(obj, canvas);
+                ctrl.doObjectTransaction(obj, canvas, transactionType);
         },
 
-        modifyObject: function(obj, canvas) {
-            ctrl.doObjectTransaction(obj, canvas);
+        modifyObject: function(obj, canvas, transactionType) {
+            ctrl.doObjectTransaction(obj, canvas, transactionType);
         },
 
-        removeObject: function(obj, canvas, doRemove, doTransaction) {
+        removeObject: function(obj, canvas, doRemove, doTransaction, transactionType) {
             if(doRemove)
                 canvas.remove(obj);
             
@@ -299,7 +313,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 delete canvas.objsByUUID[obj.uuid];
 
             if(doTransaction)
-                ctrl.doObjectTransaction({uuid: obj.uuid, name: "remove"}, canvas);
+                ctrl.doObjectTransaction({uuid: obj.uuid, name: "remove"}, canvas, transactionType);
         },
  
         undo: function() {
@@ -348,6 +362,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 ctrl.pageNumbers()[user.id] = 0;
         });
         m.redraw(true);
+      });
+
+      // Set page number
+      args.connection.addObserver(function(store) {
+        if(store.setPage && store.setPage.data) {
+            Object.assign(ctrl.pageNumbers(), JSON.parse(store.setPage.data));
+        }
       });
 
       // Handle object updates
@@ -1091,7 +1112,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                             }
                         },
                         "path:created": function(e) {
-                            args.addObject(e.path, ctrl.canvas, false, true);
+                            args.addObject(e.path, ctrl.canvas, false, true, "addFreeDrawing");
                         },
                         // erasing
                         "object:selected": function() {
