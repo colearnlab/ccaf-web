@@ -1,6 +1,12 @@
+var accessAllowed = require("./apiPermissions").accessAllowed;
+
 exports.createRoutes = function(app, db, stats) {
     app.route("/api/v1/visualize/:sessionId")
         .get(function(req, res) {
+            if(!accessAllowed(req, "visualize")) {
+                res.status(403).json({data:{status:403}});
+                return;
+            }
             // GET: if the session exists, give a bunch of information to be drawn on the 
             // visualization page
             
@@ -16,7 +22,11 @@ exports.createRoutes = function(app, db, stats) {
             }
 
             // get group activity histories
-            var response = {};
+            var response = stats.sessionStats[sessionId].reportAll(null);
+            //console.log(rep);
+
+            // Old
+            /*
             if(!(sessionId in stats.groupActivityHistory)) {
                 stats.loadSession(sessionId);
             }
@@ -24,6 +34,7 @@ exports.createRoutes = function(app, db, stats) {
 
             // get the current student data
             response.latest = stats.collectGroupSummaries(sessionId, Date.now());
+            */
 
             // send response
             res.status(200).json(response);

@@ -1,13 +1,17 @@
+var accessAllowed = require("./apiPermissions").accessAllowed;
+
 // Separated out to make this more accessable from the server side.
 exports.getStoreId = function(db, sessionId, groupId, userId) {
-        
+    // Get group_session 
     var stmt = db.prepare("SELECT * FROM group_sessions WHERE classroom_session=:classroom_session and groupId=:groupId", {
       ":classroom_session": sessionId,
       ":groupId": groupId
     });
 
+    // storeId is just group_session.id
     var storeId;
 
+    // If the group_session didn't exist, create it
     if (!stmt.step()) {
       stmt.free();
       stmt = db.prepare("SELECT * FROM groups WHERE id=:id", {
@@ -38,6 +42,12 @@ exports.getStoreId = function(db, sessionId, groupId, userId) {
 exports.createRoutes = function(app, db, stats) {
   app.route("/api/v1/classroom_sessions")
     .get(function(req, res) {
+        // admin only
+        if(!accessAllowed(req, "classroom_sessions")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
       var sessions = [];
 
       db.each("SELECT * FROM classroom_sessions",
@@ -51,6 +61,11 @@ exports.createRoutes = function(app, db, stats) {
     })
     .post(function(req, res) {
       //console.log(req.body);
+        if(!accessAllowed(req, "classroom_sessions")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
       try {
           db.run("PRAGMA foreign_keys = ON");
           db.run("INSERT INTO classroom_sessions VALUES(NULL, :title, :classroom, :startTime, NULL, :activityId, :metadata)", {
@@ -63,7 +78,11 @@ exports.createRoutes = function(app, db, stats) {
 
           var sessionId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
           // TODO start updating group stats
-          stats.startGroupUpdateInterval({id: sessionId, startTime: Date.now()});
+          //stats.startGroupUpdateInterval({id: sessionId, startTime: Date.now()});
+        
+          // Starting a session, so start a tracker
+          stats.makeStudentStatsTracker(db, sessionId); 
+
 
           res.json({
             data: {
@@ -78,6 +97,11 @@ exports.createRoutes = function(app, db, stats) {
 
   app.route("/api/v1/classroom_sessions/:classroomSessionId")
     .get(function(req, res) {
+        if(!accessAllowed(req, "classroom_sessions")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
       var stmt = db.prepare("SELECT * FROM classroom_sessions WHERE id=:id", {
         ":id": req.params.classroomSessionId
       });
@@ -91,6 +115,11 @@ exports.createRoutes = function(app, db, stats) {
       stmt.free();
     })
     .put(function(req, res) {
+        if(!accessAllowed(req, "classroom_sessions")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
       var params = {
         ":id": req.params.classroomSessionId,
         ":title": req.body.title,
@@ -126,6 +155,10 @@ exports.createRoutes = function(app, db, stats) {
 
   app.route("/api/v1/getStoreId/session/:sessionId/group/:groupId/user/:userId")
     .get(function(req, res) {
+        if(!accessAllowed(req, "getStoreId")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         var sessionId = req.params.sessionId;
         var groupId = req.params.groupId;

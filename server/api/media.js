@@ -1,11 +1,16 @@
 var multer = require("multer");
 var express = require("express");
+var accessAllowed = require("./apiPermissions").accessAllowed;
 
 exports.createRoutes = function(app, db) {
   var upload = multer({dest: "media/"});
   app.route("/api/v1/media")
     .post(upload.single("upload"), function(req, res) {
-    try {
+        if(!accessAllowed(req, "media")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+      try {
 
         console.log(req.user);
         console.log(req.file);
@@ -48,6 +53,10 @@ exports.createRoutes = function(app, db) {
   // Interface to get a list of documents by owner
   app.route("/api/v1/documents/:owner")
     .get(function(req, res) {
+        if(!accessAllowed(req, "documents")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
         var docs = [];
         db.each("SELECT * FROM activity_pages WHERE owner=:owner "
             + "ORDER BY timeUploaded;", 
@@ -62,6 +71,10 @@ exports.createRoutes = function(app, db) {
     });
 
   app.use("/media", function(req, res, next) {
+        if(!accessAllowed(req, "media")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var stmt = db.prepare("SELECT * FROM media WHERE filename=:filename", {
         ":filename": req.url.slice(1)
       });

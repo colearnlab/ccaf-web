@@ -1,7 +1,13 @@
+var accessAllowed = require("./apiPermissions").accessAllowed;
+
 exports.createRoutes = function(app, db) {
   /* Users */
   app.route("/api/v1/users")
     .get(function(req, res) {
+        if(!accessAllowed(req, "users")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var users = [];
 
       db.each("SELECT * FROM users",
@@ -14,6 +20,10 @@ exports.createRoutes = function(app, db) {
         });
     })
     .post(function(req, res) {
+        if(!accessAllowed(req, "users")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
         db.run("INSERT INTO users VALUES(NULL, :name, :email, :type)", {
@@ -55,6 +65,10 @@ exports.createRoutes = function(app, db) {
       stmt.free();
     })
     .put(function(req, res) {
+        if(!accessAllowed(req, "users")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var params = {
         ":id": req.params.userId,
         ":name": req.body.name,
@@ -84,6 +98,10 @@ exports.createRoutes = function(app, db) {
       }
     })
     .delete(function(req, res) {
+        if(!accessAllowed(req, "users")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
         db.run("DELETE FROM users WHERE id=:id", {
@@ -100,6 +118,10 @@ exports.createRoutes = function(app, db) {
     });
   app.route("/api/v1/users/:userId/classrooms")
     .get(function(req, res) {
+        if(!accessAllowed(req, "users")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var classrooms = [];
 
       var stmt = db.prepare("SELECT * FROM users WHERE id=:id", {
@@ -113,10 +135,16 @@ exports.createRoutes = function(app, db) {
       stmt.free();
 
       var query;
+        /*
       if (user.type === 2)
         query = "SELECT id, title, owner FROM classroom_user_mapping LEFT JOIN classrooms ON classroom_user_mapping.classroom = classrooms.id WHERE user=:user";
       else
         query = "SELECT * FROM classrooms WHERE owner=:user";
+        */
+        query = "SELECT id, title, owner FROM classroom_user_mapping "
+            + "LEFT JOIN classrooms ON "
+            + "classroom_user_mapping.classroom = classrooms.id "
+            + "WHERE user=:user OR owner=:user";
 
       db.each(query, {
           ":user": user.id
@@ -131,6 +159,10 @@ exports.createRoutes = function(app, db) {
 
   app.route("/api/v1/users/:userId/groups")
     .get(function(req, res) {
+        if(!accessAllowed(req, "users")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var groups = [];
 
       db.each("SELECT id, title, classroom FROM group_user_mapping LEFT JOIN groups ON group_user_mapping.groupId = groups.id WHERE user=:user", {

@@ -1,9 +1,18 @@
+var accessAllowed = require("./apiPermissions").accessAllowed;
+
 exports.createRoutes = function(app, db) {
     app.route("/api/v1/activity")
     .get(function(req, res) {
         res.status(501).json({data: "unimplemented"});
     })
     .post(function(req, res) {
+        // Create a new activity
+
+        if(!accessAllowed(req, "activity")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
         // params: req.params
         // fields: req.body
 
@@ -45,6 +54,11 @@ exports.createRoutes = function(app, db) {
 
     app.route("/api/v1/activity/:activityId")
     .get(function(req, res) {
+        if(!accessAllowed(req, "activity")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
         var activityId = req.params.activityId;
         // Get activity row and all associated pages in order
         var stmt = db.prepare("SELECT * FROM activities WHERE id=:id;", {
@@ -79,6 +93,11 @@ exports.createRoutes = function(app, db) {
         }
     })
     .put(function(req, res) {
+        if(!accessAllowed(req, "activity")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
         // TODO pages!!
         var params = {
             ":id": req.params.activityId,
@@ -129,6 +148,10 @@ exports.createRoutes = function(app, db) {
         }
     })
     .delete(function(req, res) {
+        if(!accessAllowed(req, "activity")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
         try {
             db.run("PRAGMA foreign_keys = ON");
             db.run("DELETE FROM activities WHERE id=:id", {
@@ -147,6 +170,11 @@ exports.createRoutes = function(app, db) {
 
     app.route("/api/v1/activities/:ownerId")
     .get(function(req, res) {
+        if(!accessAllowed(req, "activities")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
         // Get all activities belonging to user :ownerId
         var activities = [];
         db.each("SELECT * FROM activities WHERE owner=:ownerId ORDER BY timeUpdated DESC;", 

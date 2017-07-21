@@ -1,3 +1,5 @@
+var accessAllowed = require("./apiPermissions").accessAllowed;
+
 exports.createRoutes = function(app, db) {
   app.route("/api/v1/groups")
     .get(function(req, res) {
@@ -13,6 +15,10 @@ exports.createRoutes = function(app, db) {
         });
     })
     .post(function(req, res) {
+        if(!accessAllowed(req, "groups")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
         db.run("INSERT INTO groups VALUES(NULL, :title, :classroom)", {
@@ -31,6 +37,10 @@ exports.createRoutes = function(app, db) {
     });
   app.route("/api/v1/groups/:groupId")
     .get(function(req, res) {
+        if(!accessAllowed(req, "groups")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var stmt = db.prepare("SELECT * FROM groups WHERE id=:id", {
         ":id": req.params.groupId
       });
@@ -42,6 +52,10 @@ exports.createRoutes = function(app, db) {
       stmt.free();
     })
     .put(function(req, res) {
+        if(!accessAllowed(req, "groups")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var params = {
         ":id": req.params.groupId,
         ":title": req.body.title,
@@ -70,6 +84,10 @@ exports.createRoutes = function(app, db) {
       }
     })
     .delete(function(req, res) {
+        if(!accessAllowed(req, "groups")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
         db.run("DELETE FROM groups WHERE id=:id", {
@@ -86,6 +104,10 @@ exports.createRoutes = function(app, db) {
     });
   app.route("/api/v1/groups/:groupId/users")
     .get(function(req, res) {
+        if(!accessAllowed(req, "groups")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       var users = [];
 
       db.each("SELECT id, name, email, type FROM group_user_mapping LEFT JOIN users ON group_user_mapping.user = users.id WHERE groupId=:group", {

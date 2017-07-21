@@ -1,6 +1,12 @@
+var accessAllowed = require("./apiPermissions").accessAllowed;
+
 exports.createRoutes = function(app, db) {
   app.route(["/api/v1/groups/:groupId/users/:userId", "/api/v1/users/:userId/groups/:groupId"])
     .put(function(req, res) {
+        if(!accessAllowed(req, "groups")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
 
@@ -44,6 +50,10 @@ exports.createRoutes = function(app, db) {
       }
     })
     .delete(function(req, res) {
+        if(!accessAllowed(req, "groups")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
         db.run("DELETE FROM group_user_mapping WHERE groupId=:group and user=:user", {
@@ -63,6 +73,10 @@ exports.createRoutes = function(app, db) {
 
   app.route(["/api/v1/classrooms/:classroomId/users/:userId", "/api/v1/users/:userId/classrooms/:classroomId"])
     .put(function(req, res) {
+        if(!accessAllowed(req, "classrooms")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
         db.run("INSERT INTO classroom_user_mapping VALUES(:classroom, :user)", {
@@ -78,6 +92,10 @@ exports.createRoutes = function(app, db) {
       }
     })
     .delete(function(req, res) {
+        if(!accessAllowed(req, "classrooms")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
       try {
         db.run("PRAGMA foreign_keys = ON");
         db.run("DELETE FROM classroom_user_mapping WHERE classroom=:classroom and user=:user", {
