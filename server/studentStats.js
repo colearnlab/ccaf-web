@@ -1,356 +1,294 @@
+exports.sessionStats = {};
 
-exports.createstats = function(db) {
-    return new StudentStats(db);
-}
+exports.makeStudentStatsTracker = function(db, sessionId) {
+    // Create tracker and load any existing session data
+    var tracker = new StudentStatsTracker(db, sessionId);
+    tracker.loadFromDB();
+
+    // Add methods for recording drawing events
+    tracker.setRecorder("addFreeDrawing", function(key, updateObj, timestamp) {
+        // Store the number of points in the path
+        var pathLength = updateObj.data.path.length;
+        //console.log(pathLength);
+        this.push(key, pathLength, updateObj.meta, timestamp);
+    });
+
+    tracker.setRecorder("setPage", function(key, updateObj, timestamp) {
+        this.pageNumbers = this.pageNumbers || {};
+        for(var userId in updateObj.data) {
+            this.pageNumbers[userId] = updateObj.data[userId];
+        }
+    });
+
+    // Add methods for calculating interesting things from the raw event data
+    tracker.setReporter("contributionToGroup", function(args) {
+        // Get last minute of data (TODO store interval with process.env?)
+        var recentDrawing = this.getInterval("addFreeDrawing", Date.now() - 60000);
+        
+        var groupTotals = {};
+        for(var i = 0, len = recentDrawing.data.length; i < len; i++) {
+            var pathLength = recentDrawing.data[i],
+                meta = recentDrawing.meta[i];
+        
+            if(!(meta.g in groupTotals)) {
+                groupTotals[meta.g] = {total: 0};
+            }
+
+            groupTotals[meta.g][meta.u] = (groupTotals[meta.g][meta.u] + pathLength) || pathLength;
+            groupTotals[meta.g].total += pathLength;
+        }
+
+        ////
+        //console.log(groupTotals);
+        return groupTotals;
+    });
 
 
-function StudentStats(db) {
+    tracker.setReporter("groupHistory", function(args) {
+        // TODO store this somewhere
+        //var groupHistoryUpdateInterval = 5 * 60 * 1000;
+        var groupHistoryUpdateInterval = 60 * 1000;
+
+        this.groupHistory = this.groupHistory || [];
+        this.latestHistoryUpdate = this.latestHistoryUpdate || this.sessionStartTime;
+        
+        var now = Date.now();
+        while((now - this.latestHistoryUpdate) >= groupHistoryUpdateInterval) {
+            var nextHistoryUpdate = this.latestHistoryUpdate + groupHistoryUpdateInterval;
+            var drawingData = this.getInterval("addFreeDrawing", this.latestHistoryUpdate, nextHistoryUpdate);
+            //console.log(drawingData);
+
+            // Add up group totals
+            var groupTotals = {};
+            for(var i = 0, len = drawingData.data.length; i < len; i++) {
+                var groupId = drawingData.meta[i].g,
+                    pathLength = drawingData.data[i];
+                groupTotals[groupId] = (groupTotals[groupId] + pathLength) || pathLength;
+            }
+            groupTotals.time = nextHistoryUpdate;
+            this.groupHistory.push(groupTotals);
+
+            this.latestHistoryUpdate = nextHistoryUpdate;
+        }
+
+        return this.groupHistory;
+    });
+
+    // Reporter method for users' page numbers
+    tracker.setReporter("pageNumber", function(args) {
+        return this.pageNumbers || {};
+    });
+
+    exports.sessionStats[sessionId] = tracker;
+};
+
+// Save a session's stats data every minute
+var dbWriteInterval = 60 * 1000;
+
+function StudentStatsTracker(db, sessionId) {
     this.db = db;
+    this.sessionId = sessionId;
+    
+    var stmt = db.prepare("SELECT startTime FROM classroom_sessions WHERE id=:sessionId;", {
+        ":sessionId": sessionId
+    });
+    if(!stmt.step())
+        throw "Couldn't get session start time for session " + sessionId;
+    else
+        this.sessionStartTime = stmt.getAsObject().startTime;
 
-    this.drawpoints = {};
-    this.pagescomplete = {};
-    this.groupActivityHistory = {};
+    this.recorders = {};
+    this.reporters = {};
 
-    var currentTime = Date.now();
+    this.lastSavedIdx = {};
 
-    // We need to be able to cancel the repeating updates when a session ends
-    this.updateIntervals = {};
+    this._data = {};
+    this._meta = {};
+    this._timestamps = {};
 
-    // load active sessions and start group activity update cycle for each
-    db.each("SELECT id, startTime FROM classroom_sessions WHERE endTime IS NULL;", {},
-        (function(row) {
-            // ensure active sessions are loaded
-            this.loadSession(row.id);          
-            this.startGroupUpdateInterval(row);
-
-        }).bind(this)
-    );
-}
-
-// TODO make method to start new sessions' group update intervals!
-// TODO stop interval when session is ended!!!
-StudentStats.prototype.startGroupUpdateInterval = function(row) {
-    // Set up repeating updates to group activity logs
-    var sessionElapsedTime = Date.now() - row.startTime;
-    // Set initial timeout to sync with 
+    // Start saving to the database (wait first)
     setTimeout((function() {
-            // repeat every VISINTERVAL ms
-            this.updateIntervals[row.id] = setInterval(
-                (function() {
-                    this.updateGroupActivity(row.id, Date.now());
-                    
-                    // if the session has ended, stop updating
-                    var stmt = this.db.prepare("SELECT * FROM classroom_sessions "
-                        + "WHERE id=:sessionId AND endTime IS NULL;", {":sessionId": row.id});
-                    if(!stmt.step()) {
-                        clearInterval(this.updateIntervals[row.id]);
-                    }
-                }).bind(this),
-                process.env.VISINTERVAL
-            );
-        }).bind(this),
-        process.env.VISINTERVAL - (sessionElapsedTime % process.env.VISINTERVAL)
-    );
-};
-
-StudentStats.prototype.refreshPointCounts = function(sessionId, time) {
-    // clear old data
-    this.drawpoints[sessionId] = [];
-
-    this.db.each("SELECT timestamp, userId FROM student_points_drawn "
-        + "WHERE sessionId=:sessionId AND timestamp>=:mintimestamp AND timestamp<:time " 
-        + "ORDER BY timestamp;", 
-        {
-            ":sessionId": sessionId,
-            ":mintimestamp": time - process.env.VISINTERVAL,
-            ":time": time
-        },
-        (function(row) {
-            var userId = row.userId,
-                timestamp = row.timestamp;
-
-            if(!(userId in this.drawpoints[sessionId])) {
-                this.drawpoints[sessionId][userId] = [];
-            }
-
-            this.drawpoints[sessionId][userId].push(timestamp);
-        }).bind(this)
-    );
-            
-};
-
-
-StudentStats.prototype.collectGroupSummaries = function(sessionId, time) {
-    if((typeof time) === "undefined") {
-        time = Date.now();
-    }
-
-    var windowStart = time - process.env.VISINTERVAL;
-
-    // groupID -> student counts and total
-    var groupSummaries = {total: 0};
-    
-    // reload point counts from database
-    this.refreshPointCounts(sessionId, time);
-
-    // approach: get groups in session and their members
-    this.db.each("SELECT group_sessions.groupId AS groupId, group_user_mapping.user AS userId "
-        + "FROM group_sessions "
-        + "INNER JOIN group_user_mapping ON group_sessions.groupId=group_user_mapping.groupId "
-        + "WHERE group_sessions.classroom_session=:sessionId;",
-        {":sessionId": sessionId},
-        (function(row) {
-            var groupId = row.groupId, userId = row.userId;
-            
-            if(!(userId in this.drawpoints[sessionId])) {
-                this.drawpoints[sessionId][userId] = [];
-            }
-            var drawpoints = this.drawpoints[sessionId][userId];
-
-            /*
-            // Seek backwards until we're at the end of the interval
-            var endidx = drawpoints.length;
-            while(drawpoints[endidx - 1] > time) {
-                endidx--;
-            }
-            var startidx = endidx - 1;
-            for(var i = startidx - 1; i >= 0; i--) {
-                if(drawpoints[i] < windowStart) {
-                    startidx = i + 1;
-                    break;
-                }
-            }
-            */
-            
-
-            // Save the count of points drawn
-            if(!(groupId in groupSummaries)) {
-                groupSummaries[groupId] = {total: 0}
-            }
-            if(!(userId in groupSummaries[groupId])) {
-                groupSummaries[groupId][userId] = {};
-            }
-            //var count = endidx - startidx - 1;
-            var count = drawpoints.length;
-
-            groupSummaries[groupId][userId].count = count;
-            groupSummaries[groupId].total += count;
-            groupSummaries.total += count;
-
-            // Get current scroll position
-            var stmt = this.db.prepare("SELECT position FROM scroll_position "
-                + "WHERE userId=:userId AND sessionId=:sessionId;",
-                {":userId": userId, ":sessionId": sessionId}
-            );
-
-            if(stmt.step()) {
-                groupSummaries[groupId][userId].position = stmt.getAsObject().position;
-            } else {
-                groupSummaries[groupId][userId].position = 0;
-            }
-
-            // Get page completion
-            groupSummaries[groupId][userId].complete = {};
-            this.db.each("SELECT pagenumber, complete FROM page_complete "
-                + "WHERE userId=:userId AND sessionId=:sessionId;",
-                {":userId": userId, ":sessionId": sessionId},
-                function(row) {
-                    groupSummaries[groupId][userId].complete[row.pagenumber] = (row.complete == 1);
-                }
-            );
-        }).bind(this)
-    );
-    
-    return {time: time, groups: groupSummaries};
-};
-
-
-// If the session doesn't exist in the database, this has the effect of 
-// initializing all session variables empty
-StudentStats.prototype.loadSession = function(sessionId) {
-    // Enusre session is removed from everything before loading
-    this.drawpoints[sessionId] = {};
-    this.pagescomplete[sessionId] = {};
-    this.groupActivityHistory[sessionId] = [];
-    
-    // Check that session exists; return if not
-    //var stmt = this.db.prepare("SELECT id FROM classroom_sessions WHERE id=:sessionId;",
-    //    {":sessionId": sessionId});
-    //if(!stmt.step()) {
-    //    return;
-    //}
-
-    // Select students and their point drawing history  from the database
-    this.db.each("SELECT user AS userId, timestamp FROM group_user_mapping "
-        + "INNER JOIN group_sessions ON group_sessions.groupId=group_user_mapping.groupId "
-        + "INNER JOIN classroom_sessions ON group_sessions.classroom_session=classroom_sessions.id "
-        + "LEFT OUTER JOIN student_points_drawn ON student_points_drawn.userId=user AND student_points_drawn.sessionId=classroom_sessions.id "
-        + "WHERE classroom_sessions.id=:sessionId "
-        + "ORDER BY timestamp;", 
-        {":sessionId": sessionId},
-        (function(row) {
-            var userId = row.userId;
-            
-            // Create the student list if it doesn't exist
-            if(!(userId in this.drawpoints[sessionId])) {
-                this.drawpoints[sessionId][userId] = [];
-            }
-
-            // The query results are sorted so just push the timestamp onto the list
-            this.drawpoints[sessionId][userId].push(row.timestamp);
-        }).bind(this)
-    );
-
-    // Get group histories (don't worry about individual students here)
-    var groupActivityByTimestamp = {};
-    this.db.each("SELECT timestamp, groupId, count FROM group_points_drawn "
-        + "INNER JOIN group_sessions ON group_sessions.id=groupSessionId "
-        + "WHERE classroom_session=:sessionId "
-        + "ORDER BY timestamp;",
-        {":sessionId": sessionId},
-        (function(row) {
-            if(!(row.timestamp in groupActivityByTimestamp)) {
-                groupActivityByTimestamp[row.timestamp] = {total: 0};
-            }
-
-            groupActivityByTimestamp[row.timestamp][row.groupId] = {total: row.count};
-            groupActivityByTimestamp[row.timestamp].total += row.count;
-        }).bind(this),
-        (function() {
-            // Should give the times in the correct order since they were added in order.
-            for(var timestamp in groupActivityByTimestamp) {
-                var finished = {time: timestamp, groups: groupActivityByTimestamp[timestamp]};
-                this.groupActivityHistory[sessionId].push(finished);
-            }
-        }).bind(this)
-    );
+        this.interval = setInterval(this.saveToDB.bind(this), dbWriteInterval);
+    }).bind(this), dbWriteInterval);
 }
 
 
-// Looks back at the last group activity interval and adds activity stats to group logs
-StudentStats.prototype.updateGroupActivity = function(sessionId, time) {
-    // Tally group activity from the last VISINTERVAL milliseconds
-    var groupActivity = this.collectGroupSummaries(sessionId, time);
+// Stores a callback to record a certain type of event
+StudentStatsTracker.prototype.setRecorder = function(key, recorderCB) {
+    this.recorders[key] = recorderCB.bind(this);
+    
+    // make arrays for recording update events and times
+    this._data[key] = [];
+    this._meta[key] = [];
+    this._timestamps[key] = [];
+};
 
-    //console.log("update group activity");
-    //console.log(groupActivity);
 
-    if(!(sessionId in this.groupActivityHistory)) {
-        console.log("need to load session!");
-        this.loadSession(sessionId);
+// If an update has metadata and there is a matching recorder callback, run
+// the callback for the update message
+StudentStatsTracker.prototype.processUpdate = function(updateObj, timestamp) {
+    //console.log(updateObj.data);
+    if(updateObj.meta) {
+        // Choose the recorder callback
+        var key = updateObj.meta.type;
+        var recorderCB = this.recorders[key];
+        if(recorderCB)
+            recorderCB(key, updateObj, timestamp);
     }
-    this.groupActivityHistory[sessionId].push(groupActivity);
+};
+    
 
-    // Add group point drawing counts to the database
-    for(var groupId in groupActivity.groups) {
-        groupId = parseInt(groupId);
-        if(!isNaN(groupId)) {
-            // get group_session id so we can add this event to the database
-            var stmt = this.db.prepare("SELECT id FROM group_sessions "
-                + "WHERE classroom_session=:sessionId AND groupId=:groupId;",
-                {":sessionId": sessionId, ":groupId": groupId}
-            );
+// Method for pushing a timestamped event onto the appropriate array
+StudentStatsTracker.prototype.push = function(key, data, meta, timestamp) {
+    if((key in this._data) && (key in this._timestamps)) {
+        // Timestamp might not be defined; default is now
+        if(!timestamp)
+            timestamp = Date.now();
 
-            if(!stmt.step()) {
-                // As of right now, there shouldn't be a reason to insert a row
-                console.log("No entry in group_sessions for group " + groupId + " in session " + sessionId);
-            } else {
-                //console.log("insert group activity record");
-                // Add to database
-                this.db.run("INSERT INTO group_points_drawn "
-                    + "VALUES (:timestamp, :count, :groupSessionId);",
-                    {
-                        ":timestamp": time, 
-                        ":count": groupActivity.groups[groupId].total,
-                        ":groupSessionId": stmt.getAsObject().id
-                    }
-                );
-            }
-        }
+        this._timestamps[key].push(timestamp);
+        this._meta[key].push(meta);
+        this._data[key].push(data);
     }
 };
 
 
-// Update student and group statistics 
-StudentStats.prototype.update = function(timestamp, updateobj) {
-    // an update may have more than one event, so check all
-    for(var updatekey in updateobj) {
-        var update_event = updateobj[updatekey];
-
-        if(updatekey.includes("pages")) {
-            //console.log(updatekey, update_event);
-            // This is a point-drawing event so tally the point for the user
-            if(('u' in update_event) && ('s' in update_event)) {
-                var userId = update_event.u, sessionId = update_event.s;
-                
-                // ensure the right log exists
-                if(!(sessionId in this.drawpoints)) {
-                    this.loadSession(sessionId);
-                }
-                if(!(userId in this.drawpoints[sessionId])) {
-                    this.drawpoints[sessionId][userId] = [];
-                }
-
-                this.drawpoints[update_event.s][update_event.u].push(timestamp);
-                
-                // add to database
-                this.db.run("INSERT INTO student_points_drawn "
-                    + "VALUES (:timestamp, :userId, :sessionId);",
-                    {":timestamp": timestamp, ":userId": userId, ":sessionId": sessionId});
-            }
-        } else if(updatekey.includes("scrollPositions")) {
-            // maybe update student's current page
-            console.log(update_event);
-            
-
-            var sessionId = update_event.s;
-            for(var userId in update_event) {
-                if(!isNaN(userId)) {
-                    console.log("update?");
-                    // Update the user's scroll position in the database
-                    var params = {
-                        ":pos": update_event[userId],
-                        ":userId": userId,
-                        ":sessionId": sessionId
-                    };
-
-                    this.db.run("UPDATE OR IGNORE scroll_position "
-                        + "SET position=:pos "
-                        + "WHERE userId=:userId AND sessionId=:sessionId;",
-                        params
-                    );
-
-                    this.db.run("INSERT OR IGNORE INTO scroll_position "
-                        + "VALUES (:pos, :userId, :sessionId);",
-                        params
-                    );
-                }
-            }
-        } else if(updatekey.includes("pageComplete")) {
-            //console.log(update_event);
-            var params = {
-                ":complete": update_event.b,
-                ":pagenumber": update_event.p,
-                ":userId": update_event.u,
-                ":sessionId": update_event.s
-            };
-
-            this.db.run("UPDATE OR IGNORE page_complete "
-                + "SET complete=:complete "
-                + "WHERE pagenumber=:pagenumber AND userId=:userId AND sessionId=:sessionId;",
-                params
-            );
-
-            // Insert
-            this.db.run("INSERT OR IGNORE INTO page_complete "
-                + "VALUES (:complete, :pagenumber, :userId, :sessionId);",
-                params
-            );
-
-        }
-        // TODO add other update events here
-    
+// Get all events from the channel given by "key" on the interval [startTime, endTime).
+StudentStatsTracker.prototype.getInterval = function(key, startTime, endTime) {
+    if((typeof startTime) == "undefined") {
+        return {
+            data: this._data[key],
+            meta: this._meta[key],
+            timestamps: this._timestamps[key]
+        };
+    } else if((typeof endTime) == "undefined") {
+        endTime = null;
     }
+
+    // Seek back through timestamps to find end points
+    var timestamps = this._timestamps[key],
+        data = this._data[key],
+        meta = this._meta[key];
+    var startIdx = timestamps.length,
+        endIdx = timestamps.length;
+    for(var i = timestamps.length - 1; i > -1; i--) {
+        if(timestamps[i] < startTime) {
+            break;
+        } else {
+            startIdx = i;
+        }
+
+        if(endTime) {
+            if(timestamps[i] < endTime) {
+                endTime = null;
+            } else {
+                endIdx = i;
+            }
+        }
+    }
+    
+    return {
+        data: data.slice(startIdx, endIdx),
+        meta: meta.slice(startIdx, endIdx),
+        timestamps: timestamps.slice(startIdx, endIdx)
+    };
+}
+
+
+// Add a method for reporting things about already recorded data
+StudentStatsTracker.prototype.setReporter = function(reporterKey, reporterCB) {
+    this.reporters[reporterKey] = reporterCB.bind(this);
+};
+
+
+// Run a reporter method
+StudentStatsTracker.prototype.report = function(reporterKey, args) {
+    if(reporterKey in this.reporters) {
+        return this.reporters[reporterKey](args);
+    } else {
+        console.log('No reporter method "' + reporterKey + '" found');
+    }
+};
+
+
+StudentStatsTracker.prototype.reportAll = function(args) {
+    var results = {};
+    for(var reporterKey in this.reporters) {
+        results[reporterKey] = this.reporters[reporterKey](args);
+    }
+    return results;
+};
+
+
+// Save all data to the database
+StudentStatsTracker.prototype.saveToDB = function() {
+    this.db.run("PRAGMA foreign_keys = on;");
+    
+    for(var recorderKey in this.recorders) {
+        var startIdx = this.lastSavedIdx[recorderKey];
+
+        // Write all new events to the database
+        var timestamps = this._timestamps[recorderKey],
+            data = this._data[recorderKey],
+            meta = this._meta[recorderKey];
+        var endIdx = data.length;
+        for(var i = startIdx; i < endIdx; i++) {
+            this.db.run("INSERT INTO stats_events VALUES (:type, :timestamp, :data, :meta, :session);", {
+                ":type": recorderKey,
+                ":timestamp": timestamps[i],
+                ":data": JSON.stringify(data[i]),
+                ":meta": JSON.stringify(meta[i]),
+                ":session": this.sessionId
+            });
+        }
+
+        // Keep track of which event we wrote last
+        this.lastSavedIdx[recorderKey] = endIdx;
+    }
+};
+
+
+// Load events from the database
+StudentStatsTracker.prototype.loadFromDB = function() {
+    // Discard any existing data
+    this._data = {};
+    this._meta = {};
+    this._timestamps = {};
+    
+    // Fetch from database by type
+    var stmt = this.db.prepare("SELECT * FROM stats_events WHERE sessionId=:session "
+        + "ORDER BY timestamp;", {
+        ":session": this.sessionId
+    });
+
+    while(stmt.step()) {
+        var ev = stmt.get();
+        var recorderKey = ev[0];
+        if(!(recorderKey in this._data)) {
+            this._timestamps[recorderKey] = [];
+            this._data[recorderKey] = [];
+            this._meta[recorderKey] = [];
+        }
+
+        // TODO run recorders??
+
+        this._timestamps[recorderKey].push(ev[1]);
+        this._data[recorderKey].push(JSON.parse(ev[2]));
+        this._meta[recorderKey].push(JSON.parse(ev[3]));
+    }
+
+
+    // Keep track of what's already in the database
+    for(var recorderKey in this._timestamps) {
+        this.lastSavedIdx = this._timestamps[recorderKey].length - 1;
+    }
+};
+
+
+// Save to the database and cancel future saving.
+StudentStatsTracker.prototype.quit = function() {
+    this.saveToDB();
+    if(this.interval)
+        clearInterval(this.interval);
 };
 
 
