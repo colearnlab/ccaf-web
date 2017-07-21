@@ -95,10 +95,11 @@ html, body {
   background-color: rgba(0, 0, 0, 0.1);
 }
 
-#add-group {
+#end-session-button {
   position: absolute;
   right: 25px;
-  top: calc(100vh - 70px);
+  /*top: calc(90vh - 100px);*/
+  bottom: 10px;
 }
 
 #ghost {
@@ -121,7 +122,7 @@ html, body {
   line-height: 30px;
 }
 
-#end-session-button {
+#add-group {
   position: absolute;
   right: 25px;
   top: 15px;
@@ -130,7 +131,7 @@ html, body {
 .session-link {
     display: inline-block;
     padding-left: 1em;
-    color: blue;
+    color: gray;
 };
 
 .doc-selected {
@@ -191,9 +192,7 @@ div.group-progress-view {
 
     background-color: #ffffff;
 
-    padding-left: 2em;
-    padding-right: 2em;
-    padding-top: 1em;
+    padding: 1em;
 
     border-width: 1px;
     border-style: solid;

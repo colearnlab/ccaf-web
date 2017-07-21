@@ -8,31 +8,40 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
 
   var UserPicker = userPicker.userPicker;
   var GroupEditor = groupEditor.groupEditor;
-  var DataVis = dataVis.dataVis;
+  var DataVis = dataVis.DataVis;
 
   var Shell = {
     controller: function(args) {
       var ctrl = {
-        me: User.me().then(function(me) {
-          ctrl.classrooms = me.classrooms().then(function(classrooms) {
-            classrooms.map(function(classroom) {
-              classroom.sessions().then(function(sessions) {
-                for (var i = 0; i < sessions.length; i++)
-                  ctrl.sessions().push(sessions[i]);
-              });
-            });
-            return classrooms;
-          });
-          return me;
-        }).then(function(me) {
-            ctrl.activities = me.activities();
-            return me;
-        }),
+          refreshData: function() {
+              ctrl.me = User.me().then(function(me) {
+                ctrl.classrooms = me.classrooms().then(function(classrooms) {
+                    classrooms.map(function(classroom) {
+                        classroom.sessions().then(function(sessions) {
+                            for (var i = 0; i < sessions.length; i++)
+                                ctrl.sessions().push(sessions[i]);
+                        });
+                    });
+                    return classrooms;
+                });
+                return me;
+              }).then(function(me) {
+                ctrl.activities = me.activities();
+                return me;
+              })
+          },
         toolbarText: m.prop(""),
         activities: m.prop([]),
         classrooms: m.prop([]),
-        sessions: m.prop([])
+        sessions: m.prop([]),
+        showMenus: {
+            sessions: false,
+            activities: false,
+            classrooms: false
+        }
       };
+
+      ctrl.refreshData();
 
       return ctrl;
     },
@@ -43,6 +52,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             //style: (typeof m.route.param("classroomId") !== "undefined" || typeof m.route.param("sessionId") !== "undefined" ? "" : "display: none"),
             style: (m.route() === "/") ? "display: none" : "",
             onclick: function() {
+              if(component.exitCallback)
+                    component.exitCallback();
               m.route("/");
             }
           }),
@@ -56,16 +67,19 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var widthClasses = ".col-xs-8.col-xs-offset-2.col-sm-8.col-sm-offset-2.col-md-6.col-md-offset-3";
   var Menu = {
     view: function(ctrl, args) {
+      args.toolbarText(""); // TODO put text here
       return m(".row",
         m(widthClasses,
-          m.component(ClassroomsMenu, args),
+            m.component(Sessions, args),
           //m.component(StartSessionMenu, args),
           //m.component(ActiveSessions, args),
           //m.component(PastSessions, args),
           
           // TODO make these menus
           m.component(ActivitiesMenu, args),
-          //m.component(RecordedClassesMenu, args)
+          m.component(ClassroomsMenu, args),
+          
+            //m.component(RecordedClassesMenu, args)
 
           /*
           m("a", { 
@@ -161,44 +175,59 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     }
   };
 
-  var ActiveSessions = {
+  // For active sessions
+  var Sessions = {
     controller: function(args) {
-      return {
-        sessions: ClassroomSession.list()
+      var ctrl = {
+        sessions: m.prop([]),
+        showBody: args.showMenus.sessions
       };
+
+        ClassroomSession.list().then(function(sessions) {
+            ctrl.sessions(sessions.filter(function(session) {
+                return session.endTime == null;
+            }));
+            m.redraw();
+        });
+
+        return ctrl;
     },
     view: function(ctrl, args) {
-      var mySessions = args.sessions().filter(function(session) {
-        return session.endTime === null;
-      });
-
       return m(".main-menu-section.bg-color-white", {
-          style: mySessions.length > 0 ? "" : "display: none"
+            // Hide the whole thing if there are no active sessions
+            style: (ctrl.sessions().length > 0 ? "" : "display: none")
         },
-        m(".main-menu-header.primary-color-green.text-color-secondary", "Active Sessions"),
-        m(".main-menu-body",
+        m(".main-menu-header.primary-color-green.text-color-secondary", {
+                onclick: function() {
+                    args.showMenus.sessions = ctrl.showBody = !ctrl.showBody;
+                }
+            },
+            m.trust((ctrl.showBody ? "&#9660; " : "&#9658; ") + "View and manage active sessions")),
+        m(".main-menu-body", {
+                style: (ctrl.showBody ? "" : "display: none")
+          },
           m(".list-group",
-            mySessions.map(function(session) {
-              var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
+            ctrl.sessions().map(function(session) {
+              var classroomIdx = args.classrooms().map(function(classroom) { 
+                  return classroom.id; 
+              }).indexOf(session.classroom);
               var classroom = args.classrooms()[classroomIdx];
               return m(".list-group-item.classroom",
                 m(".list-group-heading", {
-                    /*onclick: function() {
-                      m.route("/session/" + session.id);
-                    }*/
+                    //style: (session.endTime == null) ? "font-weight: bold" : ""
                   },
                   session.title,
                   " [",
                   classroom.title,
                   "]",
-                  m("a.session-link", {
+                  m("a.session-link.pull-right", {
                       onclick: function() {
                           m.route("/session/" + session.id);
                       }
                     },
                     m.trust("&laquo;Edit groups&raquo;")
                   ),
-                  m("a.session-link", {
+                  m("a.session-link.pull-right", {
                       onclick: function() {
                           m.route("/visualize/" + session.id);
                       }
@@ -274,13 +303,16 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       return {
         classrooms: args.classrooms,
         editingClassroom: null,
-        deletingClassroom: null
+        deletingClassroom: null,
+        creating: false,
+        showBody: args.showMenus.classrooms
       };
     },
-    'view': function(ctrl, args) {
+    view: function(ctrl, args) {
       return m("div",
         (ctrl.editingClassroom ? m.component(ClassroomEditModal, {
             me: args.me,
+            creating: ctrl.creating,
             classroom: ctrl.editingClassroom,
             triggerDelete: function() {
               ctrl.deletingClassroom = ctrl.editingClassroom;
@@ -310,19 +342,30 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
           })
           : ""),
         m('.main-menu-section.bg-color-white', {
+            /*
             style: args.sessions().filter(function(session) {
               return session.endTime === null;
-            }).length === 0 ? "" : "display: none"
+            }).length === 0 ? "" : "display: none"*/
           },
-          m('.main-menu-header.primary-color-blue.text-color-secondary',
-            "Class Rosters",
+          m('.main-menu-header.primary-color-blue.text-color-secondary', {
+                onclick: function() {
+                    args.showMenus.classrooms = ctrl.showBody = !ctrl.showBody;
+                }
+            },
+            m.trust((ctrl.showBody ? "&#9660; Class Rosters" : "&#9658; Class Rosters")),
             m('span.glyphicon.glyphicon-plus.pull-right', {
-              onclick: function() {
+              style: (ctrl.showBody ? "" : "display: none"),
+              onclick: function(e) {
+                  ctrl.creating = true;
                 ctrl.editingClassroom = new Classroom("", args.me().id);
+                ctrl.showContents = true;
+                e.stopPropagation();
               }
             })
           ),
-          m('.main-menu-body', {style: "overflow: auto"},
+          m('.main-menu-body', {
+              style: (ctrl.showBody ? "overflow: auto" : "display: none")
+            },
             m(".list-group",
               ctrl.classrooms().map(function(classroom) {
                 return m(".list-group-item.classroom",
@@ -332,13 +375,23 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                       }
                     },
                     classroom.title,
-                    m("span.glyphicon.glyphicon-edit.pull-right", {
+                    m("a.session-link.pull-right", {
                       style: "color: gray",
                       onclick: function(e) {
+                        m.route("/classroom/" + classroom.id);
+                        //ctrl.editingClassroom = Object.assign(new Classroom(), JSON.parse(JSON.stringify(classroom)));
+                        //e.stopPropagation();
+                      }}, m.trust("&laquo;Edit class roster&raquo;")
+                    ),
+                    //m("span.glyphicon.glyphicon-edit.pull-right", {
+                    m("a.session-link.pull-right", {
+                      style: "color: gray",
+                      onclick: function(e) {
+                        ctrl.creating = false;
                         ctrl.editingClassroom = Object.assign(new Classroom(), JSON.parse(JSON.stringify(classroom)));
                         e.stopPropagation();
-                      }
-                    })
+                      }}, m.trust("&laquo;Edit&raquo;")
+                    )
                   )
                 );
               })
@@ -367,7 +420,9 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         },
         m(".modal-content" + widthClasses,
           m(".modal-header",
-            m("h4.modal-title", "Edit class")
+            m("h4.modal-title", 
+                args.creating ? "Create class" : "Edit class"
+            )
           ),
           m(".modal-body",
             m("form",
@@ -466,7 +521,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         editingActivity: null,
         deletingActivity: null,
         startActivity: null,
-        showRecentDocsModal: false
+        showRecentDocsModal: false,
+        showBody: args.showMenus.activities
 
       };
         ctrl.addPage = function(page) {
@@ -485,6 +541,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       return m("div",
         (ctrl.editingActivity ? m.component(ActivitiesEditModal, {
             me: args.me,
+            creating: ctrl.creating,
             activity: ctrl.editingActivity,
             triggerDelete: function() {
               ctrl.deletingActivity = ctrl.editingActivity;
@@ -537,18 +594,26 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               return session.endTime === null;
             }).length === 0 ? "" : "display: none"*/
           },
-          m('.main-menu-header.primary-color-blue.text-color-secondary',
-            "Activities",
+          m('.main-menu-header.primary-color-blue.text-color-secondary', {
+                onclick: function() {
+                    args.showMenus.activities = ctrl.showBody = !ctrl.showBody;
+                }
+            },
+            m.trust((ctrl.showBody ? "&#9660; Activities" : "&#9658; Activities")),
             m('span.glyphicon.glyphicon-plus.pull-right', {
-              onclick: function() {
+              style: (ctrl.showBody ? "" : "display: none"),
+              onclick: function(e) {
                 // TODO create activity modal
-                ctrl.editingActivity = m.prop(new Activity("", args.me().id));
-                ctrl.creatingActivity = true;
+                ctrl.editingActivity = m.prop(new Activity(null, args.me().id));
+                ctrl.creating = true;
+                e.stopPropagation();
               }
                 
             })
           ),
-          m('.main-menu-body', {style: "overflow: auto"},
+          m('.main-menu-body', {
+              style: (ctrl.showBody ? "overflow: auto" : "display: none")
+            },
             m(".list-group",
               ctrl.activities().map(function(activity) {
                 if(ctrl.deleteActivityPromptId == activity.id) {
@@ -580,37 +645,42 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                           onclick: function() {
                             //ctrl.editingActivity = Object.assign(new Activity(activity.title, activity.owner), JSON.parse(JSON.stringify(activity)));
                             // Gets all pages for activity
+                              ctrl.creating = false;
                               ctrl.editingActivity = Activity.get(activity.id);
-                              ctrl.creatingActivity = false;
                               //console.log(ctrl.editingActivity);
                               //console.log(args.activities()[0]);
                           }
                         },
-                        m("span.glyphicon.glyphicon-remove.pull-right", {
+                        //m("span.glyphicon.glyphicon-remove.pull-right", {
+                        m("a.session-link.pull-right", {
                             style: "color: gray",
                             onclick: function(e) {
                                 ctrl.deleteActivityPromptId = activity.id;
                                 e.stopPropagation();
                             }
-                        }),
-                        m("span.glyphicon.glyphicon-edit.pull-right", {
+                        }, m.trust("&laquo;Delete&raquo;")),
+                        //m("span.glyphicon.glyphicon-edit.pull-right", {
+                        m("a.session-link.pull-right", {
                           style: "color: gray",
                           onclick: function(e) {
                               // TODO go to activity editor page
                               // pulls up modal
+                              ctrl.creating = false;
+                              ctrl.editingActivity = Activity.get(activity.id);
                             //ctrl.editingActivity = Object.assign(new Activity(activity.title, activity.owner), JSON.parse(JSON.stringify(activity)));
-                            //e.stopPropagation();
+                            e.stopPropagation();
                           }
-                        }),
+                        }, m.trust("&laquo;Edit&raquo;")),
                         activity.title,
-                        m("span.glyphicon.glyphicon-play-circle.pull-right", {
+                        //m("span.glyphicon.glyphicon-play-circle.pull-right", {
+                        m("a.session-link.pull-right", {
                             style: "color: gray",
                             onclick: function(e) {
                                 // TODO start activity modal -- choose class and end time?
                                 ctrl.startActivity = activity;
                                 e.stopPropagation();
                             }
-                        })
+                        }, m.trust("&laquo;Start a session&raquo;"))
                       ) // heading
                     );
                 } // if
@@ -625,7 +695,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var StartActivityModal = {
     controller: function(args) {
       var ctrl = {
-        title: "Start activity",
+        title: "Start a session using " + args.activity.title,
         doneButtonLabel: "Start",
         activity: args.activity,
         sessionTitle: "New session - " + args.activity.title,
@@ -767,7 +837,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 m("label.control-label[for=activity-modal-title]", "Title"),
                 m("div",
                   m("input.input-sm.form-control#activity-modal-title", {
-                      value: ctrl.activity().title ? ctrl.activity().title : "Untitled",
+                      value: (ctrl.activity().title != null) ? ctrl.activity().title : "Untitled",
                     oninput: function(el) {
                       ctrl.activity().title = el.target.value;
                     }
@@ -778,8 +848,16 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               // TODO list of documents
               m(".list-group",
                 (ctrl.activity().pages) ? 
-                  (ctrl.activity().pages.map(function(page) {
-                    return m(".list-group-item", page.originalFilename);
+                  (ctrl.activity().pages.map(function(page, idx) {
+                    return m(".list-group-item",
+                        page.originalFilename,
+                        m("span.glyphicon.glyphicon-remove.pull-right", {
+                            onclick: function() {
+                                // If clicked, remove the page from the activity
+                                ctrl.activity().pages.splice(idx, 1);
+                            }
+                        })
+                    );
                   })) : "",
                 m(".btn.btn-default", {
                   style: "display: block",
@@ -856,6 +934,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                       // Upload file and then add to the list of recent documents.
                       File.upload(ctrl.newUploadFile).then(function(file) {
                         ctrl.pages().push(file);
+                        ctrl.selectedPage = file;
                         return file;
                       });
                     }
