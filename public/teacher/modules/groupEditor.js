@@ -45,8 +45,8 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
           if (typeof m.route.param("classroomId") !== "undefined") {
             continueReload(m.route.param("classroomId"));
           } else {
-            if (firstLoad)
-              ctrl.sidebarState("close");
+            //if (firstLoad)
+            //  ctrl.sidebarState("close");
             ctrl.mode("session");
             ClassroomSession.get(m.route.param("sessionId")).then(function(classroomSession) {
               ctrl.session(classroomSession);
@@ -70,6 +70,7 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         ),
         // This space holds the open/close button as welll as all the groups.
         m(".stretch#groups-holder",
+            /*
           m("#close-button", {
             // If the sidebar is closed, set the text direction to RTL so only the chevron tip displays.
             // chevron tip displays. Also, move the button left to account for negative margins.
@@ -80,13 +81,16 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
               }
             // Display the left or right chevron depending on open or close state.
           }, m("span.glyphicon.glyphicon-chevron-" + (ctrl.sidebarState() === "open" ? "left" : "right"))
+            
           ),
+          */
           m.component(Groups, ctrl),
-          m("button.btn.btn-default#end-session-button", {
-            style: ctrl.sidebarState() === "open" && ctrl.mode() === "session" ? "" : "display: none",
+          m("button.btn.btn-danger#end-session-button", {
+            style: ctrl.mode() === "session" ? "" : "display: none",
             onclick: function(e) {
               ctrl.session().endTime = (+ new Date());
               ctrl.session().save().then(function() {
+                //args.refreshData();
                 m.route("/");
               });
             }
@@ -172,13 +176,14 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         ctrl.groups().map(function(group) {
           return m.component(GroupComponent, {triggerReload: args.triggerReload, group: group, sidebarState: args.sidebarState});
         }),
-        m("span.glyphicon.glyphicon-plus#add-group", {
+        m("button.btn.btn-default#add-group", {
             style: args.sidebarState() === "close" ? "display: none" : "",
             onclick: function() {
-              var newGroup = new Group("New group", args.classroom().id);
+              var newGroup = new Group("Group " + (ctrl.groups().length + 1), args.classroom().id);
               newGroup.save().then(args.triggerReload);
             }
-          }
+          },
+          "Create group"
         )
       );
     }
