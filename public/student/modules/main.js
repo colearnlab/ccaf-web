@@ -4,7 +4,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
   var User = models.User;
   var Classroom = models.Classroom;
   var ClassroomSession = models.ClassroomSession;
-  var wsAddress = 'wss://' + window.location.host + "/ws";
+  //var wsAddress = 'wss://' + window.location.host + "/ws";
+  var wsAddress = 'ws://' + window.location.host + "/ws";
   var Activity = models.Activity;
   var ActivityPage = models.ActivityPage;
   var appPath = "whiteboard";
@@ -116,6 +117,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     m.mount(document.body, null);
 
     var group = session.group;
+      console.log("Group: " + group);
     session = session.session;
     var metadata = (session.metadata ? JSON.parse(session.metadata) : {});
 
@@ -128,6 +130,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
             app.load(connection, document.body, {
               //pdf: "/media/" + metadata.pdf.filename,
               user: me,
+              group: group.id,
               session: session
             });
           });
