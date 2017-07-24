@@ -234,14 +234,53 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             }, optExtra));
           },
 
+
+          /* TODO selection boxes
+          setSelectionBox: function(groupObj, doc, page) {
+              // Send an update about the area we're selecting
+              args.connection.transaction([["selectionBox", args.user]], function(selectionBox) {
+                  if(groupObj) {
+                      selectionBox.selecting = true;
+
+                      // the box
+                      selectionBox.left = groupObj.left;
+                      selectionBox.top = groupObj.top;
+                      selectionBox.width = groupObj.width;
+                      selectionBox.height = groupObj.height;
+
+                      // the page
+                      selectionBox.doc = doc;
+                      selectionBox.page = page;
+                  } else {
+                      selectionBox.selecting = false;
+                  }
+              });
+          },
+          */
+
           doObjectTransaction: function(obj, canvas, transactionType) {
             args.connection.transaction([["objects", obj.uuid]], function(objects) {
                 ctrl.curId[obj.uuid] = objects._id || 0;
+
+                // If obj is part of a selection group, its coordinates are for
+                // some reason given relative to the selection. Here we calculate
+                // selX and selY to find the object's position relative to the canvas.
+                var selX = 0, selY = 0;
+                if('group' in obj) {
+                    selX = obj.group.left + (obj.group.width / 2);
+                    selY = obj.group.top + (obj.group.height / 2);
+
+                    // TODO selection box
+                    //ctrl.setSelectionBox(obj.group);
+                }
 
                 var uuid = obj.uuid; // preserve uuid in case it's lost in toObject
                 if(obj.name != "remove") {
                     obj = obj.toObject();
                 }
+
+                obj.left += selX;
+                obj.top += selY;
                 
                 // Damn son that was easy!
                 objects.data = JSON.stringify(obj);
@@ -334,6 +373,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         },
 
           applyUpdate: function(updateObj, canvas) {
+              console.log(updateObj);
               if(updateObj.uuid in canvas.objsByUUID) {
                   var canvasObj = canvas.objsByUUID[updateObj.uuid];
                   
@@ -349,7 +389,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                   // object does not exist so create (no transaction)
                   ctrl.addObject(updateObj, canvas, true, false);
               }
-          } 
+          },
+
+          // TODO finish selection color
+          /*
+          drawSelectionBox: function(box, userId, canvas) {
+            var ctx = canvas.getContext('2d');
+            if(box.selecting) {
+                // draw
+                ctx.fillStyle = getUserColor(ctrl.userList(), args.user);
+                ctx.fillRect(box.left, box.top, box.width, box.height);
+            } else {
+                // clear
+                ctx.clearRect(box.left, box.top, box.width, box.height);
+            }
+          }
+          */
       };
 
       args.connection.userList.addObserver(function(users) {
@@ -371,28 +426,43 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         }
       });
 
+      // Set selection box
+        // TODO
+      /*
+      args.connection.addObserver(function(store) {
+        for(var userId in store.selectionBox) {
+            var box = store.selectionBox[userId];
+            var currentDoc = ctrl.pageNumbers()[args.user];
+            console.log(box);
+            if(('doc' in box) && box.doc == currentDoc) {
+                ctrl.drawSelectionBox(box, args.user, ctrl.docs()[currentDoc].canvas[box.page]);
+            }
+        }
+      });
+      */
+
       // Handle object updates
       ctrl.objectObserver = function(store) {
-                for(var uuid in store.objects /*objmap*/) {
-                    var update = store.objects[uuid]; /*objmap[uuid];*/
-                    var updateObj = JSON.parse(update.data),
-                        updateMeta = JSON.parse(update.meta);
-                    updateObj.uuid = updateMeta.uuid;
-                    if(!(uuid in ctrl.curId)) {
-                        ctrl.curId[uuid] = updateMeta._id - 1;
-                    }
+            for(var uuid in store.objects /*objmap*/) {
+                var update = store.objects[uuid]; /*objmap[uuid];*/
+                var updateObj = JSON.parse(update.data),
+                    updateMeta = JSON.parse(update.meta);
+                updateObj.uuid = updateMeta.uuid;
+                if(!(uuid in ctrl.curId)) {
+                    ctrl.curId[uuid] = updateMeta._id - 1;
+                }
 
-                    if(updateMeta._id > ctrl.curId[uuid]) {
-                        ctrl.curId[uuid] = updateMeta._id;
+                if(updateMeta._id > ctrl.curId[uuid]) {
+                    ctrl.curId[uuid] = updateMeta._id;
 
-                        if(updateMeta.doc == ctrl.pageNumbers()[args.user]) {
-                            ctrl.applyUpdate(updateObj, ctrl.docs()[updateMeta.doc].canvas[updateMeta.page]);
-                        } else {
-                            console.log("queued update");
-                            ctrl.updateQueue.push({data: updateObj, meta: updateMeta});
-                        }
+                    if(updateMeta.doc == ctrl.pageNumbers()[args.user]) {
+                        ctrl.applyUpdate(updateObj, ctrl.docs()[updateMeta.doc].canvas[updateMeta.page]);
+                    } else {
+                        console.log("queued update");
+                        ctrl.updateQueue.push({data: updateObj, meta: updateMeta});
                     }
                 }
+            }
 
           if(ctrl.firstLoad) {
               ctrl.firstLoad = false;
@@ -933,6 +1003,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             addObject: args.addObject,
             modifyObject: args.modifyObject,
             removeObject: args.removeObject,
+
+            connection: args.connection,
+            drawSelectionBox: args.drawSelectionBox,
+            //setSelectionBox: args.setSelectionBox
       });
     });
   }
@@ -1089,7 +1163,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                             }
                         }
                     }
-                    
+
+                    // Draw any selections
+                    if(args.connection && args.connection.store)
+                        for(var userId in args.connection.store.selectionBox)
+                            args.drawSelectionBox(args.connection.store.selectionBox[userId], userId, ctrl.canvas);
+
+
                     // Use the right tool
                     ctrl.setTool();
 
@@ -1114,16 +1194,43 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                         "path:created": function(e) {
                             args.addObject(e.path, ctrl.canvas, false, true, "addFreeDrawing");
                         },
+
+                        /* TODO selection boxes
+                        "selection:cleared": function(e) {
+                            console.log("selection cleared");
+                            console.log(e);
+                            ctrl.currentSelection.selecting = false;
+                            args.setSelectionBox(ctrl.currentSelection, currentDocument, args.pageNum);
+                        },
+                        */
+
                         // erasing
-                        "object:selected": function() {
+                        "object:selected": function(e) {
+                            console.log("object selected");
+
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
                             }
                         },
                         "selection:created": function(e) {
+                            console.log("selection created");
+                            console.log(e);
+                            
                             e.target.hasControls = false;
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
+                            } else {
+                                /* TODO selection boxes
+                                ctrl.currentSelection = {
+                                    selecting: true,
+                                    left: e.target.left,
+                                    top: e.target.top,
+                                    width: e.target.width,
+                                    height: e.target.height
+                                };
+
+                                args.setSelectionBox(ctrl.currentSelection, currentDocument, args.pageNum);
+                                */
                             }
                         },
 
