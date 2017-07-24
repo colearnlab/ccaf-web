@@ -67,7 +67,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var widthClasses = ".col-xs-8.col-xs-offset-2.col-sm-8.col-sm-offset-2.col-md-6.col-md-offset-3";
   var Menu = {
     view: function(ctrl, args) {
-      args.toolbarText(""); // TODO put text here
+      var me = args.me();
+      args.toolbarText(me.name + " - " + me.email); // TODO put text here
       return m(".row",
         m(widthClasses,
             m.component(Sessions, args),
