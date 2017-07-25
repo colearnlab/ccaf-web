@@ -49,32 +49,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
     return d;
   }
     
-    /*
-    var getPageNumber = function(scrollPos, npages) { 
-        // estimated fraction of a page the student can see
-        // TODO have the whiteboard app report this? or just measure how it 
-        // appears on the tablets and hard-code? The current value is from
-        // my laptop
-        var viewsize = 0.4;
-
-        // The first and last pages are special cases because they have less
-        // scrollable area than inner pages
-        var p1bound = (1 - viewsize / 2) / (npages - viewsize);
-        var pnbound = (npages - viewsize - (1 - viewsize / 2)) / (npages - viewsize);
-        var onpage = -1;
-        if(scrollPos < p1bound) {
-            onpage = 0;
-        } else if(scrollPos >= pnbound) {
-            onpage = npages - 1;
-        } else {
-            onpage = Math.floor((npages - 2) * (scrollPos - p1bound) / (pnbound - p1bound)) + 1;
-        }
-
-        // zero-indexed
-        return onpage;
-    };
-    */
-
   var Main = {
     controller: function(args) {
       var ctrl = {
@@ -629,9 +603,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           src: "/shared/icons/Icons_F_Undo_W.png"
         }),*/
           
-          // Only show the objects menu if we're on the third page (the sketch page)
-          (args.pageNumbers()[args.user] == 2) ? m.component(MechanicsObjectSelect, args) : "",
-       
             m("img.tool-right.pull-right#pointer-tool", {
                 onmousedown: function() {
                     args.tool(3);
@@ -659,7 +630,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     args.tool(0);
                 },
                 src: "/shared/icons/Icons_F_Pen_W.png"
-            })
+            }),
+          
+          // Only show the objects menu if we're on the third page (the sketch page)
+          (args.pageNumbers()[args.user] == 2) ? m.component(MechanicsObjectSelect, args) : "",
+       
           /*
           m("h3.name-text.pull-right", {
               style: "color: " + getUserColor(args.userList(), args.user.id)
@@ -721,7 +696,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
     },
     view: function(ctrl, args) {
       return m("div.tool-button.tool-right.pull-right", {
-          style: "color: white",
+          style: "color: white; padding-right: 10px;",
           config: function(el, isInit) {
             if (!isInit) {
                 /*
