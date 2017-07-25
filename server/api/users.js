@@ -156,6 +156,46 @@ exports.createRoutes = function(app, db) {
           res.json({data: classrooms});
         });
     });
+  app.route("/api/v1/users/:userId/ownclassrooms")
+    .get(function(req, res) {
+        if(!accessAllowed(req, "users")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+      var classrooms = [];
+
+      var stmt = db.prepare("SELECT * FROM users WHERE id=:id", {
+        ":id": req.params.userId
+      });
+
+      if (!stmt.step())
+        return res.status(404).json({data:{status:404}});
+
+      var user = stmt.getAsObject();
+      stmt.free();
+
+      var query;
+        /*
+      if (user.type === 2)
+        query = "SELECT id, title, owner FROM classroom_user_mapping LEFT JOIN classrooms ON classroom_user_mapping.classroom = classrooms.id WHERE user=:user";
+      else
+        query = "SELECT * FROM classrooms WHERE owner=:user";
+        */
+        query = "SELECT id, title, owner FROM classroom_user_mapping "
+            + "INNER JOIN classrooms ON "
+            + "classroom_user_mapping.classroom = classrooms.id "
+            + "WHERE owner=:user";
+
+      db.each(query, {
+          ":user": user.id
+        },
+        function(classroom) {
+          classrooms.push(classroom);
+        },
+        function() {
+          res.json({data: classrooms});
+        });
+    });
 
   app.route("/api/v1/users/:userId/groups")
     .get(function(req, res) {

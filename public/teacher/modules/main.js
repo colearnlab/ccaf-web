@@ -13,10 +13,15 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var Shell = {
     controller: function(args) {
       var ctrl = {
+          me: m.prop({}),
           refreshData: function() {
               ctrl.me = User.me().then(function(me) {
-                ctrl.classrooms = me.classrooms().then(function(classrooms) {
-                    classrooms.map(function(classroom) {
+                //ctrl.classrooms = me.classrooms().then(function(classrooms) {
+                  ctrl.classrooms = Classroom.list().then(function(classrooms) {
+
+                    classrooms.filter(function(classroom) {
+                        return classroom.owner == me.id;
+                    }).map(function(classroom) {
                         classroom.sessions().then(function(sessions) {
                             for (var i = 0; i < sessions.length; i++)
                                 ctrl.sessions().push(sessions[i]);
@@ -28,7 +33,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               }).then(function(me) {
                 ctrl.activities = me.activities();
                 return me;
-              })
+              });
           },
         toolbarText: m.prop(""),
         activities: m.prop([]),
@@ -67,7 +72,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var widthClasses = ".col-xs-8.col-xs-offset-2.col-sm-8.col-sm-offset-2.col-md-6.col-md-offset-3";
   var Menu = {
     view: function(ctrl, args) {
-      var me = args.me();
+      var me = args.me() || {name: "", email: ""};
       args.toolbarText(me.name + " - " + me.email); // TODO put text here
       return m(".row",
         m(widthClasses,
@@ -78,7 +83,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
           
           // TODO make these menus
           m.component(ActivitiesMenu, args),
-          m.component(ClassroomsMenu, args),
+          m.component(ClassroomsMenu, args)
           
             //m.component(RecordedClassesMenu, args)
 

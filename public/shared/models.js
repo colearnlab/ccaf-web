@@ -66,6 +66,17 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
       });
     });
   };
+  
+  User.prototype.ownclassrooms = function() {
+    return m.request({
+      method: "GET",
+      url: apiPrefix + "users/" + this.id + "/ownclassrooms"
+    }).then(function(classrooms) {
+      return classrooms.data.map(function(classroom) {
+        return Object.assign(new Classroom(), classroom);
+      });
+    });
+  };
 
   User.prototype.activities = function() {
       return Activity.list(this.id);
