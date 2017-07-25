@@ -548,7 +548,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
   var Controls = {
     view: function(__, args) {
-      return m("#controls",
+      return m("#controls", {
+          style: "background-color: " + getUserColor(args.userList(), args.user)
+        },
         // Previous page button
         m("img.tool-icon", {
             onclick: function() {
@@ -613,17 +615,19 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
 
+
         /* Disable clear-screen button for now 
         m("img.tool-right.pull-right#clear-screen", {
           onmousedown: args.clear,
           ontouchend: args.clear,
           src: "/shared/icons/Icons_F_Delete Pages_W.png"
         }),*/
+          /*
         m("img.tool-right.pull-right#undo", {
           onmousedown: args.undo,
           //ontouchend: args.undo
           src: "/shared/icons/Icons_F_Undo_W.png"
-        }),
+        }),*/
           
           // Only show the objects menu if we're on the third page (the sketch page)
           (args.pageNumbers()[args.user] == 2) ? m.component(MechanicsObjectSelect, args) : "",
@@ -656,6 +660,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 },
                 src: "/shared/icons/Icons_F_Pen_W.png"
             })
+          /*
+          m("h3.name-text.pull-right", {
+              style: "color: " + getUserColor(args.userList(), args.user.id)
+            },
+            m.trust("&#9679;")
+          ),*/
 
       );
     }

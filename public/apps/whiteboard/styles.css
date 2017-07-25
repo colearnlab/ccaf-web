@@ -26,7 +26,7 @@ html, body {
   height: 50px;
   background-color: #053650;
   width: 100%;
-  border-bottom: 1px solid black;
+  /*border-bottom: 1px solid black;*/
   line-height: 35px;
 }
 
@@ -138,7 +138,7 @@ html, body {
 
 .pdf-page {
   width: 100%;
-  border: 1px solid black;
+  /*border: 1px solid black;*/
 }
 
 .scroll-open > #pdf-container > .pdf-page-holder {
@@ -245,6 +245,11 @@ img.tool-icon {
     margin-right: 1em;
 }
 
+.name-text {
+    display: inline-block;
+    padding: 0px;
+    margin: 0px;
+}
 
 /*/////////////////////////*/
 div.toolbar {
