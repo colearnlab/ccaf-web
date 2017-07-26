@@ -401,12 +401,11 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 left: 0,  
                 top: 0, 
                 arrowWidth: 120,
-                arrowAngle: 0, 
+                arrowAngle: 0,
                 //stroke: 'green',
                 strokeWidth: 2.5, 
-                originX: 'center', 
-                originY: 'center', 
-                padding: 6,
+                originX: 'left', 
+                originY: 'top', 
                 range: 100,
                 spacing: 15,
                 thickness: 60 
@@ -415,6 +414,9 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 		initialize: function(options) {
 			options = options || {};
             var optionsWithDefaults = Object.assign({}, this.getDefaultOptions(), options);
+            
+            var originalLeft = optionsWithDefaults.left,
+                originalTop = optionsWithDefaults.top;
 
             // construct fabric.Group base
             this.callSuper("initialize", [], optionsWithDefaults);
@@ -435,6 +437,10 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 this.addWithUpdate(eachArrow);
             }
 
+            // Find difference between building position and final position
+            this.diffLeft = this.left - originalLeft;
+            this.diffTop = this.top - originalTop;
+
             // Hide controls
             this.setControlVisible('bl', false);
 			this.setControlVisible('tl', false);
@@ -451,6 +457,10 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             var keys = Object.keys(this.getDefaultOptions());
 			var wholeObject = this.callSuper('toObject', keys.concat(extra || []));
             delete wholeObject.objects;
+            
+            wholeObject.left = this.left - this.diffLeft;
+            wholeObject.top = this.top - this.diffTop;
+
             return wholeObject;
 		}
     });
@@ -480,7 +490,6 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 strokeWidth: 2.5, 
                 originX: 'center', 
                 originY: 'center', 
-                padding: 6,
                 range: 100,
                 spacing: 15,
                 thickness: 60,
@@ -492,7 +501,10 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
         initialize: function(options) {
 			options = options || {};
             var optionsWithDefaults = Object.assign({}, this.getDefaultOptions(), options);
-
+            
+            var originalLeft = optionsWithDefaults.left,
+                originalTop = optionsWithDefaults.top;
+            
             // construct fabric.Group base
             this.callSuper("initialize", [], optionsWithDefaults);
 
@@ -510,8 +522,13 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 });
                 //this.callSuper('addWithUpdate', eachArrow);
                 this.addWithUpdate(eachArrow);
+                //this.add(eachArrow);
             }
             this.set('flipX', this.flipped);
+            
+            // Find difference between building position and final position
+            this.diffLeft = this.left - originalLeft;
+            this.diffTop = this.top - originalTop;
 
             // Hide controls
             this.setControlVisible('bl', false);
@@ -530,6 +547,10 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             var keys = Object.keys(this.getDefaultOptions());
 			var wholeObject = this.callSuper('toObject', keys.concat(extra || []));
             delete wholeObject.objects;
+            
+            wholeObject.left = this.left - this.diffLeft;
+            wholeObject.top = this.top - this.diffTop;
+            
             return wholeObject;
 		},
         /*

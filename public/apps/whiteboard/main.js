@@ -277,6 +277,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 } else if(obj.type && obj.type != 'circle') {
                     console.log(obj.type);
                     obj = new mechanicsObjects[obj.type](obj);
+                
                 } else {
                     // Do nothing if obj.type isn't defined
                     return;
@@ -355,8 +356,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                       // Remove object
                       ctrl.removeObject(canvasObj, canvas, true, false);
                   } else {
-                      // object exists so modify it
-                      canvasObj.set(updateObj);
+                      if(updateObj.type == "path" || updateObj.type == "Arrow") {
+                          // object exists so modify it
+                          canvasObj.set(updateObj);
+                      } else {
+                          // Some MechanicsObjects don't behave well when modified so for now we will
+                          // tear down and remake the object
+                          ctrl.removeObject(canvasObj, canvas, true, false);
+                          ctrl.addObject(updateObj, canvas, true, false);
+                      }
                   }
                   canvas.renderAll();
               } else {
@@ -697,15 +705,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
     view: function(ctrl, args) {
       return m("div.tool-button.tool-right.pull-right", {
           style: "color: white; padding-right: 10px;",
-          config: function(el, isInit) {
-            if (!isInit) {
-                /*
-              document.addEventListener("mousedown", ctrl.open.bind(null, false), true);
-              document.addEventListener("touchstart", ctrl.open.bind(null, false), true);
-            */
-            }
-
-          },
           onclick: m.redraw
         },
         m("div.mechanics-objects-holder", {
@@ -746,7 +745,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                             strokeWidth: 2.5, 
 				            originX:'center', 
                             originY: 'center', 
-                            padding: 6
                         },
                         ctrl.canvas, true, true
                     );
@@ -758,16 +756,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         m("p", ["DUU", "DUD"].map(function(letters) {
             return m("button.btn.btn-info.mech-obj-button#add" + letters, {
                 onclick: function() {
-                    var angles = {DUU: -90, DUD: 90, };
+                    var angles = {DUU: -90, DUD: 90};
+                    //var angles = {DUU: 0, DUD: 180};
                     ctrl.recalcOffset();
                     args.addObject(
                         {
                             type: "DistUnifLoad",
                             left: ctrl.left, 
-                            top: ctrl.top, 
+                            top: ctrl.top,
+                            arrowAngle: angles[letters],
                             range: ctrl.distURange, 
-                            thickness: ctrl.arrowLength, 
-                            arrowAngle: angles[letters], 
+                            thickness: ctrl.arrowLength,  
                             spacing: ctrl.gridsize / 2
                         },
                         ctrl.canvas, true, true
@@ -953,8 +952,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         var scrollPosition = args.getScroll(args.user.id, args.pageNumber); 
         return m("circle.scrollbar-circle", {
             cx: "" + ctrl.radius + "px",
-            //cy: "calc(1em + " + Math.round(89 * scrollPosition) + "vh)",
-            //cy: "" + Math.round(scrollPosition * 100) + "%",
             cy: "" + (ctrl.radius + (args.scrollbarHeight() - 2 * ctrl.radius) * scrollPosition) + "px",
             r: "" + ctrl.radius + "px",
             fill: getUserColor(args.userList(), args.user.id),
@@ -1091,9 +1088,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         m("img.pdf-page", {
           onload: m.redraw,
           config: function(el, isInit) {
-            /*if (isInit || ctrl.redrawing) {
-                return;
-            }*/
             if(doc && doc.page[args.pageNum] && ((typeof args.lastDrawn()[args.pageNum]) === "undefined")) {
                 el.src = doc.page[args.pageNum];
                 args.lastDrawn()[args.pageNum] = true;
@@ -1141,19 +1135,23 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     if(contents) {
                         for(var i = 0, len = contents.length; i < len; i++) {
                             var obj = contents[i];
+                            args.addObject(obj, ctrl.canvas, true, false);
+                            /*
                             if(obj.type == "path") {
                                 ctrl.addObject(new fabric.Path(obj.path, obj));
                             } else {
                                 ctrl.addObject(new mechanicsObjects[obj.type](obj));
                             }
+                            */
                         }
                     }
 
+                    /*
                     // Draw any selections
                     if(args.connection && args.connection.store)
                         for(var userId in args.connection.store.selectionBox)
                             args.drawSelectionBox(args.connection.store.selectionBox[userId], userId, ctrl.canvas);
-
+                    */
 
                     // Use the right tool
                     ctrl.setTool();
@@ -1172,8 +1170,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                             } else if(e.target.type == "path") {
                                 args.modifyObject(e.target, ctrl.canvas);
                             } else {
-                                    args.modifyObject(e.target, ctrl.canvas);
-                                
+                                args.modifyObject(e.target, ctrl.canvas);
                             }
                         },
                         "path:created": function(e) {
