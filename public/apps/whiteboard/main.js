@@ -437,8 +437,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 if(updateMeta._id > ctrl.curId[uuid]) {
                     ctrl.curId[uuid] = updateMeta._id;
 
-                    if(updateMeta.doc == ctrl.pageNumbers()[args.user]) {
-                        ctrl.applyUpdate(updateObj, ctrl.docs()[updateMeta.doc].canvas[updateMeta.page]);
+                    var canvas = ctrl.docs()[updateMeta.doc].canvas[updateMeta.page];
+                    if(canvas && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
+                        ctrl.applyUpdate(updateObj, canvas);
                     } else {
                         console.log("queued update");
                         ctrl.updateQueue.push({data: updateObj, meta: updateMeta});
