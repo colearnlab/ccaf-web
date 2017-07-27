@@ -44,7 +44,7 @@ exports.createRoutes = function(app, db) {
         if (!stmt.step())
           res.status(400).json({data: {status: 400}});
         else
-          res.status(400).json({data: {status: 409, supplement: stmt.getAsObject()}});
+          res.status(200).json({data: {status: 200, supplement: stmt.getAsObject()}});
         stmt.free();
       }
     });

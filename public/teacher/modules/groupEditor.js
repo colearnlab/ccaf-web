@@ -281,8 +281,13 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
                 emails.forEach(function(email) {
                   var newUser = new User("", email, 2);
                   newUser.save().then(
-                    function success() {
-                      newUser.addClassroom(args.classroom().id).then(checkIfDone);
+                    function success(server) {
+                        if('supplement' in server.data) {
+                            var user = Object.assign(new User(), server.data.supplement);
+                            user.addClassroom(args.classroom().id).then(checkIfDone);
+                        } else {
+                            newUser.addClassroom(args.classroom().id).then(checkIfDone);
+                        }
                     }, function error(server) {
                       if (server.data.status == 409) {
                         var user = Object.assign(new User(), server.data.supplement);
