@@ -749,7 +749,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                     args.classrooms().map(function(classroom) {
                       return m("option", {value: classroom.id}, classroom.title);
                     })
-                  ),
+                  )
 
                     /*
                   m("input[type=checkbox]#showTimeCheckBox", {
@@ -771,7 +771,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                         ctrl.scheduledEndTime = e.target.valueAsDate.getTime();
                       }
                   }),*/
-              ),
+              )
             )
           ),
           m(".modal-footer",
