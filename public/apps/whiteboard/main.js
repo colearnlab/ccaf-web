@@ -348,7 +348,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         },
 
           applyUpdate: function(updateObj, canvas) {
-              console.log(updateObj);
+              //console.log(updateObj);
               if(updateObj.uuid in canvas.objsByUUID) {
                   var canvasObj = canvas.objsByUUID[updateObj.uuid];
                   
@@ -438,7 +438,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     ctrl.curId[uuid] = updateMeta._id;
 
                     var canvas = ctrl.docs()[updateMeta.doc].canvas[updateMeta.page];
-                    if(canvas && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
+                    if(canvas && (!canvas.nowDrawing) && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
                         ctrl.applyUpdate(updateObj, canvas);
                     } else {
                         console.log("queued update");
@@ -476,7 +476,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                         (function(pn) {
                             var canvas = document.createElement('canvas');
                             pdf.getPage(pn + 1).then(function(page) {
-                                var viewport = page.getViewport(1000 / page.getViewport(1).width * 1);
+
+                                // TODO fix pdf resolution
+                                var viewport = page.getViewport(1500 / page.getViewport(1).width * 1);
                                 canvas.height = viewport.height;
                                 canvas.width = viewport.width;
                                 canvasctx = canvas.getContext("2d");
@@ -1103,6 +1105,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         
         m("div.drawing-surface",
             m("canvas.drawing-surface", {
+                touchstart: function() {
+                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
+                },
+                mousedown: function() {
+                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
+                },
+                touchend: function() {
+                    ctrl.canvas.nowDrawing = false;
+                },
+                mouseup: function() {
+                    ctrl.cavans.nowDrawing = false;
+                },
                 config: function(el, isInit) {
                     if(isInit) {
                         ctrl.setTool();
@@ -1176,6 +1190,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                         },
                         "path:created": function(e) {
                             args.addObject(e.path, ctrl.canvas, false, true, "addFreeDrawing");
+                            
+                            // Apply any updates that were queued during draw
+                            args.setPage(args.pageNum);
                         },
 
                         /* TODO selection boxes
