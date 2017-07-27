@@ -11,9 +11,6 @@ exports.mkdb = function(dbPath) {
       "INSERT INTO user_types VALUES(2, 'student')",
     "CREATE TABLE users(id INTEGER UNIQUE PRIMARY KEY NOT NULL, name TEXT, email TEXT UNIQUE NOT NULL, type INTEGER NOT NULL REFERENCES user_types(type_id))",
       "INSERT INTO users VALUES(0, '" + process.env.ADMIN_NAME + "', '" + process.env.ADMIN_EMAIL + "', 0)",
-      "INSERT INTO users VALUES(1, '" + process.env.DEMO_TEACHER_NAME + "', '" + process.env.DEMO_TEACHER_EMAIL + "', 1)",
-      "INSERT INTO users VALUES(2, '" + process.env.DEMO_STUDENT0_NAME + "', '" + process.env.DEMO_STUDENT0_EMAIL + "', 2)",
-      "INSERT INTO users VALUES(3, '" + process.env.DEMO_STUDENT1_NAME + "', '" + process.env.DEMO_STUDENT1_EMAIL + "', 2)",
     "CREATE TABLE classrooms(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
     "CREATE TABLE classroom_user_mapping(classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE, user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, UNIQUE(classroom, user) ON CONFLICT REPLACE)",
     "CREATE TABLE groups(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT, classroom INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)",
@@ -40,5 +37,24 @@ exports.mkdb = function(dbPath) {
 
   newdb.exec(sqlstr);
 
+    // If user quick list exists, add everyone
+    var res = fs.readFileSync("accounts.csv", {encoding: 'utf8', flag: 'r'});
+    if(res) {
+        var lines = res.split('\n');
+        for(var i = 0, len = lines.length; i < len; i++) {
+            var vals = lines[i].split(',');
+            if(vals.length < 3)
+                continue;
+
+            newdb.run("INSERT INTO users VALUES(NULL, :name, :email, :type);", {
+                    ":name": vals[0],
+                    ":email": vals[1],
+                    ":type": vals[2]
+                }
+            );
+        }
+    }
+
   fs.writeFileSync(dbPath, new Buffer(newdb.export()));
+
 };
