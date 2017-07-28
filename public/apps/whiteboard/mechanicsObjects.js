@@ -27,7 +27,10 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			this.setControlVisible('mb',false);   
 			this.setControlVisible('ml',false);
 			this.setControlVisible('mr',false); 
-			this.setControlVisible('mtr',false);               
+
+            //this.set('originX', 'left');
+            //this.setControlVisible('mtr',false);
+
 		},
 		toObject: function() {
 			return fabric.util.object.extend(this.callSuper('toObject'), {
