@@ -625,7 +625,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 onmousedown: function() {
                     args.tool(3);
                 },
-                src: "/shared/icons/Icons_F_Pointer_W.png"
+                src: (args.tool() == 3) ? "/shared/icons/Icons_F_Pointer_W_Filled.png" : "/shared/icons/Icons_F_Pointer_W.png"
             }),
 
 
@@ -633,7 +633,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 onmousedown: function() {
                     args.tool(2);
                 },
-                src: "/shared/icons/Icons_F_Erase_W.png"
+                src: (args.tool() == 2) ? "/shared/icons/Icons_F_Erase_W_Filled.png" : "/shared/icons/Icons_F_Erase_W.png"
             }),
            /* 
           m("img.tool-right.pull-right#highlighter-tool", {
@@ -647,7 +647,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 onmousedown: function() {
                     args.tool(0);
                 },
-                src: "/shared/icons/Icons_F_Pen_W.png"
+                src: (args.tool() == 0) ? "/shared/icons/Icons_F_Pen_W_Filled.png" : "/shared/icons/Icons_F_Pen_W.png"
             }),
           
           // Only show the objects menu if we're on the third page (the sketch page)
@@ -1172,6 +1172,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     // TODO finish
                     ctrl.canvas.on({
                         "object:modified": function(e) {
+                            console.log(e);
                             if(e.target.type == "circle") {
                                 return;
                             }
