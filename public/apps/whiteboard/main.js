@@ -251,7 +251,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     //ctrl.setSelectionBox(obj.group);
                 }
 
-                var uuid = obj.uuid; // preserve uuid in case it's lost in toObject
+                var uuid = obj.uuid, // preserve uuid in case it's lost in toObject
+                    userId = obj.u;
                 if(obj.name != "remove") {
                     obj = obj.toObject();
                 }
@@ -259,6 +260,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 obj.left += selX;
                 obj.top += selY;
                 
+                obj.u = userId;
+
                 // Damn son that was easy!
                 objects.data = JSON.stringify(obj);
                 objects.meta = ctrl.makeTransactionMetadata(transactionType, {
@@ -294,6 +297,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     canvas.add(obj);
                 }
             }
+
+            // Attach user id to object
+            obj.u = args.user;
 
             //console.log("add object");
 
@@ -352,6 +358,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
           applyUpdate: function(updateObj, canvas) {
               console.log(updateObj);
+              if(updateObj.u != args.user)
+                  updateObj.selectable = false;
+
               if(updateObj.uuid in canvas.objsByUUID) {
                   var canvasObj = canvas.objsByUUID[updateObj.uuid];
                   
