@@ -5,7 +5,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
       ClassroomSession = models.ClassroomSession;
   var getUserColor = userColors.getColor; 
   var array;
-  
+ 
+  // Flag to show ControlledLine and ControlledCurve in the mechanics objects menu
+  var showVMLines = false;
+
   var colors = {
     0: "#000000",
     1: "#FF0000",
@@ -833,8 +836,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             }, "Add " + letters);
         })),
         
-        m("strong", "V and M lines"),
-        m("p",
+        // Line and curve objects sometimes shouldn't be available
+        showVMLines ? m("strong", "V and M lines") : "",
+        showVMLines ? m("p",
            m("button.btn.btn-info.mech-obj-button#addControlledLine", {
                 onclick: function() {
                     ctrl.recalcOffset();
@@ -874,7 +878,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     ); 
                 }    
            }, "Add Quadratic")
-        )
+        ) : ""
         
         /*
         m("strong", "Help buttons (not graded):"),
