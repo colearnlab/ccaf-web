@@ -110,7 +110,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             for(var pn in canvases) {
                 var contents = docs[docId].canvasContents[pn] = [];
                 canvases[pn].forEachObject(function(obj) {
-                    console.log("Here");
+                    //console.log("Here");
                     contents.push(obj.toObject(["name", "uuid"]));
                 });
             }
@@ -275,14 +275,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 } else if(obj.type == "line" || obj.type == "Line") {
                     obj = mechanicsObjects.addControlledLine(null, obj);
                 } else if(obj.type && obj.type != 'circle') {
-                    console.log(obj.type);
+                    //console.log(obj.type);
                     obj = new mechanicsObjects[obj.type](obj);
                 
                 } else {
                     // Do nothing if obj.type isn't defined
                     return;
                 }
-                console.log(obj);
+                //console.log(obj);
 
                 // Add
                 if(obj instanceof Array) {
@@ -292,7 +292,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 }
             }
 
-            console.log("add object");
+            //console.log("add object");
 
             // Generate UUID if none present for object
             if(!('uuid' in obj)) {
@@ -348,7 +348,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         },
 
           applyUpdate: function(updateObj, canvas) {
-              //console.log(updateObj);
+              console.log(updateObj);
               if(updateObj.uuid in canvas.objsByUUID) {
                   var canvasObj = canvas.objsByUUID[updateObj.uuid];
                   
@@ -393,7 +393,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         ctrl.userList(users);
           // TODO get correct position!
         // Update users' page positions
-          console.log("user list update");
+          //console.log("user list update");
         ctrl.userList().map(function(user) {
             if(!(user.id in ctrl.pageNumbers()))
                 ctrl.pageNumbers()[user.id] = 0;
@@ -438,7 +438,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     ctrl.curId[uuid] = updateMeta._id;
 
                     var canvas = ctrl.docs()[updateMeta.doc].canvas[updateMeta.page];
-                    if(canvas && (!canvas.nowDrawing) && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
+                    if(canvas && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
                         ctrl.applyUpdate(updateObj, canvas);
                     } else {
                         console.log("queued update");
@@ -613,6 +613,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           //ontouchend: args.undo
           src: "/shared/icons/Icons_F_Undo_W.png"
         }),*/
+            m("p.tool-right.pull-right#options", {
+                onmousedown: function() {
+                    location.reload();
+                }},
+                "Reload"
+             ),
+
           
             m("img.tool-right.pull-right#pointer-tool", {
                 onmousedown: function() {
@@ -915,11 +922,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                   ctrl.scrollbarHeight(el.clientHeight);
               },
               onclick: function(e) {
-                console.log(e);
+                //console.log(e);
                 
                   // TODO set own scroll position to match click point
                   var scrollDest = e.offsetY / ctrl.scrollbarHeight();
-                  console.log(scrollDest);
+                  //console.log(scrollDest);
                   args.setScroll(scrollDest);
               }},
               args.userList().map(function(user) {
@@ -983,6 +990,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             tool: args.tool,
             addObserver: args.addObserver,
 
+            setPage: args.setPage,
           lastDrawn: args.lastDrawn,
           pageNum: i,
             addObject: args.addObject,
@@ -1011,7 +1019,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         canvas: null,
         erasing: false,
         setPen: function() {
-            if(!ctrl.canvas)
+            if(!ctrl.canvas || ctrl.canvas._isCurrentlyDrawing)
                 return;
 
             ctrl.canvas.isDrawingMode = true;
@@ -1073,7 +1081,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             if(!ctrl.canvas)
                 return;
 
-            console.log(newobj);
+            //console.log(newobj);
             ctrl.canvas.add(newobj);
             ctrl.canvas.objsByUUID[newobj.uuid] = newobj;
         }
@@ -1103,25 +1111,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           }
         }),
         
-        m("div.drawing-surface",
+        m("div.drawing-surface", {
+            },
             m("canvas.drawing-surface", {
-                touchstart: function() {
-                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
-                },
-                mousedown: function() {
-                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
-                },
-                touchend: function() {
-                    ctrl.canvas.nowDrawing = false;
-                },
-                mouseup: function() {
-                    ctrl.cavans.nowDrawing = false;
-                },
                 config: function(el, isInit) {
                     if(isInit) {
                         ctrl.setTool();
                         return;
-                    }
+                    } 
                     
                     var docs = args.docs();
 
@@ -1214,7 +1211,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                         },
                         "selection:created": function(e) {
                             console.log("selection created");
-                            console.log(e);
+                            //console.log(e);
                             
                             e.target.hasControls = false;
                             if(ctrl.erasing) {
@@ -1233,6 +1230,32 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                                 */
                             }
                         },
+                /*ontouchstart: function() {
+                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
+                    console.log(ctrl.canvas.nowDrawing);
+                },
+                onmousedown: function() {
+                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
+                    console.log(ctrl.canvas.nowDrawing);
+                },
+                ontouchend: function() {
+                    ctrl.canvas.nowDrawing = false;
+                    console.log(ctrl.canvas.nowDrawing);
+                },
+                onmouseup: function() {
+                    ctrl.canvas.nowDrawing = false;
+                    console.log(ctrl.canvas.nowDrawing);
+                }*/
+                        /*
+                        "mouse:down": function() {
+                            ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
+                            console.log(ctrl.canvas.nowDrawing);
+                        },
+                        "mouse:up": function() {
+                            ctrl.canvas.nowDrawing = false;
+                            console.log(ctrl.canvas.nowDrawing);
+                        }
+                        */
 
                     });
 
