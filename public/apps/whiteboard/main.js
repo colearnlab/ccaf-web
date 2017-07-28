@@ -1052,10 +1052,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 ctrl.canvas.isDrawingMode = false;
                 ctrl.canvas.selection = true;
                 ctrl.erasing = true;
+                ctrl.canvas.selectionColor = 'rgba(255, 0, 0, 0.3)';
+
             } else if(toolId == 3) {
                 // pointer tool
                 ctrl.canvas.selection = true;
                 ctrl.canvas.isDrawingMode = false;
+                ctrl.canvas.selectionColor = 'rgba(100, 100, 255, 0.3)';
             }
         },
 
