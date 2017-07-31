@@ -2,8 +2,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
-      ClassroomSession = models.ClassroomSession;
-  var getUserColor = userColors.getColor; 
+      ClassroomSession = models.ClassroomSession,
+      Group = models.Group;
+  var getUserColor = userColors.getColor;
   var array;
  
   // Flag to show ControlledLine and ControlledCurve in the mechanics objects menu
@@ -87,7 +88,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         docs: m.prop({}),
         firstLoad: true,
         user: args.user,
-
+        myColor: '#000000',
         lastDrawn: m.prop({}),
 
         updateQueue: [],
@@ -120,7 +121,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             ctrl.docs(docs);
         },
 
-        userList: m.prop([]),
+          groupUsers: [],        
+          userList: m.prop([]),
 
         // for recording which document each user is looking at
         setPage: function(pageNum) {
@@ -400,6 +402,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           }
           */
       };
+        
+      var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
+      userGroup.users().then(function(userGroupList) {
+          ctrl.myColor = userColors.userColors[userGroupList.indexOf(ctrl.user)];
+      });
+
 
       args.connection.userList.addObserver(function(users) {
         ctrl.userList(users);
