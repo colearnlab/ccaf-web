@@ -756,7 +756,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         },
             
         // TODO get icons!
-        // Object buttons here!
+        /*
         m("strong", "FBD Concentrated Forces"),
         m("p", ["FU", "FD", "FL", "FR"].map(function(letters) {
             return m("button.btn.btn-info.mech-obj-button#add" + letters, {
@@ -781,6 +781,31 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 }
            }, "Add " + letters);
         })),
+        */
+        m("p",
+            m("button.btn.btn-info.mech-obj-button#addArrow", {
+                onclick: function() {
+                    var angle = 0;
+                    ctrl.recalcOffset();
+                    args.addObject(
+                        {
+                            type: "Arrow",
+                            left: ctrl.left,  
+                            top: ctrl.top, 
+                            width: 2 * ctrl.arrowLength,
+                            angle: angle, 
+                            //name: letters,
+                            stroke: 'green',
+                            strokeWidth: 2.5, 
+				            originX:'left', 
+                            originY: 'center', 
+                        },
+                        ctrl.canvas, true, true
+                    );
+                }
+           }, "Add concentrated force arrow")
+        ),
+
 
         m("strong", "FBD Distributed Load"),
         m("p", ["DUU", "DUD"].map(function(letters) {
