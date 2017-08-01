@@ -205,14 +205,19 @@ define(["exports"], function(exports) {
         break;
       case "transaction-failure":
         var transaction = this.transactionQueue[message.seq];
-        delete this.transactionQueue[message.seq];
-        for (p in message.updates) {
-          path = p.split(".");
-          getByPath(this.store, path.slice(0, -1))[path.pop()] = message.updates[p];
-        }
-            //console.log(transaction);
-        this.transaction(transaction.paths, transaction.action, message.seq);
-        break;
+        if(transaction) {
+            delete this.transactionQueue[message.seq];
+            for (p in message.updates) {
+              path = p.split(".");
+              getByPath(this.store, path.slice(0, -1))[path.pop()] = message.updates[p];
+            }
+                //console.log(transaction);
+            this.transaction(transaction.paths, transaction.action, message.seq);
+         } else {
+            console.warn("Transaction failure: " + message.seq);
+            console.log(message);
+         }
+         break;
       case "connected-users":
         this.userList.update(message.users);
         break;
