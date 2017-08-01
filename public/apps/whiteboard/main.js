@@ -8,7 +8,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
   var array;
  
   // Flag to show ControlledLine and ControlledCurve in the mechanics objects menu
-  var showVMLines = false;
+  var showVMLines = true;
 
   var colors = {
     0: "#000000",
@@ -114,8 +114,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             for(var pn in canvases) {
                 var contents = docs[docId].canvasContents[pn] = [];
                 canvases[pn].forEachObject(function(obj) {
-                    //console.log("Here");
-                    contents.push(obj.toObject(["name", "uuid"]));
+                    if(!obj.excludeFromExport)
+                        contents.push(obj.toObject(["name", "uuid", 'left', 'top', 'x1', 'y1', 'x2', 'y2']));
                 });
             }
             ctrl.docs(docs);
@@ -280,21 +280,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 // Make
                 if(obj.type == "path") {
                     obj = new fabric.Path(obj.path, obj);
-                } else if(obj.type == "line" || obj.type == "Line") {
+                } else if(obj.type == "line" || obj.type == "ControlledLine") {
                     obj = mechanicsObjects.addControlledLine(null, obj);
                 } else if(obj.type && obj.type != 'circle') {
                     //console.log(obj.type);
-                    obj = new mechanicsObjects[obj.type](obj);
-                
+                    obj = new mechanicsObjects[obj.type](obj);       
                 } else {
                     // Do nothing if obj.type isn't defined
                     return;
                 }
-                //console.log(obj);
+                console.log(obj);
 
                 // Add
                 if(obj instanceof Array) {
                     canvas.add.apply(canvas, obj);
+                //} else if((obj.type == "ControlledLine") || (obj.type == "ControlledCurve")) {
+                    //canvas.add.apply(canvas, obj.objects);
                 } else {
                     canvas.add(obj);
                 }
@@ -309,17 +310,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             if(!('uuid' in obj)) {
                 obj.uuid = uuidv1();
             }
-
-            // Store object with canvas by uuid
-            canvas.objsByUUID[obj.uuid] = obj;
             
             // if it's a controlled line/curve, don't include the control handles
             if(obj instanceof Array) {
-                 obj[0].uuid = obj.uuid;
-                 obj[1].uuid = obj.uuid;
-                 obj[2].uuid = obj.uuid;
-                 obj = obj[0];
+                obj[0].uuid = obj.uuid;
+                obj = obj[0];
             }
+            
+            // Store object with canvas by uuid
+            canvas.objsByUUID[obj.uuid] = obj;
 
             // Send the object
             if(doTransaction)
@@ -360,6 +359,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
           applyUpdate: function(updateObj, canvas) {
               console.log(updateObj);
+
+              // Prevent selection of objects that aren't one's own
               if(updateObj.u != args.user)
                   updateObj.selectable = false;
 
@@ -881,7 +882,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         // Line and curve objects sometimes shouldn't be available
         showVMLines ? m("strong", "V and M lines") : "",
         showVMLines ? m("p",
-           m("button.btn.btn-info.mech-obj-button#addControlledLine", {
+           /*
+            m("button.btn.btn-info.mech-obj-button#addControlledLine", {
                 onclick: function() {
                     ctrl.recalcOffset();
                     args.addObject(
@@ -901,6 +903,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     ); 
                 }    
            }, "Add Controlled Line"),
+           */
+           m("button.btn.btn-info.mech-obj-button#addControlledLine", {
+                onclick: function() {
+                    ctrl.recalcOffset();
+                    args.addObject(
+                        {
+                            type: "ControlledLine",
+                            x1: ctrl.left,
+                            y1: ctrl.top,
+                            x2: ctrl.left + 50,
+                            y2: ctrl.top + 50,
+                            handleRadius: ctrl.handleRadius,
+                            strokeWidth: ctrl.strokeWidth,
+                        },
+                        ctrl.canvas, true, true
+                    ); 
+                }    
+           }, "Add Controlled Line (new)"),
            m("button.btn.btn-info.mech-obj-button#addQuadratic", {
                 onclick: function() {
                     ctrl.recalcOffset();
@@ -1196,6 +1216,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     if(contents) {
                         for(var i = 0, len = contents.length; i < len; i++) {
                             var obj = contents[i];
+                            console.log(obj);
                             args.addObject(obj, ctrl.canvas, true, false);
                             /*
                             if(obj.type == "path") {
@@ -1222,6 +1243,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     ctrl.canvas.on({
                         "object:modified": function(e) {
                             console.log(e);
+                            if(e.target.excludeFromExport)
+                                e.target = e.target.target;
+
                             if(e.target.type == "circle") {
                                 return;
                             }

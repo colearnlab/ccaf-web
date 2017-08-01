@@ -573,135 +573,142 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     //     y2: top coordinate of second end
     //     handleRadius: radius of the control circles on each end
     //     strokeWidth: stroke width of the line
-   
+ 
+
+    // TODO
+    // new approach: inherit from fabric.Line?
     /*
-    mechanicsObjects.Line = fabric.util.createClass(fabric.Group, {
-        type: "Line",
+    mechanicsObjects.ControlledLine = fabric.util.createClass(fabric.Object, {
         getDefaultOptions: function() {
             return {
-                strokeWidth: 4,
-                stroke: 'red',
+                type: "ControlledLine",
+                x1: 100,
+                y1: 100,
+                x2: 200,
+                y2: 200,
                 handleRadius: 4,
-                handleFill: 'white',
-                handleStroke: '#666',
-                selectable: true
+                strokeWidth: 4,
+                hasControls: false
             };
         },
         initialize: function(options) {
-			options = options || {};
-            
-            var optionsWithDefaults = Object.assign({}, options, this.getDefaultOptions());
-            var members = [];
-            members.push(new fabric.Line([
-                optionsWithDefaults.x1, 
-                optionsWithDefaults.y1, 
-                optionsWithDefaults.x2, 
-                optionsWithDefaults.y2
-              ], {
-                stroke: optionsWithDefaults.stroke,
-                strokeWidth: optionsWithDefaults.strokeWidth,
-                selectable: false,
-                name: "controlledLine",
-                originX: 'center',
-                originY: 'center'
-            }));
-            members.push(new fabric.Circle({
-                left: optionsWithDefaults.x1,
-                top: optionsWithDefaults.y1,
-                strokeWidth: optionsWithDefaults.strokeWidth,
-                radius: optionsWithDefaults.handleRadius,
-                fill: optionsWithDefaults.handleFill,
-                stroke: optionsWithDefaults.handleStroke,
-                originX: 'center',
-                originY: 'center',
-                excludeFromExport: true,
-                name: "controlHandle",
-                hasControls: false,
-                selectable: true
-            }));
-            members.push(new fabric.Circle({
-                left: optionsWithDefaults.x2,
-                top: optionsWithDefaults.y2,
-                strokeWidth: optionsWithDefaults.strokeWidth,
-                radius: optionsWithDefaults.handleRadius,
-                fill: optionsWithDefaults.handleFill,
-                stroke: optionsWithDefaults.handleStroke,
-                originX: 'center',
-                originY: 'center',
-                excludeFromExport: true,
-                name: "controlHandle",
-                hasControls: false
-            }));
+            var optionsWithDefaults = Object.assign({}, this.getDefaultOptions(), options); 
 
+            this.callSuper('initialize', optionsWithDefaults);
 
-            members[1].on('modified', (function() {
-                members[0].set(this.x1 = members[1].left);
-                members[0].set(this.y1 = members[1].top);
-            }).bind(this));
-        
-            members[2].on('modified', (function() {
-                members[0].set(this.x2 = members[2].left);
-                members[0].set(this.y2 = members[2].top);
-            }).bind(this));
+            // Create the line
+            var line =  new fabric.Line(
+                [options.x1, options.y1, options.x2, options.y2], 
+                {
+                    left: optionsWithDefaults.x1,
+                    top: optionsWithDefaults.y1,
+                    stroke: 'red',
+                    strokeWidth: optionsWithDefaults.strokeWidth,
+                    selectable: false,
+                    hasControls: false,
+                    originX: 'left',
+                    originY: 'top'
+                }
+            );
+            line.toObject = this.toObject.bind(this);
 
-            members[1].on('moving', (function() {
-                members[0].set({ 
-                    x1: this.x1 = members[1].left,
-                    y1: this.y1 = members[1].top 
+            // Create control handles for the ends of the line
+            var makeHandle = function(x, y, opt) {
+                return new fabric.Circle({
+                    left: x,
+                    top: y,
+                    strokeWidth: opt.strokeWidth,
+                    radius: opt.handleRadius,
+                    fill: 'white',
+                    stroke: '#666',
+                    originX: 'center',
+                    originY: 'center',
+                    excludeFromExport: true,
+                    hasControls: false
                 });
-            }).bind(this));
-        
-            members[2].on('moving', (function() {
-                members[0].set({ 
-                    x1: this.x1 = members[2].left,
-                    y1: this.y1 = members[2].top 
-                });
-            }).bind(this));
-        
-            members[0].on('removed', this.remove)
-            members[1].on('removed', this.remove)
-            members[2].on('removed', this.remove)
-            
-            this.callSuper('initialize', members, optionsWithDefaults);
-            
+            };
+            var c1 = makeHandle(options.x1, options.y1, options),
+                c2 = makeHandle(options.x2, options.y2, options);
+           
+            // add a reference to the overall object
+            c1.controlledObj = c2.controlledObj = line.controlledObj = this;
 
-            // Hide controls
-            this.setControlVisible('bl', false);
-			this.setControlVisible('tl', false);
-			this.setControlVisible('br', false);
-			this.setControlVisible('tr', false);
-			this.setControlVisible('mt', false);
-			this.setControlVisible('mb', false);   
-			this.setControlVisible('ml', false);
-			this.setControlVisible('mr', false); 
-			this.setControlVisible('mtr', false);
-            this.hasControls = false;
-		},
-		toObject: function(extra) {
+            line.on('modified', (function() {
+                c1.set({left: line.x1, top: line.y1});
+                c2.set({left: line.x2, top: line.y2});
+                this.set({left: line.x1, top: line.y1, x1: line.x1, y1: line.y1, x2: line.x2, y2: line.y2});
+                this.fire('modified', {target: this});
+            }).bind(this));
+
+
+            // Set up handlers so that changes to any part of the controlled
+            // line object update the entire object
+            var setc1 = (function() {
+                line.set({x1: c1.left, y1: c1.top});
+                this.set({x1: c1.left, y1: c1.top});
+                this.left = (this.x1 < this.x2) ? this.x1 : this.x2;
+                this.top = (this.y1 < this.y2) ? this.y1 : this.y2;
+                this.fire('modified', {target: this});
+            }).bind(this);
+            var setc2 = (function() {
+                line.set({x2: c2.left, y2: c2.top});
+                this.set({x2: c2.left, y2: c2.top});
+                this.left = (this.x1 < this.x2) ? this.x1 : this.x2;
+                this.top = (this.y1 < this.y2) ? this.y1 : this.y2;
+                this.fire('modified', {target: this});
+            }).bind(this);
+
+            c1.on('modified', setc1);
+            c2.on('modified', setc2);
+            c1.on('moving', setc1);
+            c2.on('moving', setc2);
+            
+            c1.on('removed', (function() {
+                c2.remove();
+                line.remove();
+                this.remove();
+            }).bind(this));
+
+            c2.on('removed', (function() {
+                c1.remove();
+                line.remove();
+                this.remove();
+            }).bind(this));
+
+
+            Object.assign(this, optionsWithDefaults);
+            this.left = (this.x1 < this.x2) ? this.x1 : this.x2;
+            this.top = (this.y1 < this.y2) ? this.y1 : this.y2;
+
+            this._objects = [line, c1, c2]; 
+        },
+        toObject: function(extra) {
             var keys = Object.keys(this.getDefaultOptions());
 			var wholeObject = this.callSuper('toObject', keys.concat(extra || []));
+            delete wholeObject._objects;
+            
+            console.log(wholeObject);
             return wholeObject;
-        } 
+        },
+        render: function(ctx) {
+            console.log("Draw line");
+            for(var i = 0, len = this._objects.length; i < len; i++)
+                this._objects[i].render(ctx);
+        }
     });
     */
 
     mechanicsObjects.addControlledLine = function(canvas, options, submittedAnswer, answerName) {
+        options.left = (options.x1 < options.x2) ? options.x1 : options.x2;
+        options.top = (options.y1 < options.y2) ? options.y1 : options.y2;
         var line = mechanicsObjects.makeControlStraightLine(options.x1, options.y1, options.x2, options.y2, options.strokeWidth);
         line.left = options.left;
         line.top = options.top;
-        var c1 = mechanicsObjects.makeControlHandle(options.x1, options.y1, options.handleRadius, options.strokeWidth/2);
-        c1.left = options.left;
-        c1.top = options.top;
-        var c2 = mechanicsObjects.makeControlHandle(options.x2, options.y2, options.handleRadius, options.strokeWidth/2);
-        c2.left = options.left;
-        c2.top = options.top;
-        //canvas.add(line, c1, c2);
-        //if (!submittedAnswer) return [line, c1, c2];
 
-        var subObj = _.clone(options);
-        if (!subObj.id) subObj.id = this.newID();
-        subObj.type = 'controlledLine';
-        //this.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
+        var c1 = mechanicsObjects.makeControlHandle(options.x1, options.y1, options.handleRadius, options.strokeWidth/2);
+        var c2 = mechanicsObjects.makeControlHandle(options.x2, options.y2, options.handleRadius, options.strokeWidth/2);
+
+        c1.target = c2.target = line;
 
         line.on('modified', function() {
             c1.left = line.x1;
@@ -709,24 +716,25 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             c2.left = line.x2;
             c2.top = line.y2;
         });
+        
+        var setLine = function() {
+            console.log("set line");
+            line.set({
+                left: (c1.left < c2.left) ? c1.left : c2.left,
+                top: (c1.top < c2.top) ? c1.top : c2.top,
+                x1: c1.left, 
+                y1: c1.top,
+                x2: c2.left, 
+                y2: c2.top
+            });
+            //line.fire('modified', {target: line});
+        };
 
-        //var that = this;
-        c1.on('modified', function() {
-            subObj.x1 = c1.left;
-            subObj.y1 = c1.top;
-            //that.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-        c2.on('modified', function() {
-            subObj.x2 = c2.left;
-            subObj.y2 = c2.top;
-            //that.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-        c1.on('moving',function() {
-            line.set({ 'x1': c1.left, 'y1': c1.top });
-        });
-        c2.on('moving',function() {
-            line.set({ 'x2': c2.left, 'y2': c2.top });
-        });
+        c1.on('modified', setLine);
+        c2.on('modified', setLine);
+        c1.on('moving', setLine);
+        c2.on('moving', setLine);
+        
         c1.on('removed', function() {
             c2.remove();
             line.remove();
@@ -739,6 +747,17 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
         });
 
         // TODO make group?
+        var origToObject = line.toObject.bind(line);
+        line.toObject = function(extra) {
+            return Object.assign(origToObject(extra), {
+                x1: line.x1,
+                y1: line.y1,
+                x2: line.x2,
+                y2: line.y2,
+                handleRadius: options.handleRadius,
+                strokeWidth: options.strokeWidth
+            });
+        };
 
         return [line, c1, c2];
     };
@@ -756,7 +775,7 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             originX: 'center',
             originY: 'center',
             excludeFromExport: true,
-            name: "controlHandle",
+            //name: "controlHandle",
         });
         c.hasControls = false;
         return c;
