@@ -71,6 +71,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         // stores index of current document for each user
         pageNumbers: m.prop({}),
 
+        connection: args.connection,
         addObserver: args.connection.addObserver.bind(args.connection),
 
         drawn: m.prop([]),
@@ -172,6 +173,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         setColor: function(color) {
             args.connection.transaction([["userColors"]], function(colors) {
                 colors[ctrl.user] = color;
+                console.log("set color " + color);
                 ctrl.myColor(color);
             });
         },
@@ -304,7 +306,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     // Do nothing if obj.type isn't defined
                     return;
                 }
-                console.log(obj);
+                //console.log(obj);
 
                 // Add
                 if(obj instanceof Array) {
@@ -374,7 +376,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         },
 
           applyUpdate: function(updateObj, canvas) {
-              console.log(updateObj);
+              //console.log(updateObj);
 
               // Prevent selection of objects that aren't one's own
               if(updateObj.u != args.user)
@@ -1027,7 +1029,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                           user: user,
                           color: args.connection ?
                               args.connection.store ?
-                                args.connection.store[args.user.id]
+                                args.connection.store.userColors ?
+                                    args.connection.store.userColors[user.id]
+                                  : '#888888'
                                 : '#888888'
                               : '#888888',
                           userList: args.userList,
@@ -1243,7 +1247,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     if(contents) {
                         for(var i = 0, len = contents.length; i < len; i++) {
                             var obj = contents[i];
-                            console.log(obj);
+                            //console.log(obj);
                             args.addObject(obj, ctrl.canvas, true, false);
                             /*
                             if(obj.type == "path") {
@@ -1269,7 +1273,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     // TODO finish
                     ctrl.canvas.on({
                         "object:modified": function(e) {
-                            console.log(e);
+                            //console.log(e);
                             if(e.target.excludeFromExport)
                                 e.target = e.target.target;
 
