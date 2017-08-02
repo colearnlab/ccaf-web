@@ -707,6 +707,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 
         var c1 = mechanicsObjects.makeControlHandle(options.x1, options.y1, options.handleRadius, options.strokeWidth/2);
         var c2 = mechanicsObjects.makeControlHandle(options.x2, options.y2, options.handleRadius, options.strokeWidth/2);
+        if('selectable' in options)
+            c1.selectable = c2.selectable = options.selectable;
 
         c1.target = c2.target = line;
 
@@ -745,6 +747,12 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             line.remove();
             //that.removeSubmittedAnswerObject(submittedAnswer, answerName, subObj);
         });
+        line.on('removed', function() {
+            c1.remove();
+            c2.remove();
+        });
+
+        line.uuid = options.uuid;
 
         // TODO make group?
         var origToObject = line.toObject.bind(line);
@@ -755,7 +763,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 x2: line.x2,
                 y2: line.y2,
                 handleRadius: options.handleRadius,
-                strokeWidth: options.strokeWidth
+                strokeWidth: options.strokeWidth,
+                uuid: options.uuid
             });
         };
 

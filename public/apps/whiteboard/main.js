@@ -256,7 +256,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 var uuid = obj.uuid, // preserve uuid in case it's lost in toObject
                     userId = obj.u;
                 if(obj.name != "remove") {
-                    obj = obj.toObject();
+                    obj = obj.toObject(['uuid']);
                 }
 
                 obj.left += selX;
@@ -300,23 +300,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     canvas.add(obj);
                 }
             }
+            
+            // If there are control handles, they have been added to the canvas and can be ignored now.
+            if(obj instanceof Array) {
+                obj = obj[0];
+            }
 
             // Attach user id to object
             obj.u = args.user;
 
-            //console.log("add object");
 
             // Generate UUID if none present for object
             if(!('uuid' in obj)) {
                 obj.uuid = uuidv1();
             }
-            
-            // if it's a controlled line/curve, don't include the control handles
-            if(obj instanceof Array) {
-                obj[0].uuid = obj.uuid;
-                obj = obj[0];
-            }
-            
+             
             // Store object with canvas by uuid
             canvas.objsByUUID[obj.uuid] = obj;
 
@@ -450,7 +448,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 var update = store.objects[uuid]; /*objmap[uuid];*/
                 var updateObj = JSON.parse(update.data),
                     updateMeta = JSON.parse(update.meta);
-                updateObj.uuid = updateMeta.uuid;
+                if(updateMeta.uuid)
+                    updateObj.uuid = updateMeta.uuid;
                 if(!(uuid in ctrl.curId)) {
                     ctrl.curId[uuid] = updateMeta._id - 1;
                 }
