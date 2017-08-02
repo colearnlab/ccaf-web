@@ -90,7 +90,7 @@ define(["exports"], function(exports) {
 
     seq = (typeof seq !== "undefined" ? seq : this.transactionSeq++);
     //console.log(seq, this.transactionQueue[seq] = {paths: originalPaths, action: action});
-    this.transactionQueue[seq] = {paths: originalPaths, action: action});
+    this.transactionQueue[seq] = {paths: originalPaths, action: action};
 
     this.send("transaction", {
       seq: seq,
