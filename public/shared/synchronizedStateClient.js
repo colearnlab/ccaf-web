@@ -90,6 +90,7 @@ define(["exports"], function(exports) {
 
     seq = (typeof seq !== "undefined" ? seq : this.transactionSeq++);
     //console.log(seq, this.transactionQueue[seq] = {paths: originalPaths, action: action});
+    this.transactionQueue[seq] = {paths: originalPaths, action: action});
 
     this.send("transaction", {
       seq: seq,
@@ -204,8 +205,10 @@ define(["exports"], function(exports) {
         delete this.transactionQueue[message.seq];
         break;
       case "transaction-failure":
+        
         var transaction = this.transactionQueue[message.seq];
         if(transaction) {
+            console.log("Transaction failure for message " + message.seq + ", correcting");
             delete this.transactionQueue[message.seq];
             for (p in message.updates) {
               path = p.split(".");
