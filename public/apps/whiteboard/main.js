@@ -88,7 +88,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         docs: m.prop({}),
         firstLoad: true,
         user: args.user,
-        myColor: '#000000',
+        myColor: m.prop('#888888'),
         lastDrawn: m.prop({}),
 
         updateQueue: [],
@@ -167,6 +167,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             }
             ctrl.scrollPositions[args.user][ctrl.pageNumbers()[args.user]] = userScrollPositions;
           });
+        },
+
+        setColor: function(color) {
+            args.connection.transaction([["userColors"]], function(colors) {
+                colors[ctrl.user] = color;
+                ctrl.myColor(color);
+            });
         },
 
         getScroll: function(userId, pageNumber) {
@@ -415,7 +422,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         
       var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
       userGroup.users().then(function(userGroupList) {
-          ctrl.myColor = userColors.userColors[userGroupList.indexOf(ctrl.user)];
+          //console.log(userGroupList);
+          for(var i = 0, len = userGroupList.length; i < len; i++) {
+              if(ctrl.user == userGroupList[i].id)
+                  ctrl.setColor(userColors.userColors[i]);
+          }
       });
 
 
@@ -564,8 +575,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
   var Controls = {
     view: function(__, args) {
+        //console.log(args.myColor());
       return m("#controls", {
-          style: "background-color: " + getUserColor(args.userList(), args.user)
+          style: "background-color: " + args.myColor()
         },
         // Previous page button
         m("img.tool-icon", {
@@ -1013,6 +1025,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                           setScroll: args.setScroll,
                           getScroll: args.getScroll,
                           user: user,
+                          color: args.connection ?
+                              args.connection.store ?
+                                args.connection.store[args.user.id]
+                                : '#888888'
+                              : '#888888',
                           userList: args.userList,
                           pointerEvents: args.user === user.id,
                           scrollbarHeight: ctrl.scrollbarHeight,
@@ -1040,7 +1057,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             cx: "" + ctrl.radius + "px",
             cy: "" + (ctrl.radius + (args.scrollbarHeight() - 2 * ctrl.radius) * scrollPosition) + "px",
             r: "" + ctrl.radius + "px",
-            fill: getUserColor(args.userList(), args.user.id),
+            fill: args.color, //getUserColor(args.userList(), args.user.id),
             stroke: "none"
         }, "");
     }
