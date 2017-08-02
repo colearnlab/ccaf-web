@@ -238,6 +238,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           */
 
           doObjectTransaction: function(obj, canvas, transactionType) {
+              if(!obj.uuid) {
+                  console.warn("Missing uuid for transaction");
+                  console.log(obj);
+                  return;
+              };
             args.connection.transaction([["objects", obj.uuid]], function(objects) {
                 ctrl.curId[obj.uuid] = objects._id || 0;
 
@@ -255,6 +260,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
                 var uuid = obj.uuid, // preserve uuid in case it's lost in toObject
                     userId = obj.u;
+
                 if(obj.name != "remove") {
                     obj = obj.toObject(['uuid']);
                 }
@@ -278,7 +284,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         addObject: function(obj, canvas, doAdd, doTransaction, transactionType) {
             if(doAdd) {
                 // Make
-                if(obj.type == "path") {
+                if(obj.name == "controlCurvedLine") {
+                    obj = mechanicsObjects.addControlledCurvedLine(null, obj);
+                } else if(obj.type == "path") {
                     obj = new fabric.Path(obj.path, obj);
                 } else if(obj.type == "line" || obj.type == "ControlledLine") {
                     obj = mechanicsObjects.addControlledLine(null, obj);
@@ -311,7 +319,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
 
             // Generate UUID if none present for object
-            if(!('uuid' in obj)) {
+            if(!obj.uuid) {
                 obj.uuid = uuidv1();
             }
              
@@ -328,6 +336,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         },
 
         removeObject: function(obj, canvas, doRemove, doTransaction, transactionType) {
+            if(obj.excludeFromExport && obj.target)
+                obj = obj.target;
+
             if(doRemove)
                 canvas.remove(obj);
             
@@ -927,13 +938,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                         {
                             x1: ctrl.left,
                             y1: ctrl.top,
-                            x2: ctrl.left + 100,
+                            x2: ctrl.left + 50,
                             y2: ctrl.top + 50,
                             x3: ctrl.left + 100,
                             y3: ctrl.top + 100,
                             handleRadius: ctrl.handleRadius,
                             strokeWidth: ctrl.strokeWidth,
-                            name: "controlledcurvedline"
+                            name: "controlCurvedLine"
                         },
                         ctrl.canvas, true, true
                     ); 

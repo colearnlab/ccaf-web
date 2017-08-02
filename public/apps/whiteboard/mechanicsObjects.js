@@ -795,7 +795,6 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             stroke: 'red',
             strokeWidth: strokeWidth,
             selectable: false,
-            name: "controlledLine",
             originX: 'left',
             originY: 'top',
         });
@@ -816,64 +815,104 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     //     strokeWidth: stroke width of the line
 
     mechanicsObjects.addControlledCurvedLine = function(canvas, options, submittedAnswer, answerName) {
+        //options.left = (options.x1 < options.x2) ? options.x1 : options.x2;
+        //options.top = (options.y1 < options.y2) ? options.y1 : options.y2;
         var line = mechanicsObjects.makeControlCurvedLine(options.x1, options.y1, options.x2, options.y2, options.x3, options.y3, options.strokeWidth);
+        //line.left = options.left;
+        //line.top = options.top;
         var c1 = mechanicsObjects.makeControlHandle(options.x1, options.y1, options.handleRadius, options.strokeWidth/2);
         var c2 = mechanicsObjects.makeControlHandle(options.x2, options.y2, options.handleRadius, options.strokeWidth/2);
         var c3 = mechanicsObjects.makeControlHandle(options.x3, options.y3, options.handleRadius, options.strokeWidth/2);
-        //canvas.add(line, c1, c2, c3);
-        //if (!submittedAnswer) return [line, c1, c2, c3];
+        
+        Object.assign(line, options);
+        if('selectable' in options)
+            c1.selectable = c2.selectable = c3.selectable = options.selectable;
 
-        var subObj = _.clone(options);
-        if (!subObj.id) subObj.id = this.newID();
-        subObj.type = 'controlledCurvedLine';
-        //this.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
+        c1.target = c2.target = c3.target = line;
 
-        //var that = this;
-        c1.on('modified', function() {
-            subObj.x1 = c1.left;
-            subObj.y1 = c1.top;
-            //that.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
+        line.on('modified', function() {
+            c1.left = line.x1 = line.path[0][1];
+            c1.top = line.y1 = line.path[0][2];
+            c2.left = line.x2 = line.path[1][1];
+            c2.top = line.y2 = line.path[1][2];
+            c3.left = line.x3 = line.path[1][3];
+            c3.top = line.y3 = line.path[1][4];
         });
-        c2.on('modified', function() {
-            subObj.x2 = c2.left;
-            subObj.y2 = c2.top;
-            //that.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-        c3.on('modified', function() {
-            subObj.x3 = c3.left;
-            subObj.y3 = c3.top;
-            //that.addOrReplaceSubmittedAnswerObject(submittedAnswer, answerName, subObj);
-        });
-        c1.on('moving',function() {
+        
+        var setPath = function() {
             line.path[0][1] = c1.left;
             line.path[0][2] = c1.top;
-        });
-        c2.on('moving',function() {
             line.path[1][1] = c2.left;
             line.path[1][2] = c2.top;
-        });
-        c3.on('moving',function() {
             line.path[1][3] = c3.left;
             line.path[1][4] = c3.top;
+            line.set({
+                x1: c1.left,
+                x2: c2.left,
+                x3: c3.left,
+                y1: c1.top,
+                y2: c2.top,
+                y3: c3.top
+            });
+        };
+
+        c1.on('modified', function() {
+            line.x1 = c1.left;
+            line.y1 = c1.top;
+            setPath();
         });
+        c2.on('modified', function() {
+            line.x2 = c2.left;
+            line.y2 = c2.top;
+            setPath();
+        });
+        c3.on('modified', function() {
+            line.x3 = c3.left;
+            line.y3 = c3.top;
+            setPath();
+        });
+
+
+        c1.on('moving', setPath);
+        c2.on('moving', setPath);
+        c3.on('moving', setPath);
+
         c1.on('removed', function() {
             c2.remove();
             c3.remove();
             line.remove();
-            //that.removeSubmittedAnswerObject(submittedAnswer, answerName, subObj);
         });
         c2.on('removed', function() {
             c1.remove();
             c3.remove();
             line.remove();
-            //that.removeSubmittedAnswerObject(submittedAnswer, answerName, subObj);
         });
         c3.on('removed', function() {
             c1.remove();
             c2.remove();
             line.remove();
-            //that.removeSubmittedAnswerObject(submittedAnswer, answerName, subObj);
         });
+        line.on('removed', function() {
+            c1.remove();
+            c2.remove();
+            c3.remove();
+        });
+        
+        var origToObject = line.toObject.bind(line);
+        line.toObject = function(extra) {
+            return Object.assign(origToObject(extra), {
+                x1: line.x1,
+                y1: line.y1,
+                x2: line.x2,
+                y2: line.y2,
+                x3: line.x3,
+                y3: line.y3,
+                name: line.name,
+                handleRadius: options.handleRadius,
+                strokeWidth: options.strokeWidth,
+                uuid: options.uuid
+            });
+        };
 
         return [line, c1, c2, c3];
     };
@@ -890,7 +929,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             originX: 'center',
             originY: 'center',
         };
-        var line = new fabric.Path('M 0 0 Q 1 1 3 0', options);
+        var line = new fabric.Path('M 0 0 Q 10 10, 30 30', options);
+        line.fill = '';
         line.path[0][1] = x1;
         line.path[0][2] = y1;
         line.path[1][1] = x2;
