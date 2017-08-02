@@ -1,4 +1,4 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", "uuidv1", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, models, css, uuidv1, userColors, mechanicsObjects) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootstrap", "models", "css", "uuidv1", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, $, bootstrap, models, css, uuidv1, userColors, mechanicsObjects) {
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
@@ -26,8 +26,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
        'shapes'
    ];
 
+   var errmsg = null, errobj = null;
+   var errorPrompt = function(msg, obj) {
+        errmsg = msg;
+        errobj = obj;
+        m.redraw(true);
+   };
+
   exports.load = function(connection, el, params) {
     array = connection.array;
+    connection.errorCallback = errorPrompt;
     css.load("/apps/whiteboard/styles.css");
     var ctrl = m.mount(el, m.component(Main, {
       pdf: params.pdf,
@@ -125,8 +133,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           groupUsers: [],        
           userList: m.prop([]),
 
-        // for recording which document each user is looking at
-        setPage: function(pageNum) {
+        flushUpdateQueue: function(pageNum) {
             var canvases = ctrl.docs()[pageNum].canvas,
                 queue = ctrl.updateQueue;
             for(var i = 0; i < queue.length; i++) {
@@ -141,7 +148,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                     }
                 }
             }
-            
+        },
+
+        // for recording which document each user is looking at
+        setPage: function(pageNum) {
+            ctrl.flushUpdateQueue(pageNum);
+
             // Notify group
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
                 userCurrentPages.data = userCurrentPages.data || "{}";
@@ -421,7 +433,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
           }
           */
       };
-        
+
       var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
       userGroup.users().then(function(userGroupList) {
           //console.log(userGroupList);
@@ -438,8 +450,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
         // Update users' page positions
           //console.log("user list update");
         ctrl.userList().map(function(user) {
-            if(!(user.id in ctrl.pageNumbers()))
-                ctrl.pageNumbers()[user.id] = 0;
+            //if(!(user.id in ctrl.pageNumbers()))
+                //ctrl.pageNumbers()[user.id] = 0;
         });
         m.redraw(true);
       });
@@ -481,7 +493,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                 if(updateMeta._id > ctrl.curId[uuid]) {
                     ctrl.curId[uuid] = updateMeta._id;
 
-                    var canvas = ctrl.docs()[updateMeta.doc].canvas[updateMeta.page];
+                    var canvas = ctrl.docs()[updateMeta.doc] ? ctrl.docs()[updateMeta.doc].canvas[updateMeta.page] : null;
                     if(canvas && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
                         ctrl.applyUpdate(updateObj, canvas);
                     } else {
@@ -529,10 +541,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
                                 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
-
-                                    // Make sure objects are shown                                    
-                                    ctrl.setPage(0);
                                     
+                                    ctrl.flushUpdateQueue(ctrl.pageNumbers()[ctrl.user]);
                                 });
                             });
                         })(i);
@@ -551,7 +561,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
       var listener = function(e) {
       };
       return m("#main", {
-          class: "scroll-" + ctrl.scroll(),
+          class: "errormodal-" + (errmsg ? "show" : "hide"),
           config: function(el) {
             ctrl.fireScrollEvent = false;
             el.scrollTop = parseInt(ctrl.getScroll(args.user, ctrl.pageNumbers()[args.user]) * (el.scrollHeight - window.innerHeight));
@@ -566,6 +576,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
             ctrl.setScroll(el.scrollTop / (el.scrollHeight - window.innerHeight));
           }
         },
+
+        errmsg ? m.component(ErrorModal, {message: errmsg}) : "",
         
         m.component(PDFViewer, ctrl),
         m.component(Scrollbar, ctrl),
@@ -574,6 +586,47 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css", 
 
     }
   };
+
+    var ErrorModal = {
+        controller: function(args) {
+            return {
+                showDetails: m.prop(false)
+            };
+        },
+        view: function(ctrl, args) {
+            var widthClasses = ".col-xs-8.col-xs-offset-2.col-sm-8.col-sm-offset-2.col-md-6.col-md-offset-3";
+            return m(".modal.fade#error-modal", {
+                    config: function(el) {
+                        $("#error-modal").modal({
+                            backdrop: "static"
+                        });
+                        $("#error-modal").modal("show");
+                    }
+                },
+                m(".modal-content" + widthClasses,
+                    m(".modal-header",
+                        m("h4.modal-title", 
+                            "Oops"
+                        )
+                    ),
+                    m(".modal-body",
+                        m('p', 'The application encountered a problem. Please let Ian know before reloading.'),
+                        
+                        ctrl.showDetails()
+                            ? m('p', 'Cause: ' + errmsg)
+                            : m('a', {onclick: function() { ctrl.showDetails(true); }}, 'Details')
+                    ),
+                    m(".modal-footer",
+                        m("button.btn.btn-danger.pull-right", {
+                                onclick: location.reload.bind(location),
+                            },
+                            "Reload"
+                        )
+                    )
+                )
+            );
+        }
+    };
 
   var Controls = {
     view: function(__, args) {

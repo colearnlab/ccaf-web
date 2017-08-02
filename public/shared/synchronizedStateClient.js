@@ -216,6 +216,8 @@ define(["exports"], function(exports) {
          } else {
             console.warn("Transaction failure: " + message.seq);
             console.log(message);
+            if(this.errorCallback)
+                this.errorCallback("Transaction failure", envelope);
          }
          break;
       case "connected-users":
