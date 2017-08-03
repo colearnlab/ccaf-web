@@ -843,7 +843,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             stroke: '#666',
             originX: 'center',
             originY: 'center',
-            excludeFromExport: true,
+            padding: 5,
+            excludeFromExport: true
             //name: "controlHandle",
         });
         c.hasControls = false;

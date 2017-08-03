@@ -809,7 +809,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             stroke: 'green',
                             strokeWidth: 2.5, 
 				            originX:'left', 
-                            originY: 'center', 
+                            originY: 'center',
+                            padding: 5 
                         },
                         ctrl.canvas, true, true
                     );
