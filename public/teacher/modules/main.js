@@ -186,15 +186,18 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     controller: function(args) {
       var ctrl = {
         sessions: m.prop([]),
-        showBody: args.showMenus.sessions
+        showBody: args.showMenus.sessions,
+        refresh: function() {
+            ClassroomSession.list().then(function(sessions) {
+                ctrl.sessions(sessions.filter(function(session) {
+                    return session.endTime == null;
+                }));
+                m.redraw();
+            });
+        }
       };
 
-        ClassroomSession.list().then(function(sessions) {
-            ctrl.sessions(sessions.filter(function(session) {
-                return session.endTime == null;
-            }));
-            m.redraw();
-        });
+        ctrl.refresh();
 
         return ctrl;
     },
@@ -228,6 +231,14 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                   "]",
                   m("a.session-link.pull-right", {
                       onclick: function() {
+                        session.endTime = (+ new Date());
+                        session.save().then(ctrl.refresh);
+                      }
+                    },
+                    m.trust("&laquo;End session&raquo;")
+                 ),
+                  m("a.session-link.pull-right", {
+                      onclick: function() {
                           m.route("/session/" + session.id);
                       }
                     },
@@ -238,7 +249,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                           m.route("/visualize/" + session.id);
                       }
                     }, 
-                    m.trust("&laquo;Visualize&raquo;")
+                    m.trust("&laquo;View live&raquo;")
                   )
                 )
               );
@@ -381,6 +392,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                       }
                     },
                     classroom.title,
+                    /*
                     m("a.session-link.pull-right", {
                       style: "color: gray",
                       onclick: function(e) {
@@ -389,6 +401,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                         //e.stopPropagation();
                       }}, m.trust("&laquo;Edit class roster&raquo;")
                     ),
+                    */
                     //m("span.glyphicon.glyphicon-edit.pull-right", {
                     m("a.session-link.pull-right", {
                       style: "color: gray",
@@ -468,6 +481,16 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 "data-dismiss": "modal"
               }, "Cancel"
             ),
+            args.creating ? "" :
+                m("button.btn.btn-default", {
+                        onclick: function() {
+                            args.endEdit();
+                            m.route("/classroom/" + args.classroom.id);
+                        },
+                        "data-dismiss": "modal"
+                    },
+                    "Edit class roster"
+                 ),
             m("button.btn.btn-primary", {
                 onclick: function() {
                   ctrl.classroom.save().then(function() {
