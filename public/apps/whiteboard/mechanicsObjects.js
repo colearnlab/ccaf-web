@@ -463,12 +463,13 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                     left: arrowLeft + i * arrowSpacing,
                     top: arrowTop,
                     width: this.thickness,
-                    angle: this.arrowAngle
+                    angle: this.arrowAngle,
                     lockRotation: true,
                     lockScalingX: true,
                     lockScalingY: true,
                     lockSkewingX: true,
-                    lockSkewingY: true
+                    lockSkewingY: true,
+                    hasBorders: false
                 });
                 //this.callSuper('addWithUpdate', eachArrow);
                 this.addWithUpdate(eachArrow);
@@ -565,18 +566,20 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                     left: arrowLeft + i * arrowSpacing,
                     top: arrowTop,
                     width: this.minThickness + (i / nSpaces) * (this.maxThickness - this.minThickness),
-                    angle: this.arrowAngle
+                    angle: this.arrowAngle,
                     lockRotation: true,
                     lockScalingX: true,
                     lockScalingY: true,
                     lockSkewingX: true,
-                    lockSkewingY: true
+                    lockSkewingY: true,
+                    hasBorders: false
                 });
                 //this.callSuper('addWithUpdate', eachArrow);
                 this.addWithUpdate(eachArrow);
                 //this.add(eachArrow);
             }
             this.set('flipX', this.flipped);
+
             
             // Find difference between building position and final position
             this.diffLeft = this.left - originalLeft;
