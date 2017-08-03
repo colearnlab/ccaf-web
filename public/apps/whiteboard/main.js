@@ -164,8 +164,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             });
         },
 
-        dummycounter: 0,
-
         setScroll: function(pos) {
           //var scrollPositions = ctrl.scrollPositions();
           args.connection.transaction([["scrollPositions", args.user, ctrl.pageNumbers()[args.user]]], function(userScrollPositions) {
@@ -434,6 +432,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           */
       };
 
+      ctrl.pageNumbers()[args.user] = 0;
+
       var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
       userGroup.users().then(function(userGroupList) {
           //console.log(userGroupList);
@@ -541,14 +541,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
-                                    
-                                    ctrl.flushUpdateQueue(ctrl.pageNumbers()[ctrl.user]);
+                                    m.redraw(true);
                                 });
                             });
                         })(i);
                     }
-
-                    m.redraw(true);
                   });
               });
           });
@@ -1136,6 +1133,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           getCanvasId: args.getCanvasId,
           startStrokeSimple: args.startStrokeSimple,
           user: args.user,
+          pageNumbers: args.pageNumbers,
+          flushUpdateQueue: args.flushUpdateQueue,
           docs: args.docs,
             tool: args.tool,
             addObserver: args.addObserver,
@@ -1311,6 +1310,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             */
                         }
                     }
+                    
+                    args.flushUpdateQueue(args.pageNumbers()[args.user]);
 
                     /*
                     // Draw any selections
@@ -1347,7 +1348,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             args.addObject(e.path, ctrl.canvas, false, true, "addFreeDrawing");
                             
                             // Apply any updates that were queued during draw
-                            args.setPage(args.pageNum);
+                            //args.flushUpdateQueue(args.pageNum);
                         },
 
                         /* TODO selection boxes
@@ -1387,33 +1388,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 args.setSelectionBox(ctrl.currentSelection, currentDocument, args.pageNum);
                                 */
                             }
-                        },
-                /*ontouchstart: function() {
-                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
-                    console.log(ctrl.canvas.nowDrawing);
-                },
-                onmousedown: function() {
-                    ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
-                    console.log(ctrl.canvas.nowDrawing);
-                },
-                ontouchend: function() {
-                    ctrl.canvas.nowDrawing = false;
-                    console.log(ctrl.canvas.nowDrawing);
-                },
-                onmouseup: function() {
-                    ctrl.canvas.nowDrawing = false;
-                    console.log(ctrl.canvas.nowDrawing);
-                }*/
-                        /*
-                        "mouse:down": function() {
-                            ctrl.canvas.nowDrawing = ctrl.canvas.isDrawingMode;
-                            console.log(ctrl.canvas.nowDrawing);
-                        },
-                        "mouse:up": function() {
-                            ctrl.canvas.nowDrawing = false;
-                            console.log(ctrl.canvas.nowDrawing);
                         }
-                        */
 
                     });
 
