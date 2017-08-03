@@ -10,14 +10,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   // Flag to show ControlledLine and ControlledCurve in the mechanics objects menu
   var showVMLines = true;
 
-  var colors = {
-    0: "#000000",
-    1: "#FF0000",
-    2: "#00FF00",
-    3: "#0000FF",
-    4: "#FFFFFF"
-  };
-
    var toolNames = [
        'pen',
        'highlighter',
@@ -49,7 +41,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       if (store.scrollPositions) {
         ctrl.scrollPositions = store.scrollPositions || {};
       }
-      ctrl.remotePages(store.pages || {});
+      //ctrl.remotePages(store.pages || {});
       requestAnimationFrame(m.redraw);
     });
 
@@ -67,29 +59,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         numPages: m.prop([]),
         scrollPositions: {},
         scroll: m.prop("open"),
-
-        pages: [],
-        //pagesComplete: {},
-        remotePages: m.prop({}),
-        
-        // TODO figure out what these were for
-        currentPath: null,
-        currentPage: null,
-        
+ 
         // stores index of current document for each user
         pageNumbers: m.prop({}),
 
         connection: args.connection,
         addObserver: args.connection.addObserver.bind(args.connection),
 
-        drawn: m.prop([]),
-        pdfs: m.prop([]),
         tool: m.prop(0),
-        color: {0: 0, 1: 0},
-        size: m.prop(10),
         fireScrollEvent: true,
-        lastX: 0,
-        lastY: 0,
         curId: {},
         user: args.user,
         session: args.session,
@@ -100,6 +78,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         myColor: m.prop('#888888'),
         lastDrawn: m.prop({}),
 
+        groupUsers: [],        
+        userList: m.prop([]),
         updateQueue: [],
 
         // make a canvas ID string from document and page numbers
@@ -129,9 +109,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             }
             ctrl.docs(docs);
         },
-
-          groupUsers: [],        
-          userList: m.prop([]),
 
         flushUpdateQueue: function(pageNum) {
             var canvases = ctrl.docs()[pageNum].canvas,
@@ -695,13 +672,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
 
-
-        /* Disable clear-screen button for now 
-        m("img.tool-right.pull-right#clear-screen", {
-          onmousedown: args.clear,
-          ontouchend: args.clear,
-          src: "/shared/icons/Icons_F_Delete Pages_W.png"
-        }),*/
           /*
         m("img.tool-right.pull-right#undo", {
           onmousedown: args.undo,
@@ -730,14 +700,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 },
                 src: (args.tool() == 2) ? "/shared/icons/Icons_F_Erase_W_Filled.png" : "/shared/icons/Icons_F_Erase_W.png"
             }),
-           /* 
-          m("img.tool-right.pull-right#highlighter-tool", {
-                onmousedown: function() {
-                    args.tool(1);
-                },
-                src: "/shared/icons/Icons_F_Highlight_W.png"
-            }),
-            */
             m("img.tool-right.pull-right#pen-tool", {
                 onmousedown: function() {
                     args.tool(0);
@@ -831,32 +793,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         },
             
         // TODO get icons!
-        /*
-        m("strong", "FBD Concentrated Forces"),
-        m("p", ["FU", "FD", "FL", "FR"].map(function(letters) {
-            return m("button.btn.btn-info.mech-obj-button#add" + letters, {
-                onclick: function() {
-                    var angles = {FU: -90, FD: 90, FL: 180, FR: 0}; 
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "Arrow",
-                            left: ctrl.left,  
-                            top: ctrl.top, 
-                            width: 2 * ctrl.arrowLength,
-                            angle: angles[letters], 
-                            //name: letters,
-                            stroke: 'green',
-                            strokeWidth: 2.5, 
-				            originX:'center', 
-                            originY: 'center', 
-                        },
-                        ctrl.canvas, true, true
-                    );
-                }
-           }, "Add " + letters);
-        })),
-        */
         m("p",
             m("button.btn.btn-info.mech-obj-button#addArrow", {
                 onclick: function() {
@@ -956,28 +892,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         // Line and curve objects sometimes shouldn't be available
         showVMLines ? m("strong", "V and M lines") : "",
         showVMLines ? m("p",
-           /*
-            m("button.btn.btn-info.mech-obj-button#addControlledLine", {
-                onclick: function() {
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "Line",
-                            left: ctrl.left,
-                            top: ctrl.top,
-                            x1: ctrl.left,
-                            y1: ctrl.top,
-                            x2: ctrl.left + 50,
-                            y2: ctrl.top + 50,
-                            handleRadius: ctrl.handleRadius,
-                            strokeWidth: ctrl.strokeWidth,
-                            name: "controlledline"
-                        },
-                        ctrl.canvas, true, true
-                    ); 
-                }    
-           }, "Add Controlled Line"),
-           */
            m("button.btn.btn-info.mech-obj-button#addControlledLine", {
                 onclick: function() {
                     ctrl.recalcOffset();
@@ -1016,37 +930,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
            }, "Add Quadratic")
         ) : ""
         
-        /*
-        m("strong", "Help buttons (not graded):"),
-        m("p",
-            m("button.btn.btn-info.mech-obj-button#addHelpLine", {
-                onclick: function() {
-                    ctrl.recalcOffset();
-                    ctrl.addObject(
-
-                    );
-                }
-           
-           }, "Add Help Line")
-        )
-        */
-
         )
       );
     }
   };
-
-    var PDFViewer = {
-      controller: function(args) {
-        return {
-          interactable: null
-        };
-      },
-      view: function(ctrl, args) {
-        return m("#pdf-container", drawPDF(ctrl, args, 1));
-      }
-    };
-
 
   var Scrollbar = {
       controller: function(args) {
@@ -1116,55 +1003,47 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         }, "");
     }
   };
+    
+    var PDFViewer = {
+        controller: function(args) {
+            return {
+                interactable: null
+            };
+        },
+        view: function(ctrl, args) {
+            //return m("#pdf-container", drawPDF(ctrl, args, 1));
+            return m("#pdf-container", 
+                Array.apply(null, {length: args.numPages()[args.pageNumbers()[args.user]]}).map(function(__, i) {
+                    return m.component(PDFPageHolder, {
+                        pageNumbers: args.pageNumbers,
+                        getCanvasId: args.getCanvasId,
+                        startStrokeSimple: args.startStrokeSimple,
+                        user: args.user,
+                        pageNumbers: args.pageNumbers,
+                        flushUpdateQueue: args.flushUpdateQueue,
+                        docs: args.docs,
+                        tool: args.tool,
+                        addObserver: args.addObserver,
 
-  function drawPDF(ctrl, args, scale) {
-    return Array.apply(null, {length: args.numPages()[args.pageNumbers()[args.user]]}).map(function(__, i) {
-        return m.component(PDFPageHolder, {
-          size: args.size, 
-          drawn: args.drawn, 
-          startStroke: args.startStroke, 
-          addPoint: args.addPoint, 
-          endStroke: args.endStroke, 
-          page: args.remotePages()[i], 
-          currentPath: args.currentPath,
-          pdf: args.pdfs()[args.pageNumbers()[args.user]], 
-          //pdfs: args.pdfs,
-          pageNumbers: args.pageNumbers,
-          getCanvasId: args.getCanvasId,
-          startStrokeSimple: args.startStrokeSimple,
-          user: args.user,
-          pageNumbers: args.pageNumbers,
-          flushUpdateQueue: args.flushUpdateQueue,
-          docs: args.docs,
-            tool: args.tool,
-            addObserver: args.addObserver,
+                        setPage: args.setPage,
+                        lastDrawn: args.lastDrawn,
+                        pageNum: i,
+                        addObject: args.addObject,
+                        modifyObject: args.modifyObject,
+                        removeObject: args.removeObject,
 
-            setPage: args.setPage,
-          lastDrawn: args.lastDrawn,
-          pageNum: i,
-            addObject: args.addObject,
-            modifyObject: args.modifyObject,
-            removeObject: args.removeObject,
-
-            connection: args.connection,
-            drawSelectionBox: args.drawSelectionBox,
-            //setSelectionBox: args.setSelectionBox
-      });
-    });
-  }
-
-  var uniqueCode = 0;
-  var PDFPageHolder = {
+                        connection: args.connection,
+                        drawSelectionBox: args.drawSelectionBox,
+                        //setSelectionBox: args.setSelectionBox
+                    });
+                })    
+            );
+        }
+    };
+  
+    var PDFPageHolder = {
     controller: function(args) {
       var ctrl = {
-        virtualWidth: 1000,
-        virtualHeight: 1000 * 11 / 8.5,
-        redrawing: false,
-        target: null,
-        localPenDown: false,
-        uniqueId: uniqueCode++, 
-
-
         canvas: null,
         erasing: false,
         setPen: function() {
@@ -1215,7 +1094,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 activeGroup = ctrl.canvas.getActiveGroup();
 
             if(activeObject) {
-                //ctrl.canvas.remove(activeObject);
                 args.removeObject(activeObject, ctrl.canvas, true, true);
             }
 
@@ -1223,19 +1101,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var objects = activeGroup.getObjects();
                 ctrl.canvas.discardActiveGroup(); // TODO find out if this is this doing remove?
                 objects.forEach(function(obj) {
-                    //ctrl.canvas.remove(obj);
                     args.removeObject(obj, ctrl.canvas, true, true);
                 });
             }
-        },
-          // still necessary?
-        addObject: function(newobj) {
-            if(!ctrl.canvas)
-                return;
-
-            //console.log(newobj);
-            ctrl.canvas.add(newobj);
-            ctrl.canvas.objsByUUID[newobj.uuid] = newobj;
         }
       };
 
@@ -1297,18 +1165,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     ctrl.canvas.objsByUUID = {};
                     var contents = docs[currentDocument].canvasContents[args.pageNum];
                     if(contents) {
-                        for(var i = 0, len = contents.length; i < len; i++) {
-                            var obj = contents[i];
-                            //console.log(obj);
-                            args.addObject(obj, ctrl.canvas, true, false);
-                            /*
-                            if(obj.type == "path") {
-                                ctrl.addObject(new fabric.Path(obj.path, obj));
-                            } else {
-                                ctrl.addObject(new mechanicsObjects[obj.type](obj));
-                            }
-                            */
-                        }
+                        for(var i = 0, len = contents.length; i < len; i++)
+                            args.addObject(contents[i], ctrl.canvas, true, false);
                     }
                     
                     args.flushUpdateQueue(args.pageNumbers()[args.user]);
@@ -1324,10 +1182,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     ctrl.setTool();
 
                     // Set up event handlers
-                    // TODO finish
                     ctrl.canvas.on({
                         "object:modified": function(e) {
-                            //console.log(e);
                             if(e.target.excludeFromExport)
                                 e.target = e.target.target;
 
@@ -1346,9 +1202,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         },
                         "path:created": function(e) {
                             args.addObject(e.path, ctrl.canvas, false, true, "addFreeDrawing");
-                            
-                            // Apply any updates that were queued during draw
-                            //args.flushUpdateQueue(args.pageNum);
                         },
 
                         /* TODO selection boxes
@@ -1369,9 +1222,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             }
                         },
                         "selection:created": function(e) {
-                            console.log("selection created");
-                            //console.log(e);
-                            
                             e.target.hasControls = false;
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
