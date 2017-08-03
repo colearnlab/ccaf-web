@@ -8,7 +8,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var array;
  
   // Flag to show ControlledLine and ControlledCurve in the mechanics objects menu
-  var showVMLines = true;
+    var showVMLines = true,
+        logOrientation = false;
 
    var toolNames = [
        'pen',
@@ -345,23 +346,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 ctrl.doObjectTransaction({uuid: obj.uuid, name: "remove"}, canvas, transactionType);
         },
  
-        undo: function() {
-          args.connection.transaction([["undoStack", args.user]], function(undoStack) {
-            var toUndo = array.pop(undoStack);
-
-            if (typeof toUndo === "undefined")
-              return;
-
-            switch (toUndo.action) {
-              case "add-path":
-                args.connection.transaction([["pages", toUndo.page, "paths", toUndo.path]], function(path) {
-                  path[0].hidden = true;
-                });
-              break;
-            }
-          });
-        },
-
           applyUpdate: function(updateObj, canvas) {
               //console.log(updateObj);
 
@@ -528,6 +512,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           });
       });
         ctrl.scrollPositions[args.user] = {};
+
+        // Reports accelerometer data to the server
+        if(logOrientation) {
+            window.addEventListener("deviceorientation", function(ev) {
+                    args.connection.transaction([["orientation"]], function(orientation) {
+                        orientation[args.user] = {
+                            abs: ev.absolute,
+                            a: ev.alpha,
+                            b: ev.beta,
+                            g: ev.gamma
+                        };
+                    });
+                },
+                true
+            );
+        }
 
       return ctrl;
     },

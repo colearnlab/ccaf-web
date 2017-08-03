@@ -28,6 +28,15 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			this.setControlVisible('ml',false);
 			this.setControlVisible('mr',false); 
 
+            // Prevent modification besides moving
+            this.set({
+                //lockRotation: true,
+                lockScalingX: true,
+                lockScalingY: true,
+                lockSkewingX: true,
+                lockSkewingY: true
+            });
+
             //this.set('originX', 'left');
             //this.setControlVisible('mtr',false);
 
@@ -99,6 +108,16 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			this.setControlVisible('ml',false);
 			this.setControlVisible('mr',false); 
 			this.setControlVisible('mtr',false);
+            
+            // Prevent modification besides moving
+            this.set({
+                lockRotation: true,
+                lockScalingX: true,
+                lockScalingY: true,
+                lockSkewingX: true,
+                lockSkewingY: true
+            });
+
 		},
 		toObject: function() {
 			return fabric.util.object.extend(this.callSuper('toObject', Object.keys(this.getDefaultOptions())), {
@@ -149,6 +168,16 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 		initialize: function(options) {
 			options = options || {};
 			this.callSuper("initialize", options);
+            
+            // Prevent modification besides moving
+            this.set({
+                lockRotation: true,
+                lockScalingX: true,
+                lockScalingY: true,
+                lockSkewingX: true,
+                lockSkewingY: true
+            });
+
 		},
 		_render: function(ctx) {
 			// in the _render function, the canvas has already been translated to the center of the object which is being drawn. So anything we draw at the point 0, 0 will be drawn in the center of the object. 
@@ -435,6 +464,11 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                     top: arrowTop,
                     width: this.thickness,
                     angle: this.arrowAngle
+                    lockRotation: true,
+                    lockScalingX: true,
+                    lockScalingY: true,
+                    lockSkewingX: true,
+                    lockSkewingY: true
                 });
                 //this.callSuper('addWithUpdate', eachArrow);
                 this.addWithUpdate(eachArrow);
@@ -454,6 +488,16 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			this.setControlVisible('ml', false);
 			this.setControlVisible('mr', false); 
 			this.setControlVisible('mtr', false);
+            
+            // Prevent modification besides moving
+            this.set({
+                lockRotation: true,
+                lockScalingX: true,
+                lockScalingY: true,
+                lockSkewingX: true,
+                lockSkewingY: true
+            });
+
 		},
 		toObject: function(extra) {
             // Call parent toObject but discard information about the arrows
@@ -522,6 +566,11 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                     top: arrowTop,
                     width: this.minThickness + (i / nSpaces) * (this.maxThickness - this.minThickness),
                     angle: this.arrowAngle
+                    lockRotation: true,
+                    lockScalingX: true,
+                    lockScalingY: true,
+                    lockSkewingX: true,
+                    lockSkewingY: true
                 });
                 //this.callSuper('addWithUpdate', eachArrow);
                 this.addWithUpdate(eachArrow);
@@ -543,7 +592,15 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			this.setControlVisible('ml', false);
 			this.setControlVisible('mr', false); 
 			this.setControlVisible('mtr', false);
-		
+            
+            // Prevent modification besides moving
+            this.set({
+                lockRotation: true,
+                lockScalingX: true,
+                lockScalingY: true,
+                lockSkewingX: true,
+                lockSkewingY: true
+            });
         },
 		toObject: function(extra) {
             // Call parent toObject but discard information about the arrows
