@@ -1061,30 +1061,35 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         setTool: function() {
             if(!ctrl.canvas)
                 return;
-            
-            ctrl.erasing = false;
 
-            var toolId = args.tool();
-            if(toolId == 0) {
-                // pen tool
-                ctrl.setPen();
-            } else if(toolId == 1) {
-                // highlighter tool
-                ctrl.setPen();
-                ctrl.canvas.freeDrawingBrush.opacity = 0.5;
-            } else if(toolId == 2) {
-                // TODO implement eraser
-                ctrl.canvas.isDrawingMode = false;
-                ctrl.canvas.selection = true;
-                ctrl.erasing = true;
-                ctrl.canvas.selectionColor = 'rgba(255, 0, 0, 0.3)';
+            args.connection.transaction([["tool"]], function(tool) {
+                ctrl.erasing = false;
 
-            } else if(toolId == 3) {
-                // pointer tool
-                ctrl.canvas.selection = true;
-                ctrl.canvas.isDrawingMode = false;
-                ctrl.canvas.selectionColor = 'rgba(100, 100, 255, 0.3)';
-            }
+                var toolId = args.tool();
+                if(toolId == 0) {
+                    // pen tool
+                    ctrl.setPen();
+                } else if(toolId == 1) {
+                    // highlighter tool
+                    ctrl.setPen();
+                    ctrl.canvas.freeDrawingBrush.opacity = 0.5;
+                } else if(toolId == 2) {
+                    // TODO implement eraser
+                    ctrl.canvas.isDrawingMode = false;
+                    ctrl.canvas.selection = true;
+                    ctrl.erasing = true;
+                    ctrl.canvas.selectionColor = 'rgba(255, 0, 0, 0.3)';
+
+                } else if(toolId == 3) {
+                    // pointer tool
+                    ctrl.canvas.selection = true;
+                    ctrl.canvas.isDrawingMode = false;
+                    ctrl.canvas.selectionColor = 'rgba(100, 100, 255, 0.3)';
+                }
+
+                // Set tool to be sent
+                tool[args.user] = toolId;
+            });
         },
 
         deleteSelected: function() {
