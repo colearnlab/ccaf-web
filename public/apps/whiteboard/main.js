@@ -158,6 +158,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           });
         },
 
+        setTool: function(toolId) {
+            args.connection.transaction([["tool", args.user]], function(tool) {
+                tool.tool = ctrl.tool(toolId);
+            });
+        },
+
         setColor: function(color) {
             args.connection.transaction([["userColors"]], function(colors) {
                 colors[ctrl.user] = color;
@@ -172,31 +178,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 ? ctrl.scrollPositions[userId][pageNumber].pos
                 : 0)
             : 0;
-        },
-
-        startStroke: function(page, x, y) {
-          if (ctrl.tool() === 0 || ctrl.tool() === 1 || ctrl.tool() === 2) {
-            ctrl.currentPage = page;
-
-            args.connection.transaction([["pages"]], function(pages) {
-              ctrl.curId = pages._id || 0;
-              args.connection.transaction([["pages", page, "paths", "+"]], function(path) {
-                var currentPath = ctrl.currentPath = this.props[0].slice(-1)[0];
-                var opacity = ctrl.tool() === 1 ? 0.5 : 1;
-                path[0] = {eraser: ctrl.tool() === 2, opacity: opacity, color: colors[ctrl.color[ctrl.tool()]], size: ctrl.size(), currentlyDrawing: true};
-                path[1] = {x: x, y: y};
-                args.connection.transaction([["undoStack", args.user]], function(undoStack) {
-                  var undoStackHeight = array.length(undoStack);
-                  if (undoStackHeight > 25) {
-                    array.splice(undoStack, undoStack.height - 25);
-                  }
-
-                  array.push(undoStack, {action: "add-path", page: page, path: currentPath});
-                });
-              });
-              return false;
-            });
-          }
         },
 
           // Make a JSON string with default metadata and any additional properties to include
@@ -291,7 +272,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // Do nothing if obj.type isn't defined
                     return;
                 }
-                //console.log(obj);
 
                 // Add
                 if(obj instanceof Array) {
@@ -426,37 +406,38 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       });
       */
 
-      // Handle object updates
-      ctrl.objectObserver = function(store) {
-            for(var uuid in store.objects /*objmap*/) {
-                var update = store.objects[uuid]; /*objmap[uuid];*/
-                var updateObj = JSON.parse(update.data),
-                    updateMeta = JSON.parse(update.meta);
-                if(updateMeta.uuid)
-                    updateObj.uuid = updateMeta.uuid;
-                if(!(uuid in ctrl.curId)) {
-                    ctrl.curId[uuid] = updateMeta._id - 1;
-                }
-
-                if(updateMeta._id > ctrl.curId[uuid]) {
-                    ctrl.curId[uuid] = updateMeta._id;
-
-                    var canvas = ctrl.docs()[updateMeta.doc] ? ctrl.docs()[updateMeta.doc].canvas[updateMeta.page] : null;
-                    if(canvas && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
-                        ctrl.applyUpdate(updateObj, canvas);
-                    } else {
-                        console.log("queued update");
-                        ctrl.updateQueue.push({data: updateObj, meta: updateMeta});
-                    }
-                }
+    // Handle object updates
+    ctrl.objectObserver = function(store) {
+        for(var uuid in store.objects /*objmap*/) {
+            var update = store.objects[uuid]; /*objmap[uuid];*/
+            var updateObj = JSON.parse(update.data),
+                updateMeta = JSON.parse(update.meta);
+            if(updateMeta.uuid)
+                updateObj.uuid = updateMeta.uuid;
+            
+            if(!(uuid in ctrl.curId)) {
+                ctrl.curId[uuid] = updateMeta._id - 1;
             }
 
-          if(ctrl.firstLoad) {
-              ctrl.firstLoad = false;
-          }
-      }
+            if(updateMeta._id > ctrl.curId[uuid]) {
+                ctrl.curId[uuid] = updateMeta._id;
 
-      args.connection.addObserver(ctrl.objectObserver);
+                var canvas = ctrl.docs()[updateMeta.doc] ? ctrl.docs()[updateMeta.doc].canvas[updateMeta.page] : null;
+                if(canvas && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
+                    ctrl.applyUpdate(updateObj, canvas);
+                } else {
+                    console.log("queued update");
+                    ctrl.updateQueue.push({data: updateObj, meta: updateMeta});
+                }
+            }
+        }
+
+        if(ctrl.firstLoad) {
+            ctrl.firstLoad = false;
+        }
+    };
+
+    args.connection.addObserver(ctrl.objectObserver);
 
       // Load all pdfs right away
       ClassroomSession.get(args.session).then(function(session) {
@@ -682,7 +663,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           
             m("img.tool-right.pull-right#pointer-tool", {
                 onmousedown: function() {
-                    args.tool(3);
+                    args.setTool(3);
                 },
                 src: (args.tool() == 3) ? "/shared/icons/Icons_F_Pointer_W_Filled.png" : "/shared/icons/Icons_F_Pointer_W.png"
             }),
@@ -690,13 +671,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
             m("img.tool-right.pull-right#eraser-tool", {
                 onmousedown: function() {
-                    args.tool(2);
+                    args.setTool(2);
                 },
                 src: (args.tool() == 2) ? "/shared/icons/Icons_F_Erase_W_Filled.png" : "/shared/icons/Icons_F_Erase_W.png"
             }),
             m("img.tool-right.pull-right#pen-tool", {
                 onmousedown: function() {
-                    args.tool(0);
+                    args.setTool(0);
                 },
                 src: (args.tool() == 0) ? "/shared/icons/Icons_F_Pen_W_Filled.png" : "/shared/icons/Icons_F_Pen_W.png"
             }),
@@ -1057,7 +1038,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(!ctrl.canvas)
                 return;
 
-            args.connection.transaction([["tool", args.user]], function(tool) {
                 ctrl.erasing = false;
 
                 var toolId = args.tool();
@@ -1082,9 +1062,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     ctrl.canvas.selectionColor = 'rgba(100, 100, 255, 0.3)';
                 }
 
-                // Set tool to be sent
-                tool.tool = toolId;
-            });
         },
 
         deleteSelected: function() {
@@ -1157,6 +1134,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         },
                         true
                     );
+                    
                 }
             },
             m("canvas.drawing-surface", {
@@ -1217,8 +1195,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 return;
                             }
                             if(e.target.type == "group") {
+                                console.log(e.target);
                                 e.target.forEachObject(function(obj) {
-                                    args.modifyObject(obj, ctrl.canvas);
+                                    ctrl.canvas.trigger("object:modified", {target: obj});
+                                    //args.modifyObject(obj, ctrl.canvas);
                                 });
                             } else if(e.target.type == "path") {
                                 args.modifyObject(e.target, ctrl.canvas);
