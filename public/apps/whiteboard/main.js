@@ -255,8 +255,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     //ctrl.setSelectionBox(obj.group);
                 }
 
-                var uuid = obj.uuid, // preserve uuid in case it's lost in toObject
-                    userId = obj.u;
+                var uuid = obj.uuid; // preserve uuid in case it's lost in toObject
 
                 if(obj.name != "remove") {
                     obj = obj.toObject(['uuid']);
@@ -265,8 +264,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 obj.left += selX;
                 obj.top += selY;
                 
-                obj.u = userId;
-
                 // Damn son that was easy!
                 objects.data = JSON.stringify(obj);
                 objects.meta = ctrl.makeTransactionMetadata(transactionType, {
@@ -311,10 +308,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 obj = obj[0];
             }
 
-            // Attach user id to object
-            obj.u = args.user;
-
-
             // Generate UUID if none present for object
             if(!obj.uuid) {
                 obj.uuid = uuidv1();
@@ -347,12 +340,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         },
  
           applyUpdate: function(updateObj, canvas) {
-              //console.log(updateObj);
-
-              // Prevent selection of objects that aren't one's own
-              if(updateObj.u != args.user)
-                  updateObj.selectable = false;
-
               if(updateObj.uuid in canvas.objsByUUID) {
                   var canvasObj = canvas.objsByUUID[updateObj.uuid];
                   
