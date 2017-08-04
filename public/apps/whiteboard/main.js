@@ -501,19 +501,26 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         ctrl.scrollPositions[args.user] = {};
 
         // Reports accelerometer data to the server
+        // Note: doesn't seem to work on Surface 3 + Chrome.
+
         if(logOrientation) {
-            window.addEventListener("deviceorientation", function(ev) {
-                    args.connection.transaction([["orientation"]], function(orientation) {
-                        orientation[args.user] = {
-                            abs: ev.absolute,
-                            a: ev.alpha,
-                            b: ev.beta,
-                            g: ev.gamma
-                        };
-                    });
-                },
-                true
-            );
+            if(window.DeviceOrientationEvent) {
+                window.addEventListener("deviceorientation", function(ev) {
+                        /*args.connection.transaction([["orientation"]], function(orientation) {
+                            orientation[args.user] = {
+                                abs: ev.absolute,
+                                a: ev.alpha,
+                                b: ev.beta,
+                                g: ev.gamma
+                            };
+                        });*/
+                        console.log(ev);
+                    },
+                    true
+                );
+            } else {
+                console.warn("Device orientation logging not supported!");
+            }
         }
 
       return ctrl;
@@ -1034,6 +1041,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       var ctrl = {
         canvas: null,
         erasing: false,
+        fingerScrolling: m.prop(false),
         setPen: function() {
             if(!ctrl.canvas || ctrl.canvas._isCurrentlyDrawing)
                 return;
@@ -1049,7 +1057,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(!ctrl.canvas)
                 return;
 
-            args.connection.transaction([["tool"]], function(tool) {
+            args.connection.transaction([["tool", args.user]], function(tool) {
                 ctrl.erasing = false;
 
                 var toolId = args.tool();
@@ -1075,7 +1083,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 }
 
                 // Set tool to be sent
-                tool[args.user] = toolId;
+                tool.tool = toolId;
             });
         },
 
@@ -1125,6 +1133,31 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         }),
         
         m("div.drawing-surface", {
+                config: function(el, isInit) {
+                    if(isInit)
+                        return;
+
+                    // We capture these touch events so that drawing mode can be turned off while 
+                    // the user is finger-scrolling.
+                    el.addEventListener(
+                        "touchstart",
+                        function() {
+                            if(ctrl.canvas)
+                                ctrl.canvas.isDrawingMode = false;
+                        },
+                        true
+                    );
+                    el.addEventListener(
+                        "touchend",
+                        function() {
+                            if(ctrl.canvas) {
+                                //ctrl.canvas.isDrawingMode = (args.tool() == 1);
+                                ctrl.setTool();
+                            }
+                        },
+                        true
+                    );
+                }
             },
             m("canvas.drawing-surface", {
                 config: function(el, isInit) {
