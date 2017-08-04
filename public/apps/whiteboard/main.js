@@ -83,6 +83,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         userList: m.prop([]),
         updateQueue: [],
 
+        nextObjectUpdateIdx: 0,
+
         // make a canvas ID string from document and page numbers
         getCanvasId: function(docIdx, pageNum) {
             return "drawSurface-" + docIdx + "-" + pageNum;
@@ -221,8 +223,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   console.log(obj);
                   return;
               };
-            args.connection.transaction([["objects", obj.uuid]], function(objects) {
+
+              // TODO add 
+            args.connection.transaction([["objects", obj.uuid], ["latestObjects", "+"]], function(objects, latestObjects) {
                 ctrl.curId[obj.uuid] = objects._id || 0;
+                
+                latestObjects[0] = obj.uuid;
 
                 // If obj is part of a selection group, its coordinates are for
                 // some reason given relative to the selection. Here we calculate
@@ -408,7 +414,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
     // Handle object updates
     ctrl.objectObserver = function(store) {
-        for(var uuid in store.objects /*objmap*/) {
+        //console.log(store);
+
+        if(!store.latestObjects)
+            return;
+
+        var newLength = Object.keys(store.latestObjects).length;
+        for(var i = ctrl.nextObjectUpdateIdx; i < newLength; i++) {
+            var uuid = store.latestObjects[i][0];
+            if(!uuid)
+                continue;
+
+        //for(var uuid in store.objects /*objmap*/) {
             var update = store.objects[uuid]; /*objmap[uuid];*/
             var updateObj = JSON.parse(update.data),
                 updateMeta = JSON.parse(update.meta);
@@ -431,6 +448,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 }
             }
         }
+
+        ctrl.nextObjectUpdateIdx = newLength;
 
         if(ctrl.firstLoad) {
             ctrl.firstLoad = false;
