@@ -182,37 +182,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             : 0;
         },
 
-        undo: function() {
-            // Get the undo stack
-            var tabProps = ctrl.docs()[ctrl.pageNumbers()[args.user]];
-            if(!tabProps)
-                  return;
- 
-            // Get the top event
-            var undoEvent = tabProps.undoStack.pop();
-            if(undoEvent) {
-                var canvas = tabProps.canvas[undoEvent.page];
-                
-                // Clear the selection
-                //canvas.deactivateAll();
-
-                // Does the object exist on the canvas?
-                if(undoEvent.uuid in canvas.objsByUUID) {
-                    if(undoEvent.name == 'remove') {
-                        ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "removeObject", true);
-                    } else {
-                        // Modify object
-                        ctrl.modifyObject(undoEvent, canvas, true, true, "modifyObject", true);
-                    }
-                } else {
-                    if(undoEvent.name != 'remove')
-                        ctrl.addObject(undoEvent, canvas, true, true, "addObject", true);
-                }
-
-                canvas.renderAll();
-            }
-        },
-
           // Make a JSON string with default metadata and any additional properties to include
           makeTransactionMetadata: function(transactionType, optExtra) {
             optExtra = optExtra || {};
@@ -255,8 +224,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   return;
               };
 
-              console.log(canvas.undoStack);
-
               // TODO add 
             args.connection.transaction([["objects", obj.uuid], ["latestObjects", "+"]], function(objects, latestObjects) {
                 ctrl.curId[obj.uuid] = objects._id || 0;
@@ -278,8 +245,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var uuid = obj.uuid; // preserve uuid in case it's lost in toObject
 
                 if(obj.name != "remove") {
-                    if(obj.toObject)
-                        obj = obj.toObject(['uuid']);
+                    obj = obj.toObject(['uuid']);
                 }
 
                 obj.left += selX;
@@ -296,7 +262,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             });
           },
 
-        addObject: function(obj, canvas, doAdd, doTransaction, transactionType, skipUndo) {
+        addObject: function(obj, canvas, doAdd, doTransaction, transactionType) {
             if(doAdd) {
                 // Make
                 if(obj.name == "controlCurvedLine") {
@@ -322,7 +288,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     canvas.add(obj);
                 }
             }
- 
+            
             // If there are control handles, they have been added to the canvas and can be ignored now.
             if(obj instanceof Array) {
                 obj = obj[0];
@@ -335,52 +301,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
              
             // Store object with canvas by uuid
             canvas.objsByUUID[obj.uuid] = obj;
-            
-            canvas.prevObjectState[obj.uuid] = obj.toObject(['uuid']);
-
-            if(!skipUndo) {
-                canvas.pushUndo({
-                    name: "remove",
-                    uuid: obj.uuid
-                });
-            }
 
             // Send the object
             if(doTransaction)
                 ctrl.doObjectTransaction(obj, canvas, transactionType);
         },
 
-        modifyObject: function(obj, canvas, doModify, doTransaction, transactionType, skipUndo) {
-            if(doModify) {
-                var canvasObj = canvas.objsByUUID[obj.uuid];
-                if(obj.type == "path" || obj.type == "Arrow") {
-                    // object exists so modify it
-                    canvasObj.set(obj);
-                    canvasObj.setCoords();
-                } else {
-                    // Some MechanicsObjects don't behave well when modified so for now we will
-                    // tear down and remake the object
-                    ctrl.removeObject(canvasObj, canvas, true, false, "modifyRemove", true);
-                    ctrl.addObject(obj, canvas, true, false, "modifyAdd", true);
-                }
-            }
-                    
-            if(!skipUndo) {
-                // Add previous state of object to the undo stack
-                var prevObjectState = canvas.prevObjectState[obj.uuid] || {name: "remove", uuid: obj.uuid};
-                canvas.pushUndo(prevObjectState);
-            }
-              
-            if(obj.toObject)
-                canvas.prevObjectState[obj.uuid] = obj.toObject(['uuid']);
-            else
-                canvas.prevObjectState[obj.uuid] = obj;
-
-            if(doTransaction)
-                ctrl.doObjectTransaction(obj, canvas, transactionType);
+        modifyObject: function(obj, canvas, transactionType) {
+            ctrl.doObjectTransaction(obj, canvas, transactionType);
         },
 
-        removeObject: function(obj, canvas, doRemove, doTransaction, transactionType, skipUndo) {
+        removeObject: function(obj, canvas, doRemove, doTransaction, transactionType) {
             if(obj.excludeFromExport && obj.target)
                 obj = obj.target;
 
@@ -389,10 +320,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             
             if(obj.uuid in canvas.objsByUUID)
                 delete canvas.objsByUUID[obj.uuid];
-
-            // Push onto undo stack
-            if(!skipUndo)
-                canvas.pushUndo(obj);
 
             if(doTransaction)
                 ctrl.doObjectTransaction({uuid: obj.uuid, name: "remove"}, canvas, transactionType);
@@ -546,8 +473,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         canvasWidth: {},
                         canvasHeight: {},
                         canvasContents: {},
-                        prevObjectState: {},
-                        undoStack: []
                     };
 
                     for(var i = 0, len = pdf.numPages; i < len; i++) {
@@ -741,18 +666,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
 
+          /*
+        m("img.tool-right.pull-right#undo", {
+          onmousedown: args.undo,
+          //ontouchend: args.undo
+          src: "/shared/icons/Icons_F_Undo_W.png"
+        }),*/
             m("p.tool-right.pull-right#options", {
                 onmousedown: function() {
                     location.reload();
                 }},
                 "Reload"
-            ),
-            
-            m("img.tool-right.pull-right#undo", {
-                onmousedown: args.undo,
-                //ontouchend: args.undo
-                src: "/shared/icons/Icons_F_Undo_W.png"
-            }),
+             ),
 
           
             m("img.tool-right.pull-right#pointer-tool", {
@@ -801,7 +726,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             // The element at the center of the screen is the upper canvas, 
             // so the previousSibling is the lower canvas with id information
             var canvasElement = document.elementFromPoint(
-                50,
+                document.body.clientWidth / 2,
                 document.body.clientHeight / 2
             ).previousSibling;
 
@@ -1233,8 +1158,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             },
             m("canvas.drawing-surface", {
                 config: function(el, isInit) {
-                    if(ctrl.canvas)
-                        ctrl.canvas.undoStack = doc.undoStack;
                     if(isInit) {
                         ctrl.setTool();
                         return;
@@ -1249,16 +1172,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         page: args.pageNum
                     });
                     docs[currentDocument].canvas[args.pageNum] = ctrl.canvas;
-
-                    ctrl.canvas.pushUndo = function(undoObj) {
-                        if(ctrl.canvas.undoStack) {
-                            if(undoObj.toObject)
-                                undoObj = undoObj.toObject(['uuid']);
-                            undoObj.page = args.pageNum;
-                            ctrl.canvas.undoStack.push(undoObj);
-                        }
-                    };
-                    ctrl.canvas.prevObjectState = doc.prevObjectState;
 
                     var w = docs[currentDocument].canvasWidth[args.pageNum];
                     var h = docs[currentDocument].canvasHeight[args.pageNum];
@@ -1307,9 +1220,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                     //args.modifyObject(obj, ctrl.canvas);
                                 });
                             } else if(e.target.type == "path") {
-                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
+                                args.modifyObject(e.target, ctrl.canvas);
                             } else {
-                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
+                                args.modifyObject(e.target, ctrl.canvas);
                             }
                         },
                         "path:created": function(e) {
