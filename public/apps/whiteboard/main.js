@@ -185,7 +185,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         setColor: function(color) {
             args.connection.transaction([["userColors"]], function(colors) {
                 colors[ctrl.user] = color;
-                console.log("set color " + color);
+                //console.log("set color " + color);
                 ctrl.myColor(color);
             });
         },
@@ -208,7 +208,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             do {
                 undoEvent = tabProps.undoStack.pop();
                 if(undoEvent) {
-                    console.log(undoEvent);
+                    //console.log(undoEvent);
                     var canvas = tabProps.canvas[undoEvent.page];
                     
                     // Clear the selection
@@ -285,7 +285,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   return;
               };
 
-              console.log(canvas.undoStack);
+              //console.log(canvas.undoStack);
 
               // TODO add 
             args.connection.transaction([["objects", obj.uuid], ["latestObjects", "+"]], function(objects, latestObjects) {

@@ -117,7 +117,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     m.mount(document.body, null);
 
     var group = session.group;
-      console.log("Group: " + group);
+      //console.log("Group: " + group);
     session = session.session;
     var metadata = (session.metadata ? JSON.parse(session.metadata) : {});
 
