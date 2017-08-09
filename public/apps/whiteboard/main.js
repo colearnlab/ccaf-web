@@ -57,6 +57,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var Main = {
     controller: function(args) {
       var ctrl = {
+        lastToModify: {},
         numPages: m.prop([]),
         scrollPositions: {},
         scroll: m.prop("open"),
@@ -106,8 +107,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             for(var pn in canvases) {
                 var contents = docs[docId].canvasContents[pn] = [];
                 canvases[pn].forEachObject(function(obj) {
-                    if(!obj.excludeFromExport)
-                        contents.push(obj.toObject(["name", "uuid", 'left', 'top', 'x1', 'y1', 'x2', 'y2']));
+                    if(!obj.excludeFromExport) {
+                        var frozen = obj.toObject(["name", "uuid", 'left', 'top', 'x1', 'y1', 'x2', 'y2']);
+                        if(obj.group) {
+                            frozen.left += obj.group.left + (obj.group.width / 2);
+                            frozen.top += obj.group.top + (obj.group.height / 2);
+                        }
+                        contents.push(frozen);
+                    }
                 });
             }
             ctrl.docs(docs);
@@ -188,29 +195,39 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(!tabProps)
                   return;
  
-            // Get the top event
-            var undoEvent = tabProps.undoStack.pop();
-            if(undoEvent) {
-                var canvas = tabProps.canvas[undoEvent.page];
-                
-                // Clear the selection
-                //canvas.deactivateAll();
-
-                // Does the object exist on the canvas?
-                if(undoEvent.uuid in canvas.objsByUUID) {
-                    if(undoEvent.name == 'remove') {
-                        ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "removeObject", true);
-                    } else {
-                        // Modify object
-                        ctrl.modifyObject(undoEvent, canvas, true, true, "modifyObject", true);
+            var undoEvent;
+            do {
+                undoEvent = tabProps.undoStack.pop();
+                if(undoEvent) {
+                    console.log(undoEvent);
+                    var canvas = tabProps.canvas[undoEvent.page];
+                    
+                    // Clear the selection
+                    canvas.deactivateAll();
+                    
+                    if(ctrl.lastToModify[undoEvent.uuid] != args.user) {
+                        tabProps.undoStack = [];
+                        break;
                     }
-                } else {
-                    if(undoEvent.name != 'remove')
-                        ctrl.addObject(undoEvent, canvas, true, true, "addObject", true);
-                }
 
-                canvas.renderAll();
-            }
+                    // Does the object exist on the canvas?
+                    if(undoEvent.uuid in canvas.objsByUUID) {
+                        if(undoEvent.name == 'remove') {
+                            ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "removeObject", true);
+                        } else {
+                            // Modify object
+                            ctrl.modifyObject(undoEvent, canvas, true, true, "modifyObject", true);
+                        }
+                    } else {
+                        if(undoEvent.name != 'remove')
+                            ctrl.addObject(undoEvent, canvas, true, true, "addObject", true);
+                    }
+
+                    canvas.renderAll();
+                }
+            } while(undoEvent && undoEvent.groupID && (undoEvent.groupID == tabProps.undoStack[tabProps.undoStack.length - 1].groupID));
+
+            // TODO notify undo?
         },
 
           // Make a JSON string with default metadata and any additional properties to include
@@ -293,6 +310,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     uuid: uuid,
                     _id: ctrl.curId[uuid]
                 });
+
+                ctrl.lastToModify[obj.uuid] = args.user;
             });
           },
 
@@ -341,7 +360,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(!skipUndo) {
                 canvas.pushUndo({
                     name: "remove",
-                    uuid: obj.uuid
+                    uuid: obj.uuid,
                 });
             }
 
@@ -368,13 +387,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(!skipUndo) {
                 // Add previous state of object to the undo stack
                 var prevObjectState = canvas.prevObjectState[obj.uuid] || {name: "remove", uuid: obj.uuid};
+                if(obj.groupID) {
+                    prevObjectState.groupID = obj.groupID;
+                    //delete obj.groupID;
+                }
                 canvas.pushUndo(prevObjectState);
             }
+
               
-            if(obj.toObject)
-                canvas.prevObjectState[obj.uuid] = obj.toObject(['uuid']);
-            else
+            if(obj.toObject) {
+                var frozen = obj.toObject(['uuid']);
+                if(obj.group) {
+                    frozen.left += obj.group.left + (obj.group.width / 2);
+                    frozen.top += obj.group.top + (obj.group.height / 2);
+                }
+                canvas.prevObjectState[obj.uuid] = frozen;
+            } else {
                 canvas.prevObjectState[obj.uuid] = obj;
+            }
 
             if(doTransaction)
                 ctrl.doObjectTransaction(obj, canvas, transactionType);
@@ -391,8 +421,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 delete canvas.objsByUUID[obj.uuid];
 
             // Push onto undo stack
-            if(!skipUndo)
+            if(!skipUndo) {
+                if(obj.toObject)
+                    obj = obj.toObject(['uuid', 'groupID']);
                 canvas.pushUndo(obj);
+            }
 
             if(doTransaction)
                 ctrl.doObjectTransaction({uuid: obj.uuid, name: "remove"}, canvas, transactionType);
@@ -1165,14 +1198,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             var activeObject = ctrl.canvas.getActiveObject(),
                 activeGroup = ctrl.canvas.getActiveGroup();
 
+
             if(activeObject) {
                 args.removeObject(activeObject, ctrl.canvas, true, true);
             }
 
             if(activeGroup) {
                 var objects = activeGroup.getObjects();
-                ctrl.canvas.discardActiveGroup(); // TODO find out if this is this doing remove?
+                ctrl.canvas.discardActiveGroup();
+                var groupID = uuidv1();
                 objects.forEach(function(obj) {
+                    obj.groupID = groupID;
                     args.removeObject(obj, ctrl.canvas, true, true);
                 });
             }
@@ -1253,7 +1289,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     ctrl.canvas.pushUndo = function(undoObj) {
                         if(ctrl.canvas.undoStack) {
                             if(undoObj.toObject)
-                                undoObj = undoObj.toObject(['uuid']);
+                                undoObj = undoObj.toObject(['uuid', 'groupID']);
                             undoObj.page = args.pageNum;
                             ctrl.canvas.undoStack.push(undoObj);
                         }
@@ -1296,18 +1332,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         "object:modified": function(e) {
                             if(e.target.excludeFromExport)
                                 e.target = e.target.target;
-
+                                    
                             if(e.target.type == "circle") {
                                 return;
                             }
+
                             if(e.target.type == "group") {
                                 console.log(e.target);
-                                e.target.forEachObject(function(obj) {
-                                    ctrl.canvas.trigger("object:modified", {target: obj});
-                                    //args.modifyObject(obj, ctrl.canvas);
-                                });
-                            } else if(e.target.type == "path") {
-                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
+                                var groupID = uuidv1();
+                                var objects = e.target.getObjects();
+                                for(var i = 0, len = objects.length; i < len; i++) {
+                                    objects[i].groupID = groupID;
+                                    ctrl.canvas.trigger("object:modified", {target: objects[i]});
+                                }
+                            //} else if(e.target.type == "path") {
+                            //    args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
                             } else {
                                 args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
                             }
