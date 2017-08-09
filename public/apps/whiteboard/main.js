@@ -1,4 +1,12 @@
 define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootstrap", "models", "css", "uuidv1", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, $, bootstrap, models, css, uuidv1, userColors, mechanicsObjects) {
+ 
+    // Disable two-or-more finger touches to prevent pinch zooming
+    document.addEventListener('touchstart', function(e){
+        if( e.touches.length > 1) {   
+            e.preventDefault();
+        }
+    }, {passive: false});
+    
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
@@ -1398,6 +1406,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             }
                         },
                         "selection:created": function(e) {
+                            console.log(e);
                             e.target.hasControls = false;
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
