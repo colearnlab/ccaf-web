@@ -57,6 +57,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var Main = {
     controller: function(args) {
       var ctrl = {
+        allowUndo: m.prop({}),
         lastToModify: {},
         numPages: m.prop([]),
         scrollPositions: {},
@@ -195,7 +196,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(!tabProps)
                   return;
  
-            var undoEvent;
+            var undoEvent, nextUndoEvent;
             do {
                 undoEvent = tabProps.undoStack.pop();
                 if(undoEvent) {
@@ -224,10 +225,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     }
 
                     canvas.renderAll();
+                } else {
+                    break;
                 }
-            } while(undoEvent && undoEvent.groupID && (undoEvent.groupID == tabProps.undoStack[tabProps.undoStack.length - 1].groupID));
+                nextUndoEvent = tabProps.undoStack[tabProps.undoStack.length - 1];
+            } while(undoEvent && undoEvent.groupID && nextUndoEvent && (undoEvent.groupID == nextUndoEvent.groupID));
 
-            // TODO notify undo?
+            if(tabProps.undoStack.length == 0)
+                ctrl.allowUndo()[ctrl.pageNumbers()[args.user]] = false;
         },
 
           // Make a JSON string with default metadata and any additional properties to include
@@ -313,6 +318,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                 ctrl.lastToModify[obj.uuid] = args.user;
             });
+
+            m.redraw();
           },
 
         addObject: function(obj, canvas, doAdd, doTransaction, transactionType, skipUndo) {
@@ -355,13 +362,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             // Store object with canvas by uuid
             canvas.objsByUUID[obj.uuid] = obj;
             
-            canvas.prevObjectState[obj.uuid] = obj.toObject(['uuid']);
+            canvas.prevObjectState[obj.uuid] = Object.assign(obj.toObject(['uuid']), {uuid: obj.uuid});
 
             if(!skipUndo) {
                 canvas.pushUndo({
                     name: "remove",
                     uuid: obj.uuid,
                 });
+                ctrl.allowUndo()[ctrl.pageNumbers()[args.user]] = true;
             }
 
             // Send the object
@@ -382,6 +390,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     ctrl.removeObject(canvasObj, canvas, true, false, "modifyRemove", true);
                     ctrl.addObject(obj, canvas, true, false, "modifyAdd", true);
                 }
+
+                canvas.renderAll();
             }
                     
             if(!skipUndo) {
@@ -392,11 +402,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     //delete obj.groupID;
                 }
                 canvas.pushUndo(prevObjectState);
+                ctrl.allowUndo()[ctrl.pageNumbers()[args.user]] = true;
+                //ctrl.allowUndo(true);
             }
 
+            m.redraw();
               
             if(obj.toObject) {
                 var frozen = obj.toObject(['uuid']);
+                if(!frozen.uuid)
+                    frozen.uuid = obj.uuid;
                 if(obj.group) {
                     frozen.left += obj.group.left + (obj.group.width / 2);
                     frozen.top += obj.group.top + (obj.group.height / 2);
@@ -425,6 +440,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 if(obj.toObject)
                     obj = obj.toObject(['uuid', 'groupID']);
                 canvas.pushUndo(obj);
+                //ctrl.allowUndo(true);
+                ctrl.allowUndo()[ctrl.pageNumbers()[args.user]] = true;
             }
 
             if(doTransaction)
@@ -531,12 +548,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(!uuid)
                 continue;
 
+
         //for(var uuid in store.objects /*objmap*/) {
             var update = store.objects[uuid]; /*objmap[uuid];*/
             var updateObj = JSON.parse(update.data),
                 updateMeta = JSON.parse(update.meta);
             if(updateMeta.uuid)
                 updateObj.uuid = updateMeta.uuid;
+            
+            ctrl.lastToModify[uuid] = updateMeta.u;
             
             if(!(uuid in ctrl.curId)) {
                 ctrl.curId[uuid] = updateMeta._id - 1;
@@ -737,6 +757,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     usersHere.push(m("p", {style: "color: " + getUserColor(args.userList(), user.id)}, m.trust("&#9679;")));
             });
             */
+
             var samepage = (page.pageNumber == args.pageNumbers()[args.user]);
             return [m("img.tool-icon", {
                     onclick: function() {
@@ -784,7 +805,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             m("img.tool-right.pull-right#undo", {
                 onmousedown: args.undo,
                 //ontouchend: args.undo
-                src: "/shared/icons/Icons_F_Undo_W.png"
+                // Gray out the icon if we can't undo
+                src: args.allowUndo()[args.pageNumbers()[args.user]]
+                    ? "/shared/icons/Icons_F_Undo_W.png"
+                    : "/shared/icons/Icons_F_Undo.png"
             }),
 
           

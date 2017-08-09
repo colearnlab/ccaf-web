@@ -41,8 +41,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             //this.setControlVisible('mtr',false);
 
 		},
-		toObject: function() {
-			return fabric.util.object.extend(this.callSuper('toObject'), {
+		toObject: function(extra) {
+			return fabric.util.object.extend(this.callSuper('toObject', extra), {
                 /* should write here the properties that were added in initialize
                    and that should appear on the server */
                 name: this.get('name')
@@ -119,8 +119,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             });
 
 		},
-		toObject: function() {
-			return fabric.util.object.extend(this.callSuper('toObject', Object.keys(this.getDefaultOptions())), {
+		toObject: function(extra) {
+			return fabric.util.object.extend(this.callSuper('toObject', Object.keys(this.getDefaultOptions()).concat(extra)), {
                 name: this.get('name')
 				//arrowheadOffsetRatio: this.get('arrowheadOffsetRatio'),
 				//arrowheadWidthRatio: this.get('arrowheadWidthRatio'),
