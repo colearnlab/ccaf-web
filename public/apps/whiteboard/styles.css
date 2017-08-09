@@ -227,6 +227,18 @@ html, body {
   height: 100%;
 }
 
+.tiny-page-marker-div {
+    display: inline-block;
+    position: absolute;
+    margin-left: -1em;
+}
+
+.user-dot {
+    font-size: medium;
+    margin-bottom: -1em;
+    padding: 0px;
+}
+
 img.tool-icon {
     display: inline-block;
     height: 75%;

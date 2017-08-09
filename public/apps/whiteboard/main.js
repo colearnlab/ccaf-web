@@ -750,13 +750,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         (args.activity() ? 
         args.activity().pages.map(function(page) {
             var usersHere = [];
+            
             // TODO fix user page icons
-            /*
+            
             args.userList().map(function(user) {
                 if(args.pageNumbers()[user.id] == page.pageNumber)
-                    usersHere.push(m("p", {style: "color: " + getUserColor(args.userList(), user.id)}, m.trust("&#9679;")));
+                    usersHere.push(m("p.user-dot", {style: "color: " + getUserColor(args.userList(), user.id)}, m.trust("&#9679;")));
             });
-            */
+            
 
             var samepage = (page.pageNumber == args.pageNumbers()[args.user]);
             return [m("img.tool-icon", {
@@ -774,8 +775,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     src: samepage
                         ? "/shared/icons/Icons_F_Selected Circle_W.png"
                         : "/shared/icons/Icons_F_Deselect Circle_W.png"
-                }, page.pageNumber)/*,
-                samepage ? "" : m("div.tiny-page-marker", {style: "display: inline-block"}, usersHere)*/];
+                }, page.pageNumber),
+                samepage ? "" : m("div.tiny-page-marker-div", usersHere)];
         })
         : ""),
         // Next page button
