@@ -926,6 +926,27 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         m("div#mech-objs-tray", {
           class: ctrl.open() ? "tray-open" : "tray-closed"
         },
+        
+        m("p",
+            m("button.btn.btn-info.mech-obj-button#addRod", {
+                onclick: function() {
+                    ctrl.recalcOffset();
+                    args.addObject(
+                        {
+                            type: "Rod",
+                            left: ctrl.left,  
+                            top: ctrl.top, 
+                            width: 2 * ctrl.arrowLength,
+                            height: 20,
+				            originX:'center', 
+                            originY: 'center',
+                            padding: 5 
+                        },
+                        ctrl.canvas, true, true
+                    );
+                }
+           }, "Add rod")
+        ),
             
         // TODO get icons!
         m("p",

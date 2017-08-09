@@ -164,12 +164,13 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
     // ======================================================================================
 
     mechanicsObjects.Rod = fabric.util.createClass(fabric.Object, {
-		type: 'rod',
+		type: 'Rod',
 		initialize: function(options) {
 			options = options || {};
 			this.callSuper("initialize", options);
             
             // Prevent modification besides moving
+            /*
             this.set({
                 lockRotation: true,
                 lockScalingX: true,
@@ -177,7 +178,13 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 lockSkewingX: true,
                 lockSkewingY: true
             });
+            */
 
+		},
+		toObject: function(extra) {
+			return fabric.util.object.extend(this.callSuper('toObject', extra), {
+                name: this.get('name')
+			});
 		},
 		_render: function(ctx) {
 			// in the _render function, the canvas has already been translated to the center of the object which is being drawn. So anything we draw at the point 0, 0 will be drawn in the center of the object. 
