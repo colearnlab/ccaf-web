@@ -763,7 +763,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             
             args.userList().map(function(user) {
                 if(args.pageNumbers()[user.id] == page.pageNumber)
-                    usersHere.push(m("p.user-dot", {style: "color: " + getUserColor(args.userList(), user.id)}, m.trust("&#9679;")));
+                    usersHere.push(m("p.user-dot", {style: "color: " + 
+                          (args.connection ?
+                              args.connection.store ?
+                                args.connection.store.userColors ?
+                                    args.connection.store.userColors[user.id]
+                                  : '#888888'
+                                : '#888888'
+                              : '#888888')
+                        }, m.trust("&#9679;")));
             });
             
 
