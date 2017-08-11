@@ -67,10 +67,12 @@ html, body {
 }
 
 .color-swatch-holder, .mechanics-objects-holder {
-  border: 2px solid rgba(0, 0, 0, 0);
+  border: 2px solid white;
   height: 40px;
-  width: 40px;
-  border-radius: 2px;
+  width: 80px;
+  border-radius: 4px;
+  margin-left: -3em;
+  text-align: center;
 }
 
 .mech-obj-button {
