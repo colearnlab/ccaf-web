@@ -33,6 +33,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         errobj = obj;
         m.redraw(true);
    };
+                
+   var makeRGBA = function(hexstring, alpha) {
+        var hexR = hexstring.slice(1,3),
+            hexG = hexstring.slice(3,5),
+            hexB = hexstring.slice(5,7);
+        return 'rgba(' + parseInt(hexR, 16) + ', '
+                + parseInt(hexG, 16) + ', '
+                + parseInt(hexB, 16) + ', '
+                + alpha + ')';
+   };
 
   exports.load = function(connection, el, params) {
     array = connection.array;
@@ -61,10 +71,19 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     var d = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
     return d;
   }
-    
+
   var Main = {
     controller: function(args) {
       var ctrl = {
+        userColor: function(userId) {
+            return (args.connection ?
+                args.connection.store ?
+                  args.connection.store.userColors ?
+                      args.connection.store.userColors[userId]
+                    : '#888888'
+                  : '#888888'
+                : '#888888');
+        },
         allowUndo: m.prop({}),
         lastToModify: {},
         numPages: m.prop([]),
@@ -255,12 +274,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           },
 
 
-          /* TODO selection boxes
           setSelectionBox: function(groupObj, doc, page) {
               // Send an update about the area we're selecting
               args.connection.transaction([["selectionBox", args.user]], function(selectionBox) {
                   if(groupObj) {
-                      selectionBox.selecting = true;
+                      selectionBox.visible = true;
 
                       // the box
                       selectionBox.left = groupObj.left;
@@ -272,11 +290,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                       selectionBox.doc = doc;
                       selectionBox.page = page;
                   } else {
-                      selectionBox.selecting = false;
+                      selectionBox.visible = false;
                   }
               });
           },
-          */
 
           doObjectTransaction: function(obj, canvas, transactionType) {
               if(!obj.uuid) {
@@ -479,22 +496,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   // object does not exist so create (no transaction)
                   ctrl.addObject(updateObj, canvas, true, false);
               }
-          },
-
-          // TODO finish selection color
-          /*
-          drawSelectionBox: function(box, userId, canvas) {
-            var ctx = canvas.getContext('2d');
-            if(box.selecting) {
-                // draw
-                ctx.fillStyle = getUserColor(ctrl.userList(), args.user);
-                ctx.fillRect(box.left, box.top, box.width, box.height);
-            } else {
-                // clear
-                ctx.clearRect(box.left, box.top, box.width, box.height);
-            }
           }
-          */
+
       };
 
       ctrl.pageNumbers()[args.user] = 0;
@@ -508,7 +511,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           }
       });
 
-
       args.connection.userList.addObserver(function(users) {
         ctrl.userList(users);
           // TODO get correct position!
@@ -519,6 +521,21 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 //ctrl.pageNumbers()[user.id] = 0;
         });
         m.redraw(true);
+      });
+
+      // Watch for selection changes
+      args.connection.addObserver(function(store) {
+        if(store.selectionBox) {
+            var selectionBox = store.selectionBox;
+            for(var userId in selectionBox) {
+                var box = selectionBox[userId];
+                if(ctrl.pageNumbers()[args.user] == box.doc && ctrl.docs()[box.doc]) {
+                    var canvas = ctrl.docs()[box.doc].canvas[box.page];
+                    if(canvas)
+                        canvas.setSelectionBox(userId, box);
+                }
+            }
+        }
       });
 
       // Set page number
@@ -1199,7 +1216,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                         connection: args.connection,
                         drawSelectionBox: args.drawSelectionBox,
-                        //setSelectionBox: args.setSelectionBox
+                        setSelectionBox: args.setSelectionBox,
+
+                        userColor: args.userColor
                     });
                 })    
             );
@@ -1212,6 +1231,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         canvas: null,
         erasing: false,
         fingerScrolling: m.prop(false),
+        selecting: false,
         setPen: function() {
             if(!ctrl.canvas || ctrl.canvas._isCurrentlyDrawing)
                 return;
@@ -1238,7 +1258,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     ctrl.setPen();
                     ctrl.canvas.freeDrawingBrush.opacity = 0.5;
                 } else if(toolId == 2) {
-                    // TODO implement eraser
                     ctrl.canvas.isDrawingMode = false;
                     ctrl.canvas.selection = true;
                     ctrl.erasing = true;
@@ -1273,6 +1292,25 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     obj.groupID = groupID;
                     args.removeObject(obj, ctrl.canvas, true, true);
                 });
+            }
+        },
+
+        setSelectionBox: function(userId, box) {
+            if(userId != args.user) {
+                var rect = ctrl.canvas.selectionBoxes[userId];
+                if(rect) {
+                    rect.set(box);
+                } else {
+                    var boxOptions = Object.assign(box, {
+                        fill: makeRGBA(args.userColor(userId), 0.3),
+                        selectable: false,
+                        excludeFromExport: true
+                    });
+                    var newRect = new fabric.Rect(boxOptions);
+                    ctrl.canvas.add(newRect);
+                    ctrl.canvas.selectionBoxes[userId] = newRect;
+                }
+                ctrl.canvas.renderAll();
             }
         }
       };
@@ -1376,21 +1414,64 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         for(var i = 0, len = contents.length; i < len; i++)
                             args.addObject(contents[i], ctrl.canvas, true, false);
                     }
-                    
-                    args.flushUpdateQueue(args.pageNumbers()[args.user]);
 
-                    /*
-                    // Draw any selections
-                    if(args.connection && args.connection.store)
-                        for(var userId in args.connection.store.selectionBox)
-                            args.drawSelectionBox(args.connection.store.selectionBox[userId], userId, ctrl.canvas);
-                    */
+                    args.flushUpdateQueue(args.pageNumbers()[args.user]);
+                    
+                    // Set selections
+                    ctrl.canvas.selectionBoxes = {};
+                    ctrl.canvas.setSelectionBox = ctrl.setSelectionBox;
+                    if(args.connection && args.connection.store) {
+                        for(var userId in args.connection.store.selectionBox) {
+                            var box = args.connection.store.selectionBox[userId];
+                            if(box.doc == currentDocument && box.page == args.pageNum)
+                                ctrl.setSelectionBox(userId, box);
+                        }
+                    }
+                    
 
                     // Use the right tool
                     ctrl.setTool();
 
                     // Set up event handlers
                     ctrl.canvas.on({
+                        "mouse:down": function(e) {
+                            if(!ctrl.canvas.isDrawingMode && !ctrl.selecting)
+                                ctrl.selecting = true;
+                        },
+                        "mouse:move": function(e) {
+                            if(ctrl.selecting) {
+                                // set own selection box
+                                var groupSelector = ctrl.canvas._groupSelector;
+                                if(groupSelector) {
+                                    var left = groupSelector.left,
+                                        top = groupSelector.top;
+                                
+                                    args.setSelectionBox({
+                                            selecting: true,
+                                            left: groupSelector.ex - ((left > 0) ? 0 : -left),
+                                            top: groupSelector.ey - ((top > 0) ? 0 : -top),
+                                            width: (left < 0) ? -left : left, //abs(left),
+                                            height: (top < 0) ? -top : top //abs(top);
+                                        }, 
+                                        currentDocument, 
+                                        args.pageNum
+                                    );
+
+                                }
+                            }
+                        },
+                        "mouse:up": function(e) {
+                            if(!ctrl.canvas.isDrawingMode && ctrl.selecting) {
+                                ctrl.selecting = false;
+                                //args.setSelectionBox(null, currentDocument, args.pageNum);
+                            }
+                        },
+
+                        "mouse:dblclick": function(e) {
+                            if(!ctrl.canvas.isDrawingMode)
+                                args.setSelectionBox(null, currentDocument, args.pageNum);
+                        },
+
                         "object:modified": function(e) {
                             if(e.target.excludeFromExport)
                                 e.target = e.target.target;
@@ -1400,57 +1481,68 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             }
 
                             if(e.target.type == "group") {
-                                console.log(e.target);
+                                //console.log(e.target);
                                 var groupID = uuidv1();
                                 var objects = e.target.getObjects();
+
                                 for(var i = 0, len = objects.length; i < len; i++) {
                                     objects[i].groupID = groupID;
-                                    ctrl.canvas.trigger("object:modified", {target: objects[i]});
+                                    ctrl.canvas.trigger("object:modified", {target: objects[i], skipSelection: true});
                                 }
                             //} else if(e.target.type == "path") {
                             //    args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
                             } else {
                                 args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
                             }
+
+                            // Update selection box if we haven't already
+                            if(!e.skipSelection)
+                                args.setSelectionBox(e.target.getBoundingRect(), currentDocument, args.pageNum);
+
                         },
                         "path:created": function(e) {
                             args.addObject(e.path, ctrl.canvas, false, true, "addFreeDrawing");
                         },
 
-                        /* TODO selection boxes
                         "selection:cleared": function(e) {
-                            console.log("selection cleared");
-                            console.log(e);
-                            ctrl.currentSelection.selecting = false;
-                            args.setSelectionBox(ctrl.currentSelection, currentDocument, args.pageNum);
+                            args.setSelectionBox(null, currentDocument, args.pageNum);
                         },
-                        */
 
                         // erasing
                         "object:selected": function(e) {
-                            console.log("object selected");
-
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
+                            } else {
+                                var x = e.target.left,
+                                    y = e.target.top,
+                                    w = e.target.width,
+                                    h = e.target.height;
+                                args.setSelectionBox({
+                                        left: x - (w / 2),
+                                        top: y - (h / 2),
+                                        width: w,
+                                        height: h
+                                    },
+                                    currentDocument, 
+                                    args.pageNum
+                                );
                             }
                         },
                         "selection:created": function(e) {
-                            console.log(e);
+                            //console.log(e);
                             e.target.hasControls = false;
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
                             } else {
-                                /* TODO selection boxes
-                                ctrl.currentSelection = {
-                                    selecting: true,
-                                    left: e.target.left,
-                                    top: e.target.top,
-                                    width: e.target.width,
-                                    height: e.target.height
-                                };
-
-                                args.setSelectionBox(ctrl.currentSelection, currentDocument, args.pageNum);
-                                */
+                                args.setSelectionBox({
+                                        left: e.target.left,
+                                        top: e.target.top,
+                                        width: e.target.width,
+                                        height: e.target.height
+                                    },
+                                    currentDocument, 
+                                    args.pageNum
+                                );
                             }
                         }
 
