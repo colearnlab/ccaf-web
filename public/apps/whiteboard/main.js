@@ -952,6 +952,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 ctrl.left = ctrl.canvas.width / 2;
                 ctrl.top = document.body.clientHeight / 2 - jqCanvasElement.offset().top;
                 // vertical scrolling only so don't bother with left offset
+
+                // Randomly move a bit so that new objects aren't drawn exactly over each other
+                var nudge = Math.random() * 100 - 50;
+                ctrl.left += nudge;
+                ctrl.top += nudge;
             }
         },
 
@@ -986,17 +991,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           ontouchend: function() {
             ctrl.open(!ctrl.open());
           },
-          onclick: function() {
-              // Choose pointer tool on open or close
-              args.tool(3);
-          }
         },
-        "Objects"
+        "FBD tools"
         ),
         m("div#mech-objs-tray", {
-          class: ctrl.open() ? "tray-open" : "tray-closed"
+          class: ctrl.open() ? "tray-open" : "tray-closed",
+          onclick: function() {
+              args.tool(3); // Use finger tool after adding object
+          }
         },
-        
+
         m("p",
             m("button.btn.btn-info.mech-obj-button#addRod", {
                 onclick: function() {
@@ -1065,7 +1069,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         ctrl.canvas, true, true
                     );
                 }
-           }, "Add DUU");
+           }, "Add " + letters);
         }), ["DTUA", "DTUD", "DTDA", "DTDD"].map(function(letters) {
            return m("button.btn.btn-info.mech-obj-button#add" + letters, {
                 onclick: function() {
@@ -1135,7 +1139,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         ctrl.canvas, true, true
                     ); 
                 }    
-           }, "Add Controlled Line (new)"),
+           }, "Add Line"),
            m("button.btn.btn-info.mech-obj-button#addQuadratic", {
                 onclick: function() {
                     ctrl.recalcOffset();
@@ -1154,7 +1158,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         ctrl.canvas, true, true
                     ); 
                 }    
-           }, "Add Quadratic")
+           }, "Add Quadratic Curve")
         ) : ""
         
         )
