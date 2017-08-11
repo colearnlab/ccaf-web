@@ -35,6 +35,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
        'shapes'
    ];
 
+   var penColors = [
+       '#000000', // black
+       '#ff0000', // red
+       '#00ff00', // green
+       '#0000ff', // blue
+       '#ffff00', // yellow
+       '#ff00ff', // purple
+       '#00ffff' // teal
+   ];
+
    var errmsg = null, errobj = null;
    var errorPrompt = function(msg, obj) {
         errmsg = msg;
@@ -105,6 +115,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         addObserver: args.connection.addObserver.bind(args.connection),
 
         tool: m.prop(0),
+        penColorIdx: m.prop(0),
         fireScrollEvent: true,
         curId: {},
         user: args.user,
@@ -206,6 +217,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         setTool: function(toolId) {
             args.connection.transaction([["tool", args.user]], function(tool) {
                 tool.tool = ctrl.tool(toolId);
+            });
+        },
+
+        setPenColor: function(penColorIdx) {
+            args.connection.transaction([["penColor", args.user]], function(color) {
+                color.color = penColors[ctrl.penColorIdx(penColorIdx)];
             });
         },
 
@@ -868,12 +885,25 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 },
                 src: (args.tool() == 2) ? "/shared/icons/Icons_F_Erase_W_Filled.png" : "/shared/icons/Icons_F_Erase_W.png"
             }),
+            
+            // Draw a circle to indicate pen color
+            m("p.tool-right.pull-right#pen-color-indicator", {
+                    style: "color: " + penColors[args.penColorIdx()]
+                },
+                m.trust("&#9679;")
+             ),
+            
             m("img.tool-right.pull-right#pen-tool", {
-                onmousedown: function() {
+                onclick: function() {
+                    // If we're already using the pen tool, change the color
+                    if(args.tool() == 0) {
+                        args.setPenColor((args.penColorIdx() + 1) % penColors.length);
+                    }
                     args.setTool(0);
                 },
                 src: (args.tool() == 0) ? "/shared/icons/Icons_F_Pen_W_Filled.png" : "/shared/icons/Icons_F_Pen_W.png"
             }),
+
           
           // Only show the objects menu if we're on the third page (the sketch page)
           (args.pageNumbers()[args.user] == 2) ? m.component(MechanicsObjectSelect, args) : ""
@@ -1213,6 +1243,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         flushUpdateQueue: args.flushUpdateQueue,
                         docs: args.docs,
                         tool: args.tool,
+                        penColorIdx: args.penColorIdx,
                         addObserver: args.addObserver,
 
                         setPage: args.setPage,
@@ -1245,8 +1276,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 return;
 
             ctrl.canvas.isDrawingMode = true;
-            ctrl.canvas.freeDrawingBrush = new fabric['PencilBrush'](ctrl.canvas);
+            ctrl.canvas.freeDrawingBrush = new fabric.PencilBrush(ctrl.canvas);
             ctrl.canvas.freeDrawingBrush.opacity = 1.0;
+            ctrl.canvas.freeDrawingBrush.color = penColors[args.penColorIdx()];
             
             // Try to improve performance
             ctrl.canvas.selection = false;

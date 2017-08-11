@@ -239,6 +239,12 @@ html, body {
     padding: 0px;
 }
 
+#pen-color-indicator {
+    font-size: large;
+    margin-left: -2em;
+    padding-top: 0.5em;
+}
+
 img.tool-icon {
     display: inline-block;
     height: 75%;
