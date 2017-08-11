@@ -1165,24 +1165,34 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var Scrollbar = {
       controller: function(args) {
           var ctrl = {
-              scrollbarHeight: m.prop(null)
+              scrollbarHeight: m.prop(null),
+              dragging: m.prop(false),
+              setScroll: function(e) {
+                  var scrollDest = e.offsetY / ctrl.scrollbarHeight();
+                  args.setScroll(scrollDest);
+              }
           };
 
           return ctrl;
       },
       view: function(ctrl, args) {
           return m("svg.scrollbar", {
-              config: function(el) {
-                  ctrl.scrollbarHeight(el.clientHeight);
+                  config: function(el) {
+                      ctrl.scrollbarHeight(el.clientHeight);
+                  },
+                  onmousedown: function(e) {
+                      ctrl.dragging(true);
+                      ctrl.setScroll(e);
+                  },
+                  onmousemove: function(e) {
+                      if(ctrl.dragging())
+                          ctrl.setScroll(e);
+                  },
+                  onmouseup: function(e) {
+                      ctrl.dragging(false);
+                      ctrl.setScroll(e);
+                  }
               },
-              onclick: function(e) {
-                //console.log(e);
-                
-                  // TODO set own scroll position to match click point
-                  var scrollDest = e.offsetY / ctrl.scrollbarHeight();
-                  //console.log(scrollDest);
-                  args.setScroll(scrollDest);
-              }},
               args.userList().map(function(user) {
                   // Draw circle on scroll bar if the user is on our page.
                   if(args.pageNumbers()[user.id] == args.pageNumbers()[args.user]) {
@@ -1191,6 +1201,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                           setScroll: args.setScroll,
                           getScroll: args.getScroll,
                           user: user,
+                          dragging: ctrl.dragging,
                           color: args.connection ?
                               args.connection.store ?
                                 args.connection.store.userColors ?
