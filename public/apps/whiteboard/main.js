@@ -1598,6 +1598,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                     currentDocument, 
                                     args.pageNum
                                 );
+                                
+                                e.target.on('mousedown', function(e) {
+                                    if(ctrl.erasing)
+                                        ctrl.deleteSelected();
+                                });
                             }
                         },
                         "selection:created": function(e) {
@@ -1615,6 +1620,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                     currentDocument, 
                                     args.pageNum
                                 );
+
+                                e.target.on('mousedown', function(e) {
+                                    if(ctrl.erasing)
+                                        ctrl.deleteSelected();
+                                });
                             }
                         }
 
