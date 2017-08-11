@@ -19,6 +19,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     var showVMLines = true,
         logOrientation = false;
 
+    // Limits on object scaling
+    var minScale = 0.25,
+        maxScale = 3.0;
+    var minScaleX = minScale,
+        minScaleY = minScale,
+        maxScaleX = maxScale,
+        maxScaleY = maxScale;
+
    var toolNames = [
        'pen',
        'highlighter',
@@ -1470,6 +1478,20 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         "mouse:dblclick": function(e) {
                             if(!ctrl.canvas.isDrawingMode)
                                 args.setSelectionBox(null, currentDocument, args.pageNum);
+                        },
+
+                        // Enforce scaling limits
+                        "object:scaling": function(e) {
+                            var scaleX = e.target.scaleX,
+                                scaleY = e.target.scaleY;
+                            e.target.set({
+                                scaleX: (scaleX < minScaleX) ? minScaleX
+                                    : (scaleX > maxScaleX) ? maxScaleX
+                                        : scaleX,
+                                scaleY: (scaleY < minScaleY) ? minScaleY
+                                    : (scaleY > maxScaleY) ? maxScaleY
+                                        : scaleY
+                            });
                         },
 
                         "object:modified": function(e) {
