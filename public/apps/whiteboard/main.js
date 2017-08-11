@@ -794,6 +794,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     args.setPage(doc);
                 }
             },
+            draggable: false,
             src: "/shared/icons/Icons_F_Left_W.png"
         }, "Prev"),
         // Specific page buttons
@@ -829,6 +830,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             args.setPage(page.pageNumber);
                         }
                     },
+                    draggable: false,
                     // Use the filled-in circle if it's the current page
                     src: samepage
                         ? "/shared/icons/Icons_F_Selected Circle_W.png"
@@ -851,6 +853,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     args.setPage(doc);
                 }
             },
+            draggable: false,
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
 
@@ -863,6 +866,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             
             m("img.tool-right.pull-right#undo", {
                 onmousedown: args.undo,
+                draggable: false,
                 //ontouchend: args.undo
                 // Gray out the icon if we can't undo
                 src: args.allowUndo()[args.pageNumbers()[args.user]]
@@ -875,6 +879,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 onmousedown: function() {
                     args.setTool(3);
                 },
+                draggable: false,
                 src: (args.tool() == 3) ? "/shared/icons/Icons_F_Pointer_W_Filled.png" : "/shared/icons/Icons_F_Pointer_W.png"
             }),
 
@@ -883,6 +888,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 onmousedown: function() {
                     args.setTool(2);
                 },
+                draggable: false,
                 src: (args.tool() == 2) ? "/shared/icons/Icons_F_Erase_W_Filled.png" : "/shared/icons/Icons_F_Erase_W.png"
             }),
             
@@ -901,6 +907,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     }
                     args.setTool(0);
                 },
+                draggable: false,
                 src: (args.tool() == 0) ? "/shared/icons/Icons_F_Pen_W_Filled.png" : "/shared/icons/Icons_F_Pen_W.png"
             }),
 
