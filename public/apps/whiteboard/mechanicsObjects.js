@@ -165,21 +165,26 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 
     mechanicsObjects.Rod = fabric.util.createClass(fabric.Object, {
 		type: 'Rod',
+        getDefaultOptions: function() {
+            return {
+                width: 120,
+                height: 40
+            };
+        },
 		initialize: function(options) {
-			options = options || {};
+			options = Object.assign(options, this.getDefaultOptions());
 			this.callSuper("initialize", options);
-            
-            // Prevent modification besides moving
-            /*
-            this.set({
-                lockRotation: true,
-                lockScalingX: true,
-                lockScalingY: true,
-                lockSkewingX: true,
-                lockSkewingY: true
+			
+            // Include only rotation and x-scaling controls
+            this.setControlsVisibility({
+                bl: false,
+                br: false,
+                tl: false,
+                tr: false,
+                mt: false,
+                mb: false
             });
-            */
-
+            this.cornerSize = 20;
 		},
 		toObject: function(extra) {
 			return fabric.util.object.extend(this.callSuper('toObject', extra), {
@@ -190,8 +195,11 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			// in the _render function, the canvas has already been translated to the center of the object which is being drawn. So anything we draw at the point 0, 0 will be drawn in the center of the object. 
 			var lengthPx = this.width/2;
 			var rPx = this.height/2;  
-			var pointRadiusPx = rPx/5; 
-			ctx.beginPath();
+			var pointRadiusPx = rPx/5;
+			
+            //console.log("Rendering", lengthPx, rPx, pointRadiusPx);
+            
+            ctx.beginPath();
 			ctx.moveTo(-lengthPx, rPx);
 			ctx.arcTo(lengthPx + rPx, rPx, lengthPx + rPx, -rPx, rPx);                
 			ctx.arcTo(lengthPx + rPx, -rPx, -lengthPx, -rPx, rPx);
@@ -200,7 +208,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			ctx.moveTo(-lengthPx+pointRadiusPx, 0);                       
 			ctx.arc(-lengthPx, 0, pointRadiusPx, 0, 2 * Math.PI);
 			ctx.moveTo(lengthPx+pointRadiusPx, 0);                       
-			ctx.arc(lengthPx, 0, pointRadiusPx, 0, 2 * Math.PI);                    
+			ctx.arc(lengthPx, 0, pointRadiusPx, 0, 2 * Math.PI);
+
 			this._renderFill(ctx);
 			this._renderStroke(ctx);
 		},
