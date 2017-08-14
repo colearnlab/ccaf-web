@@ -1001,164 +1001,209 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           }
         },
 
+        m("strong", "Rod"),
         m("p",
             m("button.btn.btn-info.mech-obj-button#addRod", {
-                onclick: function() {
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "Rod",
-                            left: ctrl.left,  
-                            top: ctrl.top, 
-                            width: 2 * ctrl.arrowLength,
-                            height: 20,
-				            originX:'center', 
-                            originY: 'center',
-                            padding: 5 
-                        },
-                        ctrl.canvas, true, true
-                    );
-                }
-           }, "Add rod")
+                    title: "Add rod",
+                    onclick: function() {
+                        ctrl.recalcOffset();
+                        args.addObject(
+                            {
+                                type: "Rod",
+                                left: ctrl.left,  
+                                top: ctrl.top, 
+                                width: 2 * ctrl.arrowLength,
+                                height: 20,
+                                originX:'center', 
+                                originY: 'center',
+                                padding: 5 
+                            },
+                            ctrl.canvas, true, true
+                        );
+                    }
+                }, 
+                m("img", {
+                    src: "/shared/icons/Rod.png",
+                })
+            )
         ),
             
-        // TODO get icons!
+        m("strong", "Concentrated Force"),
         m("p",
             m("button.btn.btn-info.mech-obj-button#addArrow", {
-                onclick: function() {
-                    var angle = 0;
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "Arrow",
-                            left: ctrl.left,  
-                            top: ctrl.top, 
-                            width: 2 * ctrl.arrowLength,
-                            angle: angle, 
-                            //name: letters,
-                            stroke: 'green',
-                            strokeWidth: 2.5, 
-				            originX:'left', 
-                            originY: 'center',
-                            padding: 5 
-                        },
-                        ctrl.canvas, true, true
-                    );
-                }
-           }, "Add concentrated force arrow")
+                    title: "Add concentrated force arrow",
+                    onclick: function() {
+                        var angle = 0;
+                        ctrl.recalcOffset();
+                        args.addObject(
+                            {
+                                type: "Arrow",
+                                left: ctrl.left,  
+                                top: ctrl.top, 
+                                width: 2 * ctrl.arrowLength,
+                                angle: angle, 
+                                //name: letters,
+                                stroke: 'green',
+                                strokeWidth: 2.5, 
+                                originX:'left', 
+                                originY: 'center',
+                                padding: 5 
+                            },
+                            ctrl.canvas, true, true
+                        );
+                    }
+                }, 
+                m("img", {
+                    src: "/shared/icons/FR.png"
+                })
+            )
         ),
 
 
-        m("strong", "FBD Distributed Load"),
-        m("p", ["DUU", "DUD"].map(function(letters) {
-            return m("button.btn.btn-info.mech-obj-button#add" + letters, {
-                onclick: function() {
-                    var angles = {DUU: -90, DUD: 90};
-                    //var angles = {DUU: 0, DUD: 180};
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "DistUnifLoad",
-                            left: ctrl.left, 
-                            top: ctrl.top,
-                            arrowAngle: angles[letters],
-                            range: ctrl.distURange, 
-                            thickness: ctrl.arrowLength,  
-                            spacing: ctrl.gridsize / 2
-                        },
-                        ctrl.canvas, true, true
+        m("strong", "Distributed Load"),
+        m("p", 
+            ["DUU", "DUD"].map(function(letters) {
+                    return m("button.btn.btn-info.mech-obj-button#add" + letters, {
+                            title: "Add uniform distributed load arrows",
+                            onclick: function() {
+                                var angles = {DUU: -90, DUD: 90};
+                                //var angles = {DUU: 0, DUD: 180};
+                                ctrl.recalcOffset();
+                                args.addObject(
+                                    {
+                                        type: "DistUnifLoad",
+                                        left: ctrl.left, 
+                                        top: ctrl.top,
+                                        arrowAngle: angles[letters],
+                                        range: ctrl.distURange, 
+                                        thickness: ctrl.arrowLength,  
+                                        spacing: ctrl.gridsize / 2
+                                    },
+                                    ctrl.canvas, true, true
+                                );
+                            }
+                        }, 
+                        m("img", {
+                            src: "/shared/icons/" + letters + ".png"
+                        })
                     );
                 }
-           }, "Add " + letters);
-        }), ["DTUA", "DTUD", "DTDA", "DTDD"].map(function(letters) {
-           return m("button.btn.btn-info.mech-obj-button#add" + letters, {
-                onclick: function() {
-                    var angles = {DTUA: -90, DTUD: -90, DTDA: 90, DTDD: 90};
-                    var flipped = {DTUA: false, DTUD: true, DTDA: false, DTDD: true};
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "DistTrianLoad",
-                            left: ctrl.left, 
-                            top: ctrl.top, 
-                            range: ctrl.distTRange, 
-                            thickness: ctrl.arrowLength / 4, 
-                            angle: 0, 
-                            arrowAngle: angles[letters], 
-                            spacing: ctrl.gridsize / 2,
-                            flipped: flipped[letters],
-                            minThickness: ctrl.minThickness,
-                            maxThickness: ctrl.maxThickness
-                        },
-                        ctrl.canvas, true, true
+            )
+        ),
+        m("p", 
+            ["DTUA", "DTDA", "DTUD", "DTDD"].map(function(letters) {
+                    return m("button.btn.btn-info.mech-obj-button#add" + letters, {
+                            title: "Add triangular distributed load arrows",
+                            onclick: function() {
+                                var angles = {DTUA: -90, DTUD: -90, DTDA: 90, DTDD: 90};
+                                var flipped = {DTUA: false, DTUD: true, DTDA: false, DTDD: true};
+                                ctrl.recalcOffset();
+                                args.addObject(
+                                    {
+                                        type: "DistTrianLoad",
+                                        left: ctrl.left, 
+                                        top: ctrl.top, 
+                                        range: ctrl.distTRange, 
+                                        thickness: ctrl.arrowLength / 4, 
+                                        angle: 0, 
+                                        arrowAngle: angles[letters], 
+                                        spacing: ctrl.gridsize / 2,
+                                        flipped: flipped[letters],
+                                        minThickness: ctrl.minThickness,
+                                        maxThickness: ctrl.maxThickness
+                                    },
+                                    ctrl.canvas, true, true
+                                );
+                            }
+                        }, 
+                        m("img", {
+                            src: "/shared/icons/" + letters + ".png"
+                        })
                     );
                 }
-           }, "Add " + letters);
-        })),
+            )
+        ),
         
-        m("strong", "FBD Moments"),
-        m("p", ["MC", "MCC"].map(function(letters) {
-            return m("button.btn.btn-info.mech-obj-button#add" + letters, {
-                onclick: function() {
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "Arc",
-                            left: ctrl.left, top: ctrl.top,    
-                            originX: 'center', originY: 'center',                
-                            width: 2 * ctrl.arrowLength, 
-                            height: 2 * ctrl.arrowLength, 
-                            radius: ctrl.arrowLength, 
-                            startAngle: -110, endAngle: 110,    
-                            strokeWidth: 2,  fill: 'magenta', stroke: 'magenta',
-                            clockwise: (letters == "MC"),
-                            angle: -20,
-                        },
-                        ctrl.canvas, true, true
+        m("strong", "Moment"),
+        m("p", 
+            ["MC", "MCC"].map(function(letters) {
+                    return m("button.btn.btn-info.mech-obj-button#add" + letters, {
+                            title: "Add moment",
+                            onclick: function() {
+                                ctrl.recalcOffset();
+                                args.addObject(
+                                    {
+                                        type: "Arc",
+                                        left: ctrl.left, top: ctrl.top,    
+                                        originX: 'center', originY: 'center',                
+                                        width: 2 * ctrl.arrowLength, 
+                                        height: 2 * ctrl.arrowLength, 
+                                        radius: ctrl.arrowLength, 
+                                        startAngle: -110, endAngle: 110,    
+                                        strokeWidth: 2,  fill: 'magenta', stroke: 'magenta',
+                                        clockwise: (letters == "MC"),
+                                        angle: -20,
+                                    },
+                                    ctrl.canvas, true, true
+                                );
+                            }    
+                        }, 
+                        m("img", {
+                            src: "/shared/icons/" + letters + ".png"
+                        })
                     );
-                }    
-            }, "Add " + letters);
-        })),
+            })
+        ),
         
         // Line and curve objects sometimes shouldn't be available
-        showVMLines ? m("strong", "V and M lines") : "",
+        showVMLines ? m("strong", "V and M Lines") : "",
         showVMLines ? m("p",
-           m("button.btn.btn-info.mech-obj-button#addControlledLine", {
-                onclick: function() {
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            type: "ControlledLine",
-                            x1: ctrl.left,
-                            y1: ctrl.top,
-                            x2: ctrl.left + 50,
-                            y2: ctrl.top + 50,
-                            handleRadius: ctrl.handleRadius,
-                            strokeWidth: ctrl.strokeWidth,
-                        },
-                        ctrl.canvas, true, true
-                    ); 
-                }    
-           }, "Add Line"),
-           m("button.btn.btn-info.mech-obj-button#addQuadratic", {
-                onclick: function() {
-                    ctrl.recalcOffset();
-                    args.addObject(
-                        {
-                            x1: ctrl.left,
-                            y1: ctrl.top,
-                            x2: ctrl.left + 50,
-                            y2: ctrl.top + 50,
-                            x3: ctrl.left + 100,
-                            y3: ctrl.top + 100,
-                            handleRadius: ctrl.handleRadius,
-                            strokeWidth: ctrl.strokeWidth,
-                            name: "controlCurvedLine"
-                        },
-                        ctrl.canvas, true, true
-                    ); 
-                }    
-           }, "Add Quadratic Curve")
+            m("button.btn.btn-info.mech-obj-button#addControlledLine", {
+                    title: "Add line",
+                    onclick: function() {
+                        ctrl.recalcOffset();
+                        args.addObject(
+                            {
+                                type: "ControlledLine",
+                                x1: ctrl.left,
+                                y1: ctrl.top,
+                                x2: ctrl.left + 50,
+                                y2: ctrl.top + 50,
+                                handleRadius: ctrl.handleRadius,
+                                strokeWidth: ctrl.strokeWidth,
+                            },
+                            ctrl.canvas, true, true
+                        );
+                    }
+                }, 
+                m("img", {
+                    src: "/shared/icons/ControlledLine.png"
+                })
+            ),
+            m("button.btn.btn-info.mech-obj-button#addQuadratic", {
+                    title: "Add curve",
+                    onclick: function() {
+                        ctrl.recalcOffset();
+                        args.addObject(
+                            {
+                                x1: ctrl.left,
+                                y1: ctrl.top,
+                                x2: ctrl.left + 50,
+                                y2: ctrl.top + 50,
+                                x3: ctrl.left + 100,
+                                y3: ctrl.top + 100,
+                                handleRadius: ctrl.handleRadius,
+                                strokeWidth: ctrl.strokeWidth,
+                                name: "controlCurvedLine"
+                            },
+                            ctrl.canvas, true, true
+                        ); 
+                    }    
+                }, 
+                m("img", {
+                    src: "/shared/icons/CurvedControlledLine.png"
+                })
+            )
         ) : ""
         
         )
