@@ -982,6 +982,9 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                       File.upload(ctrl.newUploadFile).then(function(file) {
                         ctrl.pages().push(file);
                         ctrl.selectedPage = file;
+                        args.addPage(ctrl.selectedPage);
+                        args.triggerRecentDocs(false);
+                        $('#recent-documents-modal').modal('hide');
                         return file;
                       });
                     }
