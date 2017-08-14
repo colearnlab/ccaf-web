@@ -25,12 +25,13 @@ exports.createRoutes = function(app, db) {
 
       var nowTime = Date.now();
       // Add as an activity page as well
-      db.run("INSERT INTO activity_pages VALUES(NULL, :owner, :origFilename, :time, :filename, :npages);", {
+      db.run("INSERT INTO activity_pages VALUES(NULL, :owner, :origFilename, :time, :filename, :npages, :metadata);", {
         ":owner": req.user.id,
         ":origFilename": req.file.originalname,
         ":time": nowTime,
         ":filename": req.file.filename,
-        ":npages": 1 // TODO deal with this properly
+        ":npages": 1, // TODO deal with this properly
+        ":metadata": (req.body.metadata && req.body.metadata != "undefined") ? req.body.metadata : "{}"
       });
 
       var activityPageId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];

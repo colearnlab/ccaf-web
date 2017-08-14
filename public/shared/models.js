@@ -290,6 +290,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
         newPage.originalFilename = res.originalname;
         newPage.owner = res.owner;
         newPage.timeUploaded = res.timeUploaded;
+        newPage.metadata = res.metadata;
         return newPage;
     });
   };
@@ -347,6 +348,7 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
                 return Object.assign(new ActivityPage(), page);
             });
         }
+        console.log(newActivity);
         return newActivity;
       });
   };

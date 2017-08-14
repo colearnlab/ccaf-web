@@ -34,9 +34,19 @@ exports.createRoutes = function(app, db) {
             var activityId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
 
             for(var i = 0, len = pages.length; i < len; i++) {
+                var pagei = pages[i];
+                db.run("UPDATE activity_pages SET owner=:owner, originalFilename=:originalFilename, timeUploaded=:timeUploaded, filename=:filename, numPages=:numPages, metadata=:metadata WHERE id=:id;", {
+                    ":owner": pagei.owner,
+                    ":originalFilename": pagei.originalFilename,
+                    ":timeUploaded": pagei.timeUploaded,
+                    ":filename": pagei.filename,
+                    ":numPages": pagei.numPages || 1,
+                    ":metadata": JSON.stringify(pagei.metadata),
+                    ":id": pagei.id
+                });
                 db.run("INSERT INTO activity_page_mapping VALUES (:activityId, :pageId, :pageNumber);", {
                     ":activityId": activityId,
-                    ":pageId": pages[i].id,
+                    ":pageId": pagei.id,
                     ":pageNumber": i
                 });
             }
@@ -82,9 +92,11 @@ exports.createRoutes = function(app, db) {
                         owner: row.owner,
                         id: row.id,
                         pageNumber: row.pageNumber,
+                        timeUploaded: row.timeUploaded,
                         originalFilename: row.originalFilename,
                         filename: row.filename,
-                        numPages: row.numPages
+                        numPages: row.numPages || 1,
+                        metadata: JSON.parse(row.metadata)
                     };
                 }
             );
@@ -130,12 +142,25 @@ exports.createRoutes = function(app, db) {
 
             // Insert correct page mappings
             for(var i = 0, len = pages.length; i < len; i++) {
+                var pagei = pages[i];
+                //console.log(pagei.metadata, typeof pagei.metadata);
+                db.run("UPDATE activity_pages SET owner=:owner, originalFilename=:originalFilename, timeUploaded=:timeUploaded, filename=:filename, numPages=:numPages, metadata=:metadata WHERE id=:id;", {
+                    ":owner": pagei.owner,
+                    ":originalFilename": pagei.originalFilename,
+                    ":timeUploaded": pagei.timeUploaded,
+                    ":filename": pagei.filename,
+                    ":numPages": pagei.numPages || 1,
+                    ":metadata": JSON.stringify(pagei.metadata),
+                    ":id": pagei.id
+                });
                 db.run("INSERT INTO activity_page_mapping VALUES (:activityId, :pageId, :pageNumber);", {
                         ":activityId": req.params.activityId,
-                        ":pageId": pages[i].id,
+                        ":pageId": pagei.id,
                         ":pageNumber": i
                     }
                 );
+
+
             }
 
             if (db.getRowsModified() === 1)
