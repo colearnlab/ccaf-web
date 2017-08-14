@@ -66,7 +66,7 @@ html, body {
   padding: 0;
 }
 
-.color-swatch-holder, .mechanics-objects-holder {
+.color-swatch-holder, .mechanics-objects-holder, .options-holder {
   border: 2px solid white;
   height: 40px;
   width: 80px;
@@ -90,8 +90,8 @@ html, body {
 .tray-open {
     position: relative;
   /*height: 80vh;*/
-  width: 30vw;
-  left: -15vw;
+  /*width: 30vw;*/
+  /*left: -15vw;*/
   background-color: rgba(0,0,0,0.5);
   background-clip: padding-box;
   border: 1em;

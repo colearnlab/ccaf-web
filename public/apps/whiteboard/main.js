@@ -857,12 +857,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
 
+            /*
             m("p.tool-right.pull-right#options", {
                 onmousedown: function() {
                     location.reload();
                 }},
                 "Reload"
             ),
+            */
+            m.component(OptionsTray, args),
             
             m("img.tool-right.pull-right#undo", {
                 onmousedown: args.undo,
@@ -923,6 +926,48 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           ),*/
 
       );
+    }
+  };
+
+  var OptionsTray = {
+    controller: function(args) {
+        return {
+            open: m.prop(false)
+        };
+    },
+    view: function(ctrl, args) {
+        return m("div.tool-button.tool-right.pull-right", {
+                style: "color: white; padding-right: 10px;",
+                onclick: m.redraw
+            },
+            m("img", {
+                    width: 32,
+                    height: 32,
+                    src: "/shared/icons/Icons_F_Dropdown_W.png",
+                    draggable: false,
+                    onmousedown: function(e) {
+                        ctrl.open(!ctrl.open());
+                    },
+                    ontouchend: function() {
+                        ctrl.open(!ctrl.open());
+                    },
+                }
+            ),
+            m("div#options-tray", {
+                    style: "left: -5vw; width: 10vw; text-align: right", 
+                    class: ctrl.open() ? "tray-open" : "tray-closed",
+                },
+
+                // Tray contents here!
+                m("button.btn.btn-info.mech-obj-button", {
+                        onclick: function() {
+                            location.reload();
+                        }
+                    },
+                    "Reload"
+                )
+            )
+        );
     }
   };
   
@@ -995,14 +1040,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         "FBD tools"
         ),
         m("div#mech-objs-tray", {
+            style: "width: 25vw; left: -5vw",
           class: ctrl.open() ? "tray-open" : "tray-closed",
           onclick: function() {
               args.tool(3); // Use finger tool after adding object
           }
         },
 
-        m("strong", "Rod"),
-        m("p",
+        m("strong.mechitem", "Rod"),
+        m("p.mechitem",
             m("button.btn.btn-info.mech-obj-button#addRod", {
                     title: "Add rod",
                     onclick: function() {
