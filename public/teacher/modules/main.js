@@ -556,6 +556,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       };
         ctrl.addPage = function(page) {
             //console.log(ctrl.editingActivity());
+            page.metadata = {};
             ctrl.editingActivity().pages.push(page);
             m.redraw();
         };
@@ -885,7 +886,24 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                                 // If clicked, remove the page from the activity
                                 ctrl.activity().pages.splice(idx, 1);
                             }
-                        })
+                        }),
+                        m("input[type=checkbox].pull-right", {
+                                id: "FBD" + page.id,
+                                checked: page.metadata && page.metadata.hasFBD,
+                                onclick: function(e) {
+                                    page.metadata = page.metadata || {};
+                                    page.metadata.hasFBD = !(page.metadata.hasFBD);
+                                },
+                                style: "margin-right: 2em"
+                            }
+                        ),
+                        m("label[for=FBD" + page.id + "].pull-right", {
+                                style: "padding-right: 0.5em"
+                            },
+                            "FBD tools"
+                        )
+
+                        
                     );
                   })) : "",
                 m(".btn.btn-default", {
