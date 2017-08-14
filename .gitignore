@@ -9,6 +9,8 @@ embedded.sqlite
 npm-debug.log
 info.log
 error.log
+accounts.csv
+TODO
 
 # vim temporary files
 *.swp
