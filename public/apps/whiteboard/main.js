@@ -915,8 +915,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             }),
 
           
-          // Only show the objects menu if we're on the third page (the sketch page)
-          (args.pageNumbers()[args.user] == 2) ? m.component(MechanicsObjectSelect, args) : ""
+          // Only show the objects menu if we're on a sketch page
+          (page.metadata.hasFBD) ? m.component(MechanicsObjectSelect, args) : ""
        
           /*
           m("h3.name-text.pull-right", {
