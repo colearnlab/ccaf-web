@@ -64,9 +64,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                         var maxPoint = 0;
                         gh = ctrl.summaryData().groupHistory;
                         for(var i = 0, len = gh.length; i < len; i++) {
-                            for(var k in gh[i]) {
-                                if((k != 'time') && (gh[i][k] > maxPoint))
-                                    maxPoint = gh[i][k];
+                            var historyItem = gh[i];
+
+                            for(var groupidx = 0, grouplen = ctrl.groups().length; groupidx < grouplen; groupidx++) {
+                            //for(var k in gh[i]) {
+                                var groupId = ctrl.groups()[groupidx].id;
+                                
+                                // Fill in zeros for missing data
+                                if(!historyItem[groupId])
+                                    historyItem[groupId] = 0;
+                                else if(historyItem[groupId] > maxPoint)
+                                    maxPoint = historyItem[groupId]; // Set max point
                             }
                         }
                         ctrl.groupHistoryMax(maxPoint);
@@ -289,7 +297,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                             
                                             var contrib = ctrl.summaryData().contributionToGroup;
                                             if(typeof contrib != "undefined") {
-                                                console.log(ctrl.studentsByGroup());
+                                                //console.log(ctrl.studentsByGroup());
                                                 // Draw student bars
                                                 ctrl.studentsByGroup()[group.id]().map(function(student, studentIdx, students) {
                                                     if(ctrl.summaryData().pageNumber && ctrl.summaryData().pageNumber[student.id] == pageIdx) {
