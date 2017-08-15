@@ -131,6 +131,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
               //pdf: "/media/" + metadata.pdf.filename,
               user: me,
               group: group.id,
+              groupObject: group,
               session: session
             });
           });
