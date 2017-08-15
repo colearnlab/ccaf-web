@@ -17,7 +17,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
  
   // Flag to show ControlledLine and ControlledCurve in the mechanics objects menu
     var showVMLines = true,
-        logOrientation = false;
+        logAcceleration = true;
 
     // Limits on object scaling
     var minScale = 0.25,
@@ -71,7 +71,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       user: params.user.id,
       session: params.session.id,
       connection: connection,
-        group: params.group
+        group: params.group,
+        groupTitle: params.groupObject.title
     }));
 
     connection.addObserver(function(store) {
@@ -108,6 +109,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         scrollPositions: {},
         scroll: m.prop("open"),
  
+        title: m.prop(args.groupTitle),
+
         // stores index of current document for each user
         pageNumbers: m.prop({}),
 
@@ -678,21 +681,42 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       });
         ctrl.scrollPositions[args.user] = {};
 
-        // Reports accelerometer data to the server
-        // Note: doesn't seem to work on Surface 3 + Chrome.
+        if(logAcceleration) {
+            if(window.DeviceMotionEvent) {
+                var accelcount = 0,
+                    prevData = {};
+                window.addEventListener("devicemotion", function(ev) {
+                        var data = {
+                            x: ev.accelerationIncludingGravity.x,
+                            y: ev.accelerationIncludingGravity.y,
+                            z: ev.accelerationIncludingGravity.z,
+                            a: ev.rotationRate.alpha,
+                            b: ev.rotationRate.beta,
+                            g: ev.rotationRate.gamma
+                        };
 
-        if(logOrientation) {
-            if(window.DeviceOrientationEvent) {
-                window.addEventListener("deviceorientation", function(ev) {
-                        /*args.connection.transaction([["orientation"]], function(orientation) {
-                            orientation[args.user] = {
-                                abs: ev.absolute,
-                                a: ev.alpha,
-                                b: ev.beta,
-                                g: ev.gamma
-                            };
-                        });*/
-                        console.log(ev);
+                        var absChange = {
+                            x: (data.x - prevData.x < 0) ? (prevData.x - data.x) : (data.x - prevData.x),
+                            y: (data.y - prevData.y < 0) ? (prevData.y - data.y) : (data.y - prevData.y),
+                            z: (data.z - prevData.z < 0) ? (prevData.z - data.z) : (data.z - prevData.z),
+                            a: (data.a - prevData.a < 0) ? (prevData.a - data.a) : (data.a - prevData.a),
+                            b: (data.b - prevData.b < 0) ? (prevData.b - data.b) : (data.b - prevData.b),
+                            g: (data.g - prevData.g < 0) ? (prevData.g - data.g) : (data.g - prevData.g)
+                        };
+
+                        // Only write to the log if the reading has changed significantly
+                        if(absChange.x > 0
+                                || absChange.y > 0
+                                || absChange.z > 0
+                                || absChange.a > 1 // threshold is one degree
+                                || absChange.b > 1
+                                || absChange.g > 1
+                          ) {
+                            args.connection.logOnly("accel." + args.user, data);
+                            console.log(++accelcount);
+                        }
+                            
+                        prevData = data;
                     },
                     true
                 );
@@ -856,6 +880,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             draggable: false,
             src: "/shared/icons/Icons_F_Right_W.png"
         }, "Next"),
+
+        /*
+          m("span", {
+              style: "position: absolute; left: 45vw; color: white; font-size: large"
+              }, 
+              m.trust(args.title())
+          ),
+          */
 
             /*
             m("p.tool-right.pull-right#options", {
