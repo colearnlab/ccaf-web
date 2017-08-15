@@ -916,7 +916,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
           
           // Only show the objects menu if we're on a sketch page
-          (page.metadata.hasFBD) ? m.component(MechanicsObjectSelect, args) : ""
+          (args.activity() ? 
+            (args.activity().pages[args.pageNumbers()[args.user]].metadata.hasFBD) ? 
+                m.component(MechanicsObjectSelect, args) 
+            : ""
+          : "")
        
           /*
           m("h3.name-text.pull-right", {
@@ -954,8 +958,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 }
             ),
             m("div#options-tray", {
-                    style: "left: -5vw; width: 10vw; text-align: right", 
-                    class: ctrl.open() ? "tray-open" : "tray-closed",
+                    style: "left: -5vw; width: 10vw; text-align: center", 
+                    class: ctrl.open() ? "tray-open" : "tray-closed"
                 },
 
                 // Tray contents here!
