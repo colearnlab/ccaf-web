@@ -43,6 +43,18 @@ define(["exports"], function(exports) {
     this.observers.splice(this.observers.indexOf(observer), 1);
   };
 
+  // A faster way to write to the log when we don't care about 
+  // updating subscribers.
+  Connection.prototype.logOnly = function(key, value) {
+      var update = {};
+      update[key] = value;
+      this.send("log-only", {
+        storeId: this.storeId,
+        update: update,
+        clientTime: Date.now()
+      });
+  };
+
   Connection.prototype.transaction = function(paths, action, seq) {
     var originalPaths = [];
     paths = paths.map((function(path, i) {

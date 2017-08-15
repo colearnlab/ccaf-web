@@ -104,8 +104,23 @@ Server.prototype.processReceive = function(connection, envelope) {
       return this.processTransaction(connection, message);
     case "skip-seq":
       return this.processSkipSeq(connection, message);
+    case "log-only":
+      return this.processLogOnly(connection, message);
   }
 };
+
+
+// Store something in the log without doing transaction-style checks and
+// without sending it out as an update.
+Server.prototype.processLogOnly = function(connection, message) {
+    var store = connection.store;
+    if(!store || (store.id != message.storeId))
+        return;
+    
+    // Write log
+    store.writeUpdateToLog(message.update);
+};
+
 
 //  Subscribe a client to the datastore.
 Server.prototype.processSync = function(connection, id) {
@@ -115,6 +130,8 @@ Server.prototype.processSync = function(connection, id) {
     connection.store.removeSubscriber(connection);
     this.handleSubscriptionUpdate(connection.store);
   }
+
+  // TODO set up collection of accelerometer data here?
 
   //  Obtain the store associated with that id.
   this.getOrCreateStore(id, (function(store) {

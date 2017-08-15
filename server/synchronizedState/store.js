@@ -86,11 +86,17 @@ Store.prototype.applyUpdates = function(toApply) {
   }
 
   //  Record the updates made in the log.
-  this.readStream.push(JSON.stringify({
-      time: + new Date(),
-      updates:  toApply
+  this.writeUpdateToLog(toApply);
+};
+
+
+Store.prototype.writeUpdateToLog = function(toApply) {
+    this.readStream.push(JSON.stringify({
+        time: + new Date(),
+        updates: toApply
     }) + "\n");
 };
+
 
 //  Load a logfile (or continue if no file exists).
 Store.prototype.load = function(callback) {
