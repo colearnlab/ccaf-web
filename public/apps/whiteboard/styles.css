@@ -73,6 +73,7 @@ html, body {
   border-radius: 4px;
   margin-left: -3em;
   text-align: center;
+  z-index: 100;
 }
 
 .mech-obj-button {
