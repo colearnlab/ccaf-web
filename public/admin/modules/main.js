@@ -421,7 +421,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                                             },
                                             "Download"
                                            )
-                                        : "")
+                                        : "Log file missing")
                                 )
                             );
                         })
