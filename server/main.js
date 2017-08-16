@@ -75,13 +75,16 @@ db.each("SELECT id FROM classroom_sessions WHERE endTime IS NULL;", {}, function
     studentStats.makeStudentStatsTracker(db, row.id);
 });
 
+var syncShared = {
+    logOutputDir: path.resolve(__dirname, "..", process.env.LOG_BACKUP_DIR)
+};
 
 //  Create API routes.
 require("./api/users").createRoutes(app, db);
 require("./api/classrooms").createRoutes(app, db);
 require("./api/groups").createRoutes(app, db);
 require("./api/userMappings").createRoutes(app, db);
-require("./api/classroom_sessions").createRoutes(app, db, studentStats);
+require("./api/classroom_sessions").createRoutes(app, db, studentStats, syncShared);
 require("./api/media").createRoutes(app, db);
 require("./api/visualize").createRoutes(app, db, studentStats);
 require("./api/activity").createRoutes(app, db);
@@ -124,7 +127,7 @@ var synchronizedStateServer = require("./synchronizedState/main").server(
   studentStats
 );
 
-// Give the 
+syncShared.stores = synchronizedStateServer.stores;
 
 function exitHandler(err) {
     if (err) console.log(err.stack);

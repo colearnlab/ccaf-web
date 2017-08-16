@@ -1,3 +1,7 @@
+var fs = require("fs"),
+    express = require("express"),
+    path = require("path");
+
 var accessAllowed = require("./apiPermissions").accessAllowed;
 
 // Separated out to make this more accessable from the server side.
@@ -39,7 +43,7 @@ exports.getStoreId = function(db, sessionId, groupId, userId) {
     return {storeId: storeId, status: 0};
 };
 
-exports.createRoutes = function(app, db, stats) {
+exports.createRoutes = function(app, db, stats, sharedSync) {
   app.route("/api/v1/classroom_sessions")
     .get(function(req, res) {
         // admin only
@@ -77,12 +81,9 @@ exports.createRoutes = function(app, db, stats) {
           });
 
           var sessionId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
-          // TODO start updating group stats
-          //stats.startGroupUpdateInterval({id: sessionId, startTime: Date.now()});
         
           // Starting a session, so start a tracker
           stats.makeStudentStatsTracker(db, sessionId); 
-
 
           res.json({
             data: {
@@ -120,6 +121,7 @@ exports.createRoutes = function(app, db, stats) {
             return;
         }
 
+        // TODO remove endTime; maybe we want to modify a session without ending it
       var params = {
         ":id": req.params.classroomSessionId,
         ":title": req.body.title,
@@ -136,6 +138,32 @@ exports.createRoutes = function(app, db, stats) {
         else
           delete params[p];
       }
+
+      var sessionId = req.params.classroomSessionId;
+
+      // Close the session's sync-state connections and logs
+      /*
+      var dateNow = new Date();
+      var dateString = "" + dateNow.getFullYear() 
+          + '-' + (dateNow.getMonth() + 1) 
+          + '-' + dateNow.getDate() 
+          + '_' + (dateNow.getHours() + 1) 
+          + (dateNow.getMinutes() + 1)
+          + (dateNow.getSeconds() + 1);
+      */
+      db.each("SELECT id, groupId FROM group_sessions WHERE classroom_session=:sessionId;", {
+            ":sessionId": sessionId,
+          },
+          function(row) {
+            var stores = sharedSync.stores[row.id];
+            if(stores[row.id]) {
+                // Close the log file and then copy it to the log file folder
+                stores[row.id].close(function() {
+                    console.log("Closed log file for group " + groupId);
+                });
+            }
+          }
+      );
 
       try {
         db.run("PRAGMA foreign_keys = ON");
@@ -174,4 +202,54 @@ exports.createRoutes = function(app, db, stats) {
         res.status(400).json({data: {status:400}});
       }
     });
+
+  // Give info about logs
+  app.route("/api/v1/logs")
+      .get(function(req, res) {
+        if(!accessAllowed(req, "logs")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+
+        var logList = [];
+        db.each("SELECT group_sessions.id AS storeId, group_sessions.groupId AS groupId, "
+            + "classroom_sessions.title AS title, startTime, endTime FROM group_sessions "
+            + "INNER JOIN classroom_sessions ON group_sessions.classroom_session=classroom_sessions.id "
+            + "WHERE endTime IS NOT NULL;",
+            {},
+            function(row) {
+                // Get file size
+                try {
+                    var err, stats = fs.statSync(path.resolve(__dirname, "../../stores", row.storeId.toString()));
+                    if(err) {
+                        console.log("xxxxCouldn't stat log file " + row.storeId + ": " + err.message);
+                        return;
+                    }
+                
+                    row.size = stats.size;
+                } catch(e) {
+                    console.log("Couldn't stat log file " + row.storeId + ": " + e.message);
+                }
+
+                
+                // TODO Calculate md5sum?
+
+                logList.push(row);
+            }
+        );
+      
+        res.status(200).json({data: logList});
+      });
+
+    app.use("/stores", function(req, res, next) {  
+      // Check whether user should have access
+        if(!accessAllowed(req, "logs")) {
+            res.status(403).json({data:{status:403}});
+            return;
+        }
+        
+      res.setHeader("Content-Type", "application/gzip");
+      res.setHeader("Content-Disposition", 'attachment; filename="log' + req.path + 'txt.gz"');
+      next();
+    }, express.static("stores"));
 };
