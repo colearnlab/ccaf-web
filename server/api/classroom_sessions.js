@@ -155,7 +155,7 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
             ":sessionId": sessionId,
           },
           function(row) {
-            var stores = sharedSync.stores[row.id];
+            var stores = sharedSync.stores;
             if(stores[row.id]) {
                 // Close the log file and then copy it to the log file folder
                 stores[row.id].close(function() {
@@ -249,7 +249,7 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
         }
         
       res.setHeader("Content-Type", "application/gzip");
-      res.setHeader("Content-Disposition", 'attachment; filename="log' + req.path + 'txt.gz"');
+      res.setHeader("Content-Disposition", 'attachment; filename="log' + req.path + '.txt.gz"');
       next();
     }, express.static("stores"));
 };
