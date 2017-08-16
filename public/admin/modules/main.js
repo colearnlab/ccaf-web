@@ -21,8 +21,18 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                   m("a", {
                       href: "/teacher"
                     }, "Teacher mode"
+                  ),
+
+                  m("a", {
+                        href: "#/logs"
+                    },
+                    "Session logs"
                   )
+
               ),
+
+              
+
               // Take the mapping of links; turn them into pairs; turn each pair into a list item
               // with an link to the key and the text of the value.
               _.pairs(ctrl.links).map(function(pair) {
@@ -337,12 +347,97 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
     }
   };
 
+    var LogList = {
+        controller: function(args) {
+            var ctrl = {
+                logInfo: m.prop([]),
+                groups: m.prop({})
+            };
+
+            m.request({
+                method: "GET",
+                url: "/api/v1/logs"
+            }).then(function(res) {
+                ctrl.logInfo(res.data);  
+            });
+
+            m.request({
+                method: "GET",
+                url: "/api/v1/groups"
+            }).then(function(res) {
+                for(var i in res.data) {
+                    ctrl.groups()[res.data[i].id] = res.data[i];
+                }
+            });
+
+            return ctrl;
+        },
+        view: function(ctrl, args) {
+            return m("table.table.table-striped", {
+
+                },
+                m("thead", 
+                    m("tr",
+                        m("th", "Session"),
+                        m("th", "Group"),
+                        m("th", "Duration"),
+                        m("th", "File size"),
+                        m("th", "")
+                    ),
+                ),
+                m("tbody",
+                    ctrl.logInfo() ?
+                        ctrl.logInfo().map(function(logRow) {
+                            var duration = logRow.endTime - logRow.startTime;
+                            var days = Math.floor(duration / 1000 / 60 / 60 / 24);
+                            duration -= days * 1000 * 60 * 60 * 24;
+                            var hours = Math.floor(duration / 1000 / 60 / 60);
+                            duration -= hours * 1000 * 60 * 60;
+                            var minutes = Math.floor(duration / 1000 / 60);
+
+                            var durationString = ""
+                                + (days ? days + " day" + ((days == 1) ? "s " : " ") : "")
+                                + (hours ? hours + " hour" + ((hours == 1) ? "" : "s") + " ": "")
+                                + (minutes ? minutes + " minute" + ((minutes == 1) ? "" : "s") + " " : "");
+
+                            var sizeString = "--";
+                            if('size' in logRow) {
+                                if(logRow.size > (1024 * 1024 * 1024))
+                                    sizeString = "" + (Math.round(10 * logRow.size / 1024 / 1024 / 1024) / 10) + " GiB";
+                                else if(logRow.size > (1024 * 1024))
+                                    sizeString = "" + (Math.round(10 * logRow.size / 1024 / 1024) / 10) + " MiB";
+                                else
+                                    sizeString = "" + (Math.round(10 * logRow.size / 1024) / 10) + " KiB";
+                            }
+
+                            return m("tr",
+                                m("td", logRow.title),
+                                m("td", (ctrl.groups()[logRow.groupId] ? ctrl.groups()[logRow.groupId].title : "")),
+                                m("td", durationString),
+                                m("td", sizeString),
+                                m("td", (('size' in logRow)
+                                        ? m("a", {
+                                                href: "/stores/" + logRow.storeId
+                                            },
+                                            "Download"
+                                           )
+                                        : "")
+                                )
+                            );
+                        })
+                        : ""
+                )
+            );
+        }
+    };
+
   m.route.mode = "hash";
   m.route(document.body, "/", {
     "/": m.component(Shell, Placeholder),
     "/administrators": m.component(Shell, m.component(UserListing, {type: User.types.administrator})),
     "/teachers": m.component(Shell, m.component(UserListing, {type: User.types.teacher})),
-    "/students": m.component(Shell, m.component(UserListing, {type: User.types.student}))
+    "/students": m.component(Shell, m.component(UserListing, {type: User.types.student})),
+    "/logs": m.component(Shell, m.component(LogList, {}))
   });
 
 });
