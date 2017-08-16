@@ -108,7 +108,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         numPages: m.prop([]),
         scrollPositions: {},
         scroll: m.prop("open"),
- 
+        scrollDragging: m.prop(false),
+
         title: m.prop(args.groupTitle),
 
         // stores index of current document for each user
@@ -731,11 +732,28 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     view: function(ctrl, args) {
       var listener = function(e) {
       };
+
+      var calcScroll = function(pageY) {
+        var scrollbarElement = $('#scrollbar');
+        var scrollDest = (pageY - scrollbarElement.offset().top) / scrollbarElement.height();
+        if(scrollDest < 0)
+            scrollDest = 0;
+        else if(scrollDest > 1)
+            scrollDest = 1;
+
+        ctrl.setScroll(scrollDest);
+      };
       return m("#main", {
           class: "errormodal-" + (errmsg ? "show" : "hide"),
           config: function(el) {
             ctrl.fireScrollEvent = false;
             el.scrollTop = parseInt(ctrl.getScroll(args.user, ctrl.pageNumbers()[args.user]) * (el.scrollHeight - window.innerHeight));
+          
+            document.addEventListener("mouseout", function(e) {
+                if(!e.toElement && !e.relatedTarget)
+                    if(ctrl.scrollDragging())
+                        ctrl.scrollDragging(false);
+            });
           },
           onscroll: function(e) {
             var el = e.target;
@@ -745,6 +763,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
               return false;
             }
             ctrl.setScroll(el.scrollTop / (el.scrollHeight - window.innerHeight));
+          },
+          onmousemove: function(e) {
+            if(ctrl.scrollDragging())
+                calcScroll(e.clientY);
+          },
+          onmouseup: function(e) {
+            if(ctrl.scrollDragging()) {
+                ctrl.scrollDragging(false);
+                calcScroll(e.clientY);
+            }
           }
         },
 
@@ -1308,22 +1336,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           return ctrl;
       },
       view: function(ctrl, args) {
-          return m("svg.scrollbar", {
+          return m("svg.scrollbar#scrollbar", {
                   config: function(el) {
                       ctrl.scrollbarHeight(el.clientHeight);
                   },
                   onmousedown: function(e) {
-                      ctrl.dragging(true);
+                      args.scrollDragging(true);
                       ctrl.setScroll(e);
                   },
-                  onmousemove: function(e) {
+                  /*onmousemove: function(e) {
                       if(ctrl.dragging())
                           ctrl.setScroll(e);
                   },
                   onmouseup: function(e) {
                       ctrl.dragging(false);
                       ctrl.setScroll(e);
-                  }
+                  }*/
               },
               args.userList().map(function(user) {
                   // Draw circle on scroll bar if the user is on our page.
@@ -1653,7 +1681,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         "mouse:up": function(e) {
                             if(!ctrl.canvas.isDrawingMode && ctrl.selecting) {
                                 ctrl.selecting = false;
-                                //args.setSelectionBox(null, currentDocument, args.pageNum);
+                                args.setSelectionBox(null, currentDocument, args.pageNum);
                             }
                         },
 
