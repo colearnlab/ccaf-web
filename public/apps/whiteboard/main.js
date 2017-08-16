@@ -512,6 +512,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                       if(updateObj.type == "path" || updateObj.type == "Arrow") {
                           // object exists so modify it
                           canvasObj.set(updateObj);
+                          canvasObj.setCoords();
                       } else {
                           // Some MechanicsObjects don't behave well when modified so for now we will
                           // tear down and remake the object
