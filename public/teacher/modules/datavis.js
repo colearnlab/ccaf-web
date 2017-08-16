@@ -208,8 +208,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
                                 // Calculate new point location
                                 x = (elapsedTime / sessionDuration) * chartWidth + chartXOffset;
-                                y = svgheight - (chartHeight * historyData[i][group.id] / (ctrl.groupHistoryMax() * 1.05)) - chartYOffset;
-                                
+                                if(ctrl.groupHistoryMax())
+                                    y = svgheight - (chartHeight * historyData[i][group.id] / (ctrl.groupHistoryMax() * 1.05)) - chartYOffset;
+                                else
+                                    y = svgheight - chartYOffset;
+
+
                                 // Draw line to connect to previous point
                                 drawList.push(m("line", {
                                     "stroke-width": lineWidth,
