@@ -31,7 +31,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 });
                 return me;
               }).then(function(me) {
-                ctrl.activities = me.activities();
+                //ctrl.activities = me.activities();
+                Activity.list().then(ctrl.activities);
                 return me;
               });
           },
