@@ -160,6 +160,9 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
                 // Close the log file and then copy it to the log file folder
                 stores[row.id].close(function() {
                     console.log("Closed log file for group " + row.groupId);
+                    stores[row.id].id = null;
+
+                    delete stores[row.id];
                 });
             }
           }
