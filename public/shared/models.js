@@ -354,6 +354,8 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
   };
 
     Activity.list = function(ownerId) {
+        if((typeof ownerId) == "undefined")
+            ownerId = "";
         return m.request({
             method: "GET",
             url: "/api/v1/activities/" + ownerId

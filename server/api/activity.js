@@ -193,6 +193,26 @@ exports.createRoutes = function(app, db) {
         }
     });
 
+    app.route("/api/v1/activities")
+        .get(function(req, res) {
+            if(!accessAllowed(req, "activities")) {
+                res.status(403).json({data:{status:403}});
+                return;
+            }
+        
+            // Get all activities belonging to user :ownerId
+            var activities = [];
+            db.each("SELECT * FROM activities ORDER BY timeUpdated DESC;", 
+                {},
+                function(row) {
+                    activities.push(row);
+                }
+            );
+
+            // TODO 404 on bad ownerId, or just return an empty array?
+            res.status(200).json({data: activities});
+        });
+
     app.route("/api/v1/activities/:ownerId")
     .get(function(req, res) {
         if(!accessAllowed(req, "activities")) {

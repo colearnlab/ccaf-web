@@ -580,7 +580,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             endEdit: function(reload, cb) {
               ctrl.editingActivity = null;
               if (reload)
-                Activity.list(args.me().id).then(ctrl.activities).then(function() {
+                Activity.list().then(ctrl.activities).then(function() {
                   m.redraw(true);
                 });
 
@@ -599,7 +599,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               if (reload) {
                 ctrl.editingActivity = null;
                 $("#activity-edit-modal").modal("hide");
-                Activity.list(args.me().id).then(ctrl.activities).then(function() {
+                Activity.list().then(ctrl.activities).then(function() {
                   m.redraw(true);
                 });
               }
@@ -656,7 +656,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                                 onclick: function() {
                                     // Delete activity and then refresh activity list
                                     activity.delete();
-                                    Activity.list(args.me().id).then(ctrl.activities).then(function() {
+                                    Activity.list().then(ctrl.activities).then(function() {
                                         m.redraw(true);
                                     });
                                 }},
