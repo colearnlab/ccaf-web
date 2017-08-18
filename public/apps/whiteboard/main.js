@@ -315,6 +315,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                       selectionBox.width = groupObj.width;
                       selectionBox.height = groupObj.height;
 
+                      // the contents
+                      selectionBox.contents = [];
+                      if(groupObj.objects) {
+                          for(var i = 0, len = groupObj.objects.length; i < len; i++) {
+                            selectionBox.contents.push(groupObj.objects[i].uuid);
+                          }
+                      } else {
+                          selectionBox.contents.push(groupObj.uuid);
+                      }
+
                       // the page
                       selectionBox.doc = doc;
                       selectionBox.page = page;
@@ -715,7 +725,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 || absChange.g > 1
                           ) {
                             args.connection.logOnly("accel." + args.user, data);
-                            console.log(++accelcount);
+                            //console.log(++accelcount);
                         }
                             
                         prevData = data;
@@ -1528,6 +1538,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     ctrl.canvas.add(newRect);
                     ctrl.canvas.selectionBoxes[userId] = newRect;
                 }
+
+                // Prevent selecting an object someone else is selecting
+                //console.log(box);
+                for(var i = 0, len = box.contents.length; i < len; i++) {
+                    var canvasObj = ctrl.canvas.objsByUUID[box.contents[i]];
+                    if(canvasObj)
+                        canvasObj.selectable = !(box.visible);
+                }
+
                 ctrl.canvas.renderAll();
             }
         }
@@ -1652,6 +1671,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                     // Set up event handlers
                     ctrl.canvas.on({
+                        /*
                         "mouse:down": function(e) {
                             if(!ctrl.canvas.isDrawingMode && !ctrl.selecting)
                                 ctrl.selecting = true;
@@ -1689,6 +1709,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             if(!ctrl.canvas.isDrawingMode)
                                 args.setSelectionBox(null, currentDocument, args.pageNum);
                         },
+                        */
 
                         // Enforce scaling limits
                         "object:scaling": function(e) {
@@ -1753,7 +1774,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         left: x - (w / 2),
                                         top: y - (h / 2),
                                         width: w,
-                                        height: h
+                                        height: h,
+                                        uuid: e.target.uuid
                                     },
                                     currentDocument, 
                                     args.pageNum
@@ -1775,7 +1797,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         left: e.target.left,
                                         top: e.target.top,
                                         width: e.target.width,
-                                        height: e.target.height
+                                        height: e.target.height,
+                                        objects: e.target.getObjects()
                                     },
                                     currentDocument, 
                                     args.pageNum
