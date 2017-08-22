@@ -334,6 +334,34 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
               });
           },
 
+          serializeObject: function(obj) {
+              if(!obj.toObject)
+                  return obj;
+
+              var frozen = obj.toObject(['uuid']);
+              
+              // If the object is in a group, save correct scaling and rotation
+              if(obj.group) {
+                  // Taken from Group:_setObjectPosition
+                  var group = obj.group;
+                  var center = group.getCenterPoint(),
+                      rotated = group._getRotatedLeftTop(obj);
+
+                  Object.assign(frozen, {
+                      angle: obj.getAngle() + group.getAngle(),
+                      left: center.x + rotated.left,
+                      top: center.y + rotated.top,
+                      scaleX: obj.get('scaleX') * group.get('scaleX'),
+                      scaleY: obj.get('scaleY') * group.get('scaleY')
+                  });
+              }
+
+              if(!frozen.uuid)
+                  frozen.uuid = obj.uuid;
+
+              return frozen;
+          },
+
           doObjectTransaction: function(obj, canvas, transactionType) {
               if(!obj.uuid) {
                   console.warn("Missing uuid for transaction");
@@ -341,43 +369,20 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   return;
               };
 
-              //console.log(canvas.undoStack);
-
-              // TODO add 
             args.connection.transaction([["objects", obj.uuid], ["latestObjects", "+"]], function(objects, latestObjects) {
                 ctrl.curId[obj.uuid] = objects._id || 0;
                 
                 latestObjects[0] = obj.uuid;
 
-                // If obj is part of a selection group, its coordinates are for
-                // some reason given relative to the selection. Here we calculate
-                // selX and selY to find the object's position relative to the canvas.
-                var selX = 0, selY = 0;
-                if('group' in obj) {
-                    selX = obj.group.left + (obj.group.width / 2);
-                    selY = obj.group.top + (obj.group.height / 2);
+                obj = ctrl.serializeObject(obj);
 
-                    // TODO selection box
-                    //ctrl.setSelectionBox(obj.group);
-                }
-
-                var uuid = obj.uuid; // preserve uuid in case it's lost in toObject
-
-                if(obj.name != "remove") {
-                    if(obj.toObject)
-                        obj = obj.toObject(['uuid']);
-                }
-
-                obj.left += selX;
-                obj.top += selY;
-                
                 // Damn son that was easy!
                 objects.data = JSON.stringify(obj);
                 objects.meta = ctrl.makeTransactionMetadata(transactionType, {
                     page: canvas.page,
                     doc: canvas.doc,
-                    uuid: uuid,
-                    _id: ctrl.curId[uuid]
+                    uuid: obj.uuid,
+                    _id: ctrl.curId[obj.uuid]
                 });
 
                 ctrl.lastToModify[obj.uuid] = args.user;
@@ -473,14 +478,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             m.redraw();
               
             if(obj.toObject) {
-                var frozen = obj.toObject(['uuid']);
-                if(!frozen.uuid)
-                    frozen.uuid = obj.uuid;
-                if(obj.group) {
-                    frozen.left += obj.group.left + (obj.group.width / 2);
-                    frozen.top += obj.group.top + (obj.group.height / 2);
-                }
-                canvas.prevObjectState[obj.uuid] = frozen;
+                canvas.prevObjectState[obj.uuid] = ctrl.serializeObject(obj);
             } else {
                 canvas.prevObjectState[obj.uuid] = obj;
             }
@@ -1112,7 +1110,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             ctrl.open(!ctrl.open());
           },
         },
-        "FBD tools"
+        "Tools"
         ),
         m("div#mech-objs-tray", {
             style: "width: 25vw; left: -5vw",
@@ -1766,16 +1764,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
                             } else {
-                                var x = e.target.left,
-                                    y = e.target.top,
-                                    w = e.target.width,
-                                    h = e.target.height;
+                                var obj = e.target;
                                 args.setSelectionBox({
-                                        left: x - (w / 2),
-                                        top: y - (h / 2),
-                                        width: w,
-                                        height: h,
-                                        uuid: e.target.uuid
+                                        left: obj.left - (obj.width / 2),
+                                        top: obj.top - (obj.height / 2),
+                                        angle: obj.angle,
+                                        width: obj.width,
+                                        height: obj.height,
+                                        uuid: obj.uuid
                                     },
                                     currentDocument, 
                                     args.pageNum
@@ -1789,15 +1785,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         },
                         "selection:created": function(e) {
                             //console.log(e);
-                            e.target.hasControls = false;
+                            //e.target.hasControls = false;
                             if(ctrl.erasing) {
                                 ctrl.deleteSelected();
                             } else {
+
                                 args.setSelectionBox({
                                         left: e.target.left,
                                         top: e.target.top,
                                         width: e.target.width,
                                         height: e.target.height,
+                                        angle: e.target.angle,
                                         objects: e.target.getObjects()
                                     },
                                     currentDocument, 
