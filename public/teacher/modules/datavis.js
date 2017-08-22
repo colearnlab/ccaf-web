@@ -21,7 +21,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
     // for tuning the look of the group progress views
     var scaleDim = function(d) {
-        return Math.floor(d * 0.75); // TODO change?
+        return Math.floor(d * 0.9); // TODO change?
     }
     
     
@@ -39,12 +39,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
         pageWidth = scaleDim(75),
         pageHeight = scaleDim(pageWidth * 48 / 33.5),
         boxWidth = scaleDim(pageWidth * 0.45),
-        outlineLineWidth = 2,
+        outlineLineWidth = 1,
         outlineStrokeStyle = 'black',
+        barYOffset = 30,
         barWidth = scaleDim(11),
-        barHeight = scaleDim(43),
+        barHeight = scaleDim(40),
         barStep = scaleDim(5),
-        barLineWidth = 2;
+        barLineWidth = 3;
 
     exports.DataVis = {
         controller: function(args) {
@@ -306,6 +307,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                             var ctx = el.getContext('2d'),
                                                 img = new Image;
 
+                                            // Fix blurry lines
+                                            if(!isInit)
+                                                ctx.translate(0.5, 0.5);
+
                                             // Draw pdf thumbnail
                                             ctx.fillStyle = '#ffffff';
                                             ctx.fillRect(0, 0, el.width, el.height);
@@ -313,6 +318,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                             //console.log(thumb);
                                             ctx.drawImage(img, 0, 0, pageWidth, pageHeight, 0, 0, pageWidth, pageHeight);
                                             ctx.strokeStyle = '#000000';
+                                            ctx.lineWidth = outlineLineWidth;
                                             ctx.strokeRect(0, 0, pageWidth, pageHeight);
                                             
                                             var contrib = ctrl.summaryData().contributionToGroup;
@@ -327,7 +333,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                     var barFillHeight = contrib[group.id][student.id] / contrib[group.id].total * barHeight;
 
                     var barX = pageXOffset + studentIdx * (barStep + barWidth) + barStep;
-                    var barY = pageYOffset + pageHeight - 22;
+                    var barY = pageYOffset + pageHeight - barYOffset;
 
                     // draw bar background
                     ctx.fillStyle = '#ffffff';
@@ -337,6 +343,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                     //var barColor = getUserColor(students, student.id);
                     var barColor = ctrl.userColors[student.id];
                     ctx.strokeStyle = barColor;
+                    ctx.lineWidth = barLineWidth;
                     ctx.strokeRect(barX, barY, barWidth, barHeight);
 
                     // draw bar fill
