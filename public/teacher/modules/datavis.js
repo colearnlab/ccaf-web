@@ -8,6 +8,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
     PDFJS.disableWorker = true; 
 
+/*
+      var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
+      userGroup.users().then(function(userGroupList) {
+          //console.log(userGroupList);
+          for(var i = 0, len = userGroupList.length; i < len; i++) {
+              if(ctrl.user == userGroupList[i].id)
+                  ctrl.setColor(userColors.userColors[i]);
+          }
+      });
+*/
+
     // for tuning the look of the group progress views
     var scaleDim = function(d) {
         return Math.floor(d * 0.75); // TODO change?
@@ -44,6 +55,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                 session: m.prop(null),
                 groups: m.prop([]),
                 studentsByGroup: m.prop({}),
+                userColors: {},
                 activity: m.prop(null),
 
                 thumbnails: m.prop([]),
@@ -96,7 +108,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                         // get lists of students belonging to each group
                         var sbg = ctrl.studentsByGroup();
                         groups.map(function(group) {
-                            sbg[group.id] = group.users();
+                            group.users().then(function(students) {
+                                sbg[group.id] = students;
+                                for(var i = 0, len = students.length; i < len; i++)
+                                    ctrl.userColors[students[i].id] = userColors.userColors[i];
+                            });
                         });
                         ctrl.studentsByGroup(sbg);
 
@@ -303,7 +319,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                             if(typeof contrib != "undefined") {
                                                 //console.log(ctrl.studentsByGroup());
                                                 // Draw student bars
-                                                ctrl.studentsByGroup()[group.id]().map(function(student, studentIdx, students) {
+                                                ctrl.studentsByGroup()[group.id].map(function(student, studentIdx, students) {
                                                     if(ctrl.summaryData().pageNumber && ctrl.summaryData().pageNumber[student.id] == pageIdx) {
 
                     contrib[group.id] = contrib[group.id] || {};
@@ -318,7 +334,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                     ctx.fillRect(barX, barY, barWidth, barHeight);
 
                     // draw bar outline
-                    var barColor = getUserColor(students, student.id);
+                    //var barColor = getUserColor(students, student.id);
+                    var barColor = ctrl.userColors[student.id];
                     ctx.strokeStyle = barColor;
                     ctx.strokeRect(barX, barY, barWidth, barHeight);
 
