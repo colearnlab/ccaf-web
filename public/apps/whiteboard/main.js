@@ -171,18 +171,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             ctrl.docs(docs);
         },
 
-        flushUpdateQueue: function(pageNum) {
+        flushUpdateQueue: function(pageNum, canvNum) {    
             var canvases = ctrl.docs()[pageNum].canvas,
                 queue = ctrl.updateQueue;
+
+            
+            //console.log(canvases);
             for(var i = 0; i < queue.length; i++) {
                 var update = queue[i];
                 if(update) {
                     // If the update belongs on the current document, apply
                     // and delete the entry in the queue
                     if(update.meta.doc == pageNum) {
-                        ctrl.applyUpdate(update.data, canvases[update.meta.page]);
-                        delete queue[i];
-                        i--;
+                        if(((typeof canvNum) == "undefined") || (update.meta.page == canvNum)) {
+                            //console.log(update.meta.page);
+                            ctrl.applyUpdate(update.data, canvases[update.meta.page]);
+                            delete queue[i];
+                            i--;
+                        }
                     }
                 }
             }
@@ -190,7 +196,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
         // for recording which document each user is looking at
         setPage: function(pageNum) {
-            ctrl.flushUpdateQueue(pageNum);
+            //ctrl.flushUpdateQueue(pageNum);
 
             // Notify group
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
@@ -239,7 +245,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         },
 
         getScroll: function(userId, pageNumber) {
-            return (ctrl.scrollPositions[userId]) 
+           return (ctrl.scrollPositions[userId]) 
             ? ((ctrl.scrollPositions[userId][pageNumber]) 
                 ? ctrl.scrollPositions[userId][pageNumber].pos
                 : 0)
@@ -1619,7 +1625,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         doc: currentDocument,
                         page: args.pageNum
                     });
-                    docs[currentDocument].canvas[args.pageNum] = ctrl.canvas;
+                    args.docs()[currentDocument].canvas[args.pageNum] = ctrl.canvas;
+                    //console.log("made canvas" + args.pageNum);
 
                     ctrl.canvas.pushUndo = function(undoObj) {
                         if(ctrl.canvas.undoStack) {
@@ -1650,7 +1657,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             args.addObject(contents[i], ctrl.canvas, true, false);
                     }
 
-                    args.flushUpdateQueue(args.pageNumbers()[args.user]);
+                    args.flushUpdateQueue(args.pageNumbers()[args.user], args.pageNum);
                     
                     // Set selections
                     ctrl.canvas.selectionBoxes = {};
