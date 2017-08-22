@@ -843,7 +843,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
   var Controls = {
     view: function(__, args) {
-        //console.log(args.myColor());
+      var changePage = function(doc, newDoc) {
+          args.saveCanvases(doc);   // Save contents of all canvases
+          $('.canvas-container').remove();  // Remove canvases from DOM
+          args.lastDrawn({});   // Signal that we need to change PDFs
+          args.pageNumbers()[args.user] = newDoc; // Set the local page number
+          m.redraw();   // Rebuild canvases
+          args.setPage(newDoc); // Notify group of page change
+      };
+
       return m("#controls", {
           style: "background-color: " + args.myColor()
         },
@@ -851,25 +859,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         m("img.tool-icon", {
             onclick: function() {
                 var doc = args.pageNumbers()[args.user];
-                if(doc > 0) {
-                    args.saveCanvases(doc);
-                    $('.canvas-container').remove();
-                    doc--;
-                    args.lastDrawn({});
-                    args.pageNumbers()[args.user] = doc;
-                    m.redraw(true);
-                    args.setPage(doc);
-                }
+                if(doc > 0)
+                    changePage(doc, doc - 1);
             },
             draggable: false,
             src: "/shared/icons/Icons_F_Left_W.png"
         }, "Prev"),
+        
         // Specific page buttons
         (args.activity() ? 
         args.activity().pages.map(function(page) {
             var usersHere = [];
-            
-            // TODO fix user page icons
             
             args.userList().map(function(user) {
                 if(args.pageNumbers()[user.id] == page.pageNumber)
@@ -884,18 +884,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         }, m.trust("&#9679;")));
             });
             
-
             var samepage = (page.pageNumber == args.pageNumbers()[args.user]);
             return [m("img.tool-icon", {
                     onclick: function() {
-                        if(args.pageNumbers()[args.user] != page.pageNumber) {
-                            args.saveCanvases(args.pageNumbers()[args.user]);
-                            $('.canvas-container').remove();
-                            args.lastDrawn({});
-                            args.pageNumbers()[args.user] = page.pageNumber;
-                            m.redraw(true);
-                            args.setPage(page.pageNumber);
-                        }
+                        if(args.pageNumbers()[args.user] != page.pageNumber)
+                            changePage(args.pageNumbers()[args.user], page.pageNumber);
                     },
                     draggable: false,
                     // Use the filled-in circle if it's the current page
@@ -910,15 +903,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         m("img.tool-icon", {
             onclick: function() {
                 var doc = args.pageNumbers()[args.user];
-                if(doc < (args.activity().pages.length - 1)) {
-                    args.saveCanvases(doc);
-                    $('.canvas-container').remove();
-                    doc++;
-                    args.lastDrawn({});
-                    args.pageNumbers()[args.user] = doc;
-                    m.redraw(true);
-                    args.setPage(doc);
-                }
+                if(doc < (args.activity().pages.length - 1))
+                    changePage(doc, doc + 1);
             },
             draggable: false,
             src: "/shared/icons/Icons_F_Right_W.png"
@@ -932,14 +918,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           ),
           */
 
-            /*
-            m("p.tool-right.pull-right#options", {
-                onmousedown: function() {
-                    location.reload();
-                }},
-                "Reload"
-            ),
-            */
             m.component(OptionsTray, args),
             
             m("img.tool-right.pull-right#undo", {
