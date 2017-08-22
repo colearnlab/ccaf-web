@@ -150,6 +150,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
             }); // ClassroomSession.get
 
             // Start repeatedly updating summary data
+            ctrl.refreshData();
             ctrl.refreshInterval = setInterval(ctrl.refreshData, 10000);
 
             // Provide a way to kill the updates
