@@ -168,7 +168,10 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
         getDefaultOptions: function() {
             return {
                 width: 120,
-                height: 40
+                height: 40,
+                originX:'center', 
+                originY: 'center',
+                padding: 5 
             };
         },
 		initialize: function(options) {
@@ -448,14 +451,12 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 name: "arrow",
                 left: 0,  
                 top: 0, 
-                arrowWidth: 120,
                 arrowAngle: 0,
-                //stroke: 'green',
                 strokeWidth: 2.5, 
                 originX: 'left', 
                 originY: 'top', 
-                range: 100,
-                spacing: 15,
+                range: 200,
+                spacing: 25,
                 thickness: 60 
             };
         },
@@ -548,14 +549,14 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 name: "arrow",
                 left: 0,  
                 top: 0, 
+                angle: 0, 
                 arrowWidth: 120,
                 arrowAngle: 0, 
-                //stroke: 'green',
                 strokeWidth: 2.5, 
                 originX: 'center', 
                 originY: 'center', 
-                range: 100,
-                spacing: 15,
+                range: 200,
+                spacing: 25,
                 thickness: 60,
                 flipped: false,
                 minThickness: 5,

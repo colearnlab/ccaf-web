@@ -21,7 +21,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
 
     // Virtual pixel dimensions of PDF pages
-    var virtualPageWidth = 2000,
+    var virtualPageWidth = 1500,
         virtualPageHeight = virtualPageWidth * 11.0 / 8.5;
 
     // Limits on object scaling
@@ -1077,8 +1077,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           // object properties (just guesses for now!)
           left: 0, // left and top to be set in recalcOffset
           top: 0,
-          distURange: 100,
-          distTRange: 100,
+          distURange: 200,
+          distTRange: 200,
           gridsize: 30,
           arrowLength: 60,
           
@@ -1126,10 +1126,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 left: ctrl.left,  
                                 top: ctrl.top, 
                                 width: 2 * ctrl.arrowLength,
-                                height: 20,
-                                originX:'center', 
-                                originY: 'center',
-                                padding: 5 
+                                height: 20
                             },
                             ctrl.canvas, true, true
                         );
@@ -1155,10 +1152,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 top: ctrl.top, 
                                 width: 2 * ctrl.arrowLength,
                                 angle: angle, 
-                                //name: letters,
                                 stroke: 'green',
                                 strokeWidth: 2.5, 
-                                originX:'left', 
+                                originX: 'left', 
                                 originY: 'center',
                                 padding: 5 
                             },
@@ -1190,7 +1186,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         arrowAngle: angles[letters],
                                         range: ctrl.distURange, 
                                         thickness: ctrl.arrowLength,  
-                                        spacing: ctrl.gridsize / 2
+                                        spacing: ctrl.gridsize
                                     },
                                     ctrl.canvas, true, true
                                 );
@@ -1218,9 +1214,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         top: ctrl.top, 
                                         range: ctrl.distTRange, 
                                         thickness: ctrl.arrowLength / 4, 
-                                        angle: 0, 
                                         arrowAngle: angles[letters], 
-                                        spacing: ctrl.gridsize / 2,
+                                        spacing: ctrl.gridsize,
                                         flipped: flipped[letters],
                                         minThickness: ctrl.minThickness,
                                         maxThickness: ctrl.maxThickness
@@ -1247,15 +1242,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 args.addObject(
                                     {
                                         type: "Arc",
-                                        left: ctrl.left, top: ctrl.top,    
-                                        originX: 'center', originY: 'center',                
+                                        left: ctrl.left, 
+                                        top: ctrl.top,    
                                         width: 2 * ctrl.arrowLength, 
                                         height: 2 * ctrl.arrowLength, 
                                         radius: ctrl.arrowLength, 
-                                        startAngle: -110, endAngle: 110,    
-                                        strokeWidth: 2,  fill: 'magenta', stroke: 'magenta',
                                         clockwise: (letters == "MC"),
-                                        angle: -20,
                                     },
                                     ctrl.canvas, true, true
                                 );
