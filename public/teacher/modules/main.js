@@ -204,8 +204,6 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     },
     view: function(ctrl, args) {
       return m(".main-menu-section.bg-color-white", {
-            // Hide the whole thing if there are no active sessions
-            style: (ctrl.sessions().length > 0 ? "" : "display: none")
         },
         m(".main-menu-header.primary-color-green.text-color-secondary", {
                 onclick: function() {
@@ -214,9 +212,10 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             },
             m.trust((ctrl.showBody ? "&#9660; " : "&#9658; ") + "View and manage active sessions")),
         m(".main-menu-body", {
-                style: (ctrl.showBody ? "" : "display: none")
+            style: (ctrl.showBody ? "" : "display: none;")
           },
           m(".list-group",
+            ctrl.sessions().length ? "" : m(".list-group-item", {style: "color: gray; text-align: center"}, "(no active sessions)"),
             ctrl.sessions().map(function(session) {
               var classroomIdx = args.classrooms().map(function(classroom) { 
                   return classroom.id; 
@@ -385,6 +384,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               style: (ctrl.showBody ? "overflow: auto" : "display: none")
             },
             m(".list-group",
+              ctrl.classrooms().length ? "" : m(".list-group-item", {style: "color: gray; text-align: center"}, "(no classrooms)"),
               ctrl.classrooms().map(function(classroom) {
                 return m(".list-group-item.classroom",
                   m(".list-group-heading", {
@@ -646,6 +646,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               style: (ctrl.showBody ? "overflow: auto" : "display: none")
             },
             m(".list-group",
+              ctrl.activities().length ? "" : m(".list-group-item", {style: "color: gray; text-align: center"}, "(no activities)"),
               ctrl.activities().map(function(activity) {
                 if(ctrl.deleteActivityPromptId == activity.id) {
                     return m(".list-group-item", 
