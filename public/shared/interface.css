@@ -13,7 +13,7 @@
   font-size: 32px;
 }
 
-.student, .classroom {
+.student {
   border-radius: 0 !important;
   height: 25px;
   line-height: 15px;
