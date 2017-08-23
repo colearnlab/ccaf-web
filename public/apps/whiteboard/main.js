@@ -19,6 +19,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     var showVMLines = true,
         logAcceleration = true;
 
+
+    // Virtual pixel dimensions of PDF pages
+    var virtualPageWidth = 2000,
+        virtualPageHeight = virtualPageWidth * 11.0 / 8.5;
+
     // Limits on object scaling
     var minScale = 0.25,
         maxScale = 3.0;
@@ -653,6 +658,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
     args.connection.addObserver(ctrl.objectObserver);
 
+    // Get dimensions for rendering PDF. We don't re-render the PDF when the size 
+    // changes since it's expensive.
+    var pdfWidth = document.body.clientWidth,
+        pdfHeight = pdfWidth * 11.0 / 8.5;
+
       // Load all pdfs right away
       ClassroomSession.get(args.session).then(function(session) {
           // Retrieve activity info for the session
@@ -679,7 +689,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             pdf.getPage(pn + 1).then(function(page) {
 
                                 // TODO fix pdf resolution
-                                var viewport = page.getViewport(1500 / page.getViewport(1).width * 1);
+                                var viewport = page.getViewport(pdfWidth / page.getViewport(1).width * 1);
                                 canvas.height = viewport.height;
                                 canvas.width = viewport.width;
                                 canvasctx = canvas.getContext("2d");
@@ -1616,17 +1626,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     };
                     ctrl.canvas.prevObjectState = doc.prevObjectState;
 
-                    var w = docs[currentDocument].canvasWidth[args.pageNum];
-                    var h = docs[currentDocument].canvasHeight[args.pageNum];
-                    
-                    // TODO handle better
-                    // Set canvas dimensions
-                    if(w)
-                        ctrl.canvas.setWidth(w);
-                    else
-                        ctrl.canvas.setWidth(document.body.clientWidth);
-                    ctrl.canvas.setHeight(document.body.clientWidth * 11 / 8.5);
-                    
+                    // Use the same coordinate system as all other users but scale to 
+                    // the size of the page.
+                    ctrl.canvas.setWidth(virtualPageWidth);
+                    ctrl.canvas.setHeight(virtualPageHeight);
+                    ctrl.canvas.setDimensions({
+                            width: "100%",
+                            height: "100%"
+                        }, {
+                            cssOnly: true
+                        }
+                    );
+
                     // Load canvas data if any
                     ctrl.canvas.objsByUUID = {};
                     var contents = docs[currentDocument].canvasContents[args.pageNum];
