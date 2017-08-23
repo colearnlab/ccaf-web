@@ -91,7 +91,7 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             };
         },
 		initialize: function(options) {
-			options = options || {};
+			options = Object.assign(this.getDefaultOptions(), options);
 			this.callSuper("initialize", options);
 			this.set('arrowheadOffsetRatio', options.arrowheadOffsetRatio || 0.2);
 			this.set('arrowheadWidthRatio', options.arrowheadWidthRatio || 0.2);
