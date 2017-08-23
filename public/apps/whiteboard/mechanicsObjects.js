@@ -797,22 +797,23 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
         });
         
         var setLine = function() {
-            console.log("set line");
+            if(this == c1)
+                line.set({x1: c1.left, y1: c1.top});
+
+            if(this == c2)
+                line.set({x2: c2.left, y2: c2.top});
+            
             line.set({
-                left: (c1.left < c2.left) ? c1.left : c2.left,
-                top: (c1.top < c2.top) ? c1.top : c2.top,
-                x1: c1.left, 
-                y1: c1.top,
-                x2: c2.left, 
-                y2: c2.top
+                left: (line.x1 < line.x2) ? line.x1 : line.x2,
+                top: (line.y1 < line.y2) ? line.y1 : line.y2
             });
-            //line.fire('modified', {target: line});
         };
 
-        c1.on('modified', setLine);
-        c2.on('modified', setLine);
-        c1.on('moving', setLine);
-        c2.on('moving', setLine);
+        c1.on('modified', setLine.bind(c1));
+        c2.on('modified', setLine.bind(c2));
+
+        c1.on('moving', setLine.bind(c1));
+        c2.on('moving', setLine.bind(c2));
         
         c1.on('removed', function() {
             c2.remove();
@@ -861,7 +862,9 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             originX: 'center',
             originY: 'center',
             padding: 5,
-            excludeFromExport: true
+            excludeFromExport: true,
+            lockScalingX: true,
+            lockScalingY: true,
             //name: "controlHandle",
         });
         c.hasControls = false;
@@ -935,19 +938,19 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
         };
 
         c1.on('modified', function() {
-            line.x1 = c1.left;
-            line.y1 = c1.top;
-            setPath();
+            line.path[0][1] = line.x1 = c1.left;
+            line.path[0][2] = line.y1 = c1.top;
+            //setPath();
         });
         c2.on('modified', function() {
-            line.x2 = c2.left;
-            line.y2 = c2.top;
-            setPath();
+            line.path[1][1] = line.x2 = c2.left;
+            line.path[1][2] = line.y2 = c2.top;
+            //setPath();
         });
         c3.on('modified', function() {
-            line.x3 = c3.left;
-            line.y3 = c3.top;
-            setPath();
+            line.path[1][3] = line.x3 = c3.left;
+            line.path[1][4] = line.y3 = c3.top;
+            //setPath();
         });
 
 

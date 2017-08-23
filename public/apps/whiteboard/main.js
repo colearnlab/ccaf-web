@@ -460,7 +460,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         modifyObject: function(obj, canvas, doModify, doTransaction, transactionType, skipUndo) {
             if(doModify) {
                 var canvasObj = canvas.objsByUUID[obj.uuid];
-                if(obj.type == "path" || obj.type == "Arrow") {
+                                                                    // need to rebuild if it's a curve
+                if((obj.type == "path" || obj.type == "Arrow") && obj.name != "controlCurvedLine") {
                     // object exists so modify it
                     canvasObj.set(obj);
                     canvasObj.setCoords();
@@ -502,9 +503,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             if(obj.excludeFromExport && obj.target)
                 obj = obj.target;
 
-            if(doRemove)
+            if(doRemove) {
+                if(obj.target)
+                    removeObject(obj.target, canvas, doRemove, doTransaction, transactionType, skipUndo);
+
                 canvas.remove(obj);
-            
+            }
+
             if(obj.uuid in canvas.objsByUUID)
                 delete canvas.objsByUUID[obj.uuid];
 
@@ -529,7 +534,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                       // Remove object
                       ctrl.removeObject(canvasObj, canvas, true, false);
                   } else {
-                      if(updateObj.type == "path" || updateObj.type == "Arrow") {
+                      // TODO make a helper (or just call modifyObject?)
+                      if((updateObj.type == "path" || updateObj.type == "Arrow") && updateObj.name != "controlCurvedLine") {
                           // object exists so modify it
                           canvasObj.set(updateObj);
                           canvasObj.setCoords();
@@ -1080,14 +1086,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           distURange: 200,
           distTRange: 200,
           gridsize: 30,
-          arrowLength: 60,
+          arrowLength: 80,
           
           // triangular arrow lengths
           minThickness: 5,
           maxThickness: 50,
         
           strokeWidth: 4,
-          handleRadius: 4
+          handleRadius: 8 
       };
       return ctrl;
     },
@@ -1153,7 +1159,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 width: 2 * ctrl.arrowLength,
                                 angle: angle, 
                                 stroke: 'green',
-                                strokeWidth: 2.5, 
+                                strokeWidth: 4, 
                                 originX: 'left', 
                                 originY: 'center',
                                 padding: 5 
@@ -1406,32 +1412,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             //return m("#pdf-container", drawPDF(ctrl, args, 1));
             return m("#pdf-container", 
                 Array.apply(null, {length: args.numPages()[args.pageNumbers()[args.user]]}).map(function(__, i) {
-                    return m.component(PDFPageHolder, {
-                        pageNumbers: args.pageNumbers,
-                        getCanvasId: args.getCanvasId,
-                        startStrokeSimple: args.startStrokeSimple,
-                        user: args.user,
-                        pageNumbers: args.pageNumbers,
-                        flushUpdateQueue: args.flushUpdateQueue,
-                        docs: args.docs,
-                        tool: args.tool,
-                        penColorIdx: args.penColorIdx,
-                        addObserver: args.addObserver,
-
-                        setPage: args.setPage,
-                        lastDrawn: args.lastDrawn,
-                        pageNum: i,
-                        addObject: args.addObject,
-                        modifyObject: args.modifyObject,
-                        removeObject: args.removeObject,
-
-                        connection: args.connection,
-                        drawSelectionBox: args.drawSelectionBox,
-                        setSelectionBox: args.setSelectionBox,
-
-                        userColor: args.userColor
-                    });
-                })    
+                    return m.component(PDFPageHolder, Object.assign({}, args, {pageNum: i}));
+                })
             );
         }
     };
@@ -1657,46 +1639,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                     // Set up event handlers
                     ctrl.canvas.on({
-                        /*
-                        "mouse:down": function(e) {
-                            if(!ctrl.canvas.isDrawingMode && !ctrl.selecting)
-                                ctrl.selecting = true;
-                        },
-                        "mouse:move": function(e) {
-                            if(ctrl.selecting) {
-                                // set own selection box
-                                var groupSelector = ctrl.canvas._groupSelector;
-                                if(groupSelector) {
-                                    var left = groupSelector.left,
-                                        top = groupSelector.top;
-                                
-                                    args.setSelectionBox({
-                                            selecting: true,
-                                            left: groupSelector.ex - ((left > 0) ? 0 : -left),
-                                            top: groupSelector.ey - ((top > 0) ? 0 : -top),
-                                            width: (left < 0) ? -left : left, //abs(left),
-                                            height: (top < 0) ? -top : top //abs(top);
-                                        }, 
-                                        currentDocument, 
-                                        args.pageNum
-                                    );
-
-                                }
-                            }
-                        },
-                        "mouse:up": function(e) {
-                            if(!ctrl.canvas.isDrawingMode && ctrl.selecting) {
-                                ctrl.selecting = false;
-                                args.setSelectionBox(null, currentDocument, args.pageNum);
-                            }
-                        },
-
-                        "mouse:dblclick": function(e) {
-                            if(!ctrl.canvas.isDrawingMode)
-                                args.setSelectionBox(null, currentDocument, args.pageNum);
-                        },
-                        */
-
                         // Enforce scaling limits
                         "object:scaling": function(e) {
                             var scaleX = e.target.scaleX,
@@ -1712,24 +1654,34 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         },
 
                         "object:modified": function(e) {
-                            if(e.target.excludeFromExport)
+                            if(e.target.excludeFromExport) {
                                 e.target = e.target.target;
+                            }
                                     
                             if(e.target.type == "circle") {
                                 return;
                             }
 
                             if(e.target.type == "group") {
-                                //console.log(e.target);
                                 var groupID = uuidv1();
                                 var objects = e.target.getObjects();
 
                                 for(var i = 0, len = objects.length; i < len; i++) {
-                                    objects[i].groupID = groupID;
-                                    ctrl.canvas.trigger("object:modified", {target: objects[i], skipSelection: true});
+                                    var obj = objects[i];
+                                    obj.groupID = groupID;
+                                    
+                                    if(obj.target) {
+                                        var frozen = args.serializeObject(obj),
+                                            origX = obj.left,
+                                            origY = obj.top;
+                                        obj.left = frozen.left;
+                                        obj.top = frozen.top;
+                                        obj.trigger('modified');
+                                        obj.left = origX;
+                                        obj.top = origY;
+                                    }
+                                    ctrl.canvas.trigger("object:modified", {target: obj, skipSelection: true});
                                 }
-                            //} else if(e.target.type == "path") {
-                            //    args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
                             } else {
                                 args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
                             }
