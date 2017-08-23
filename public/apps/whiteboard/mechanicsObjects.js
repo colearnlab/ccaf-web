@@ -31,7 +31,7 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
             // Prevent modification besides moving
             this.set({
                 //lockRotation: true,
-                lockScalingX: true,
+                //lockScalingX: true,
                 lockScalingY: true,
                 lockSkewingX: true,
                 lockSkewingY: true
@@ -453,8 +453,8 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 top: 0, 
                 arrowAngle: 0,
                 strokeWidth: 2.5, 
-                originX: 'left', 
-                originY: 'top', 
+                originX: 'center', 
+                originY: 'center', 
                 range: 200,
                 spacing: 25,
                 thickness: 60 
@@ -482,7 +482,7 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                     width: this.thickness,
                     angle: this.arrowAngle,
                     lockRotation: true,
-                    lockScalingX: true,
+                    //lockScalingX: true,
                     lockScalingY: true,
                     lockSkewingX: true,
                     lockSkewingY: true,
@@ -503,17 +503,17 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			this.setControlVisible('tr', false);
 			this.setControlVisible('mt', false);
 			this.setControlVisible('mb', false);   
-			this.setControlVisible('ml', false);
-			this.setControlVisible('mr', false); 
+			//this.setControlVisible('ml', false);
+			//this.setControlVisible('mr', false); 
 			this.setControlVisible('mtr', false);
             
             // Prevent modification besides moving
             this.set({
                 lockRotation: true,
-                lockScalingX: true,
+                //lockScalingX: true,
                 lockScalingY: true,
-                lockSkewingX: true,
-                lockSkewingY: true
+                //lockSkewingX: true,
+                //lockSkewingY: true
             });
 
 		},

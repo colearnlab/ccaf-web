@@ -1160,7 +1160,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 angle: angle, 
                                 stroke: 'green',
                                 strokeWidth: 4, 
-                                originX: 'left', 
+                                originX: 'center', 
                                 originY: 'center',
                                 padding: 5 
                             },
@@ -1666,7 +1666,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 var groupID = uuidv1();
                                 var objects = e.target.getObjects();
 
-                                for(var i = 0, len = objects.length; i < len; i++) {
+                                for(var i = 0; i < objects.length; i++) {
                                     var obj = objects[i];
                                     obj.groupID = groupID;
                                     
@@ -1680,8 +1680,45 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         obj.left = origX;
                                         obj.top = origY;
                                     }
-                                    ctrl.canvas.trigger("object:modified", {target: obj, skipSelection: true});
+                                    var newevent = {target: obj, skipSelection: true, removed: false};
+                                    ctrl.canvas.trigger("object:modified", newevent);
+                                    if(newevent.removed)
+                                        i--;
                                 }
+
+                                if(objects.length == 0)
+                                    ctrl.canvas.trigger('selection:cleared');
+
+                            } else if(e.target.type == "DistUnifLoad") {
+                                // Show new position and scale
+                                //console.log(e.target);
+                                if(e.target.group) {
+                                    var frozen = args.serializeObject(e.target);
+                                    var origScaleX = e.target.group.scaleX;
+                                    e.target.group.removeWithUpdate(e.target);
+                                    e.target.scaleX = origScaleX;
+                                    //e.target.set({left: frozen.left, top: frozen.top});
+                                    e.removed = true;
+                                }
+                                
+                                var origLeft = e.target.left - e.target.diffLeft,
+                                    origTop = e.target.top - e.target.diffTop,
+                                    uuid = e.target.uuid;
+ 
+                                if(e.target.scaleX != 1.0) {
+                                    console.log(e.target.range, e.target.scaleX, e.target.width);
+                                    e.target.range = e.target.scaleX * e.target.width;
+                                    e.target.scaleX = 1.0;
+                                }
+
+                                e.target.forEachObject(e.target.remove.bind(e.target));
+                                e.target.left = origLeft;
+                                e.target.top = origTop;
+
+                                e.target.initialize(e.target);
+                                e.target.setCoords();
+                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
+
                             } else {
                                 args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
                             }
