@@ -396,7 +396,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                             var minutes = Math.floor(duration / 1000 / 60);
 
                             var durationString = ""
-                                + (days ? days + " day" + ((days == 1) ? "s " : " ") : "")
+                                + (days ? days + " day" + ((days == 1) ? " " : "s ") : "")
                                 + (hours ? hours + " hour" + ((hours == 1) ? "" : "s") + " ": "")
                                 + (minutes ? minutes + " minute" + ((minutes == 1) ? "" : "s") + " " : "");
 
