@@ -1131,8 +1131,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 type: "Rod",
                                 left: ctrl.left,  
                                 top: ctrl.top, 
-                                width: 2 * ctrl.arrowLength,
-                                height: 20
+                                width: 4 * ctrl.arrowLength,
+                                height: 40
                             },
                             ctrl.canvas, true, true
                         );

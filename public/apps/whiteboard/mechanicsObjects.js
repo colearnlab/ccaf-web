@@ -171,11 +171,13 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
                 height: 40,
                 originX:'center', 
                 originY: 'center',
+                fill: '#ffffff',
+                stroke: '#000000',
                 padding: 5 
             };
         },
 		initialize: function(options) {
-			options = Object.assign(options, this.getDefaultOptions());
+			options = Object.assign(this.getDefaultOptions(), options);
 			this.callSuper("initialize", options);
 			
             // Include only rotation and x-scaling controls
@@ -198,7 +200,7 @@ define([/*"./fabric.require","sha1",*/ "underscore"], function(/*fabric, Sha1,*/
 			// in the _render function, the canvas has already been translated to the center of the object which is being drawn. So anything we draw at the point 0, 0 will be drawn in the center of the object. 
 			var lengthPx = this.width/2;
 			var rPx = this.height/2;  
-			var pointRadiusPx = rPx/5;
+			var pointRadiusPx = rPx/8;
 			
             //console.log("Rendering", lengthPx, rPx, pointRadiusPx);
             
