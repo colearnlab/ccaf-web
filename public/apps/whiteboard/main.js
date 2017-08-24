@@ -683,6 +683,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         canvas: {},
                         canvasWidth: {},
                         canvasHeight: {},
+                        canvasAspectRatio: {},
                         canvasContents: {},
                         prevObjectState: {},
                         undoStack: []
@@ -698,6 +699,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 var viewport = page.getViewport(pdfWidth / page.getViewport(1).width * 1);
                                 canvas.height = viewport.height;
                                 canvas.width = viewport.width;
+                                ctrl.docs()[activitypage.pageNumber].canvasAspectRatio[pn] = canvas.height / canvas.width;
+
                                 canvasctx = canvas.getContext("2d");
                                 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
