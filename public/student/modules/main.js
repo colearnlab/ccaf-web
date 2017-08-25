@@ -81,17 +81,19 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                     var groupId = activeSession.group.id;
 
                     var me = args.me();
-                    var exitCallback = null;
+                    var appReturn, appExitCallback;
                     args.interval = setInterval(function() {
                       ClassroomSession.get(sessionId).then(function(updatedActiveSession) {
                         if (updatedActiveSession.endTime !== null) {
                           clearInterval(args.interval);
                             
-                          // TODO take screenshots of pages here
-                          if(exitCallback)
-                              exitCallback();
-
-                          m.mount(document.body, Main);
+                          // Run the whiteboard app's exit callback
+                          if(appExitCallback) {
+                              appExitCallback(function() {
+                                  // After the whiteboard app cleans up, return to our main menu
+                                  m.mount(document.body, Main);
+                              });
+                          }
                         }
                       });
 
@@ -101,12 +103,13 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
 
                         if (groups[groupIdx].id !== groupId) {
                           groupId = groups[groupIdx].id;
-                          loadSession(me, {session: activeSession.session, group: groups[groupIdx]});
+                          appReturn = loadSession(me, {session: activeSession.session, group: groups[groupIdx]});
+                          appExitCallback = appReturn.exitCallback;
                         }
                       });
                     }, REFRESH_INTERVAL);
-                    var appReturn = loadSession(me, activeSession);
-                    //appExitCallback = appReturn.exitCallback;
+                    appReturn = loadSession(me, activeSession);
+                    appExitCallback = appReturn.exitCallback;
                   }
                 },
                 m(".list-group-heading", activeSession.session.title)
@@ -122,6 +125,9 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
 
   function loadSession(me, session) {
     m.mount(document.body, null);
+
+    // This object will hold anything the whiteboard app needs to give back to us
+    var appReturn = {};
 
     var group = session.group;
       //console.log("Group: " + group);
@@ -139,11 +145,13 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
               user: me,
               group: group.id,
               groupObject: group,
-              session: session
+              session: session,
+              appReturn: appReturn
             });
           });
         });
       });
     });
+    return appReturn;
   }
 });

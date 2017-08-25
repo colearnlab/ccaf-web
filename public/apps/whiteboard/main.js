@@ -146,6 +146,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         updateQueue: [],
 
         nextObjectUpdateIdx: 0,
+        pageCount: m.prop(0),
 
         // make a canvas ID string from document and page numbers
         getCanvasId: function(docIdx, pageNum) {
@@ -286,14 +287,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // Does the object exist on the canvas?
                     if(undoEvent.uuid in canvas.objsByUUID) {
                         if(undoEvent.name == 'remove') {
-                            ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "removeObject", true);
+                            ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "(undo)removeObject", true);
                         } else {
                             // Modify object
-                            ctrl.modifyObject(undoEvent, canvas, true, true, "modifyObject", true);
+                            ctrl.modifyObject(undoEvent, canvas, true, true, "(undo)modifyObject", true);
                         }
                     } else {
                         if(undoEvent.name != 'remove')
-                            ctrl.addObject(undoEvent, canvas, true, true, "addObject", true);
+                            ctrl.addObject(undoEvent, canvas, true, true, "(undo)addObject", true);
                     }
 
                     canvas.renderAll();
@@ -710,6 +711,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
+                                    ctrl.pageCount(ctrl.pageCount() + 1);
                                     m.redraw(true);
                                 });
                             });
@@ -765,10 +767,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             }
         }
         
-        /*
         // Save pages as images on exit
-        args.appReturn.exitCallback = function() {
-            var OA
+        args.appReturn.exitCallback = function(callback) {
+            var pagesLeft = ctrl.pageCount();
             if(ctrl.docs()) {
                 for(var docNum in ctrl.docs()) {
                     var doc = ctrl.docs()[docNum].canvas;
@@ -801,22 +802,26 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         dataUrl: snapshotUrl
                                     }
                                 }).then(function() {
-                                    exportCounter--;
-                                    if(exportCounter
+                                    pagesLeft--;
+                                    if(pagesLeft <= 0)
+                                        callback(); // run final callback
                                 });
+                            };
+                            drawingImage.onerror = function() {
+                                console.error("Failed to load drawings while saving snapshot");
+                                pageCount--;
                             };
                             drawingImage.src = canvas.toDataURL();
                         };
+                        pdfImage.onerror = function() {
+                            console.error("Failed to load PDF image while saving snapshot");
+                            pageCount--;
+                        }
                         pdfImage.src = ctrl.docs()[docNum].page[pageNum];
-                        
-
                     }
                 }
-            }
-            
+            } 
         };
-
-        */
 
       return ctrl;
     },
