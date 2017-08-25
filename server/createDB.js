@@ -31,7 +31,10 @@ exports.mkdb = function(dbPath) {
       // Tables to store multi-document activities
     "CREATE TABLE activities(id INTEGER UNIQUE PRIMARY KEY NOT NULL, title TEXT NOT NULL, timeUpdated INTEGER NOT NULL, owner INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)",
     "CREATE TABLE activity_pages(id INTEGER UNIQUE PRIMARY KEY NOT NULL, owner INTEGER NOT NULL REFERENCES users(id), originalFilename TEXT NOT NULL, timeUploaded INTEGER NOT NULL, filename TEXT NOT NULL, numPages INTEGER NOT NULL, metadata TEXT)",
-    "CREATE TABLE activity_page_mapping(activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE, pageId INTEGER NOT NULL REFERENCES activity_pages(id) ON DELETE CASCADE, pageNumber INTEGER NOT NULL)"
+    "CREATE TABLE activity_page_mapping(activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE, pageId INTEGER NOT NULL REFERENCES activity_pages(id) ON DELETE CASCADE, pageNumber INTEGER NOT NULL)",
+
+    // Table for saved student work
+    "CREATE TABLE snapshots(id INTEGER UNIQUE PRIMARY KEY NOT NULL, filename TEXT NOT NULL, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id), userId INTEGER NOT NULL REFERENCES user(id), docNum INTEGER NOT NULL, pageNum INTEGER NOT NULL)"
   
   ].join("; ") + "; ";
 
