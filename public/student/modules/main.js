@@ -81,10 +81,16 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                     var groupId = activeSession.group.id;
 
                     var me = args.me();
+                    var exitCallback = null;
                     args.interval = setInterval(function() {
                       ClassroomSession.get(sessionId).then(function(updatedActiveSession) {
                         if (updatedActiveSession.endTime !== null) {
                           clearInterval(args.interval);
+                            
+                          // TODO take screenshots of pages here
+                          if(exitCallback)
+                              exitCallback();
+
                           m.mount(document.body, Main);
                         }
                       });
@@ -99,7 +105,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                         }
                       });
                     }, REFRESH_INTERVAL);
-                    loadSession(me, activeSession);
+                    var appReturn = loadSession(me, activeSession);
+                    //appExitCallback = appReturn.exitCallback;
                   }
                 },
                 m(".list-group-heading", activeSession.session.title)

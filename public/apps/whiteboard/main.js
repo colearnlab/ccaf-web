@@ -1,5 +1,5 @@
 define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootstrap", "models", "css", "uuidv1", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, $, bootstrap, models, css, uuidv1, userColors, mechanicsObjects) {
- 
+    
     // Disable two-or-more finger touches to prevent pinch zooming
     document.addEventListener('touchstart', function(e){
         if( e.touches.length > 1) {   
@@ -71,13 +71,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     array = connection.array;
     connection.errorCallback = errorPrompt;
     css.load("/apps/whiteboard/styles.css");
+    var appReturn = {};
     var ctrl = m.mount(el, m.component(Main, {
       pdf: params.pdf,
       user: params.user.id,
       session: params.session.id,
       connection: connection,
         group: params.group,
-        groupTitle: params.groupObject.title
+        groupTitle: params.groupObject.title,
+        appReturn: appReturn;
     }));
 
     connection.addObserver(function(store) {
@@ -89,6 +91,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     });
 
     window.addEventListener("resize", m.redraw.bind(null, true));
+
+    // Return a callback to save screenshots for students
+    return appReturn;
   };
 
   function dist(x1, y1, x2, y2) {
@@ -759,6 +764,59 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 console.warn("Device orientation logging not supported!");
             }
         }
+        
+        /*
+        // Save pages as images on exit
+        args.appReturn.exitCallback = function() {
+            var OA
+            if(ctrl.docs()) {
+                for(var docNum in ctrl.docs()) {
+                    var doc = ctrl.docs()[docNum].canvas;
+                    for(var pageNum in doc) {
+                        var canvas = doc[pageNum];
+ 
+                        var exportCanvas = document.createElement('canvas');
+                        exportCanvas.width = canvas.width;
+                        exportCanvas.height = canvas.height;
+                        var ctx = exportCanvas.getContext('2d');
+
+                        // Get PDF
+                        var pdfImage = new Image;
+                        pdfImage.onload = function() {
+                            ctx.drawImage(pdfImage, 0, 0, pdfImage.width, pdfImage.height, 0, 0, canvas.width, canvas.height);
+                        
+                            // Export image of drawn objects
+                            var drawingImage = new Image;
+                            drawingImage.onload = function() {
+                                ctx.drawImage(pdfImage, 0, 0);
+
+                                // Now upload as an image
+                                var snapshotUrl = exportCanvas.toDataURL();
+                                
+                                // Upload
+                                return m.request({
+                                    method: 'POST',
+                                    url: '/api/v1/snapshot',
+                                    data: {
+                                        dataUrl: snapshotUrl
+                                    }
+                                }).then(function() {
+                                    exportCounter--;
+                                    if(exportCounter
+                                });
+                            };
+                            drawingImage.src = canvas.toDataURL();
+                        };
+                        pdfImage.src = ctrl.docs()[docNum].page[pageNum];
+                        
+
+                    }
+                }
+            }
+            
+        };
+
+        */
 
       return ctrl;
     },
