@@ -34,7 +34,7 @@ exports.mkdb = function(dbPath) {
     "CREATE TABLE activity_page_mapping(activityId INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE, pageId INTEGER NOT NULL REFERENCES activity_pages(id) ON DELETE CASCADE, pageNumber INTEGER NOT NULL)",
 
     // Table for saved student work
-    "CREATE TABLE snapshots(id INTEGER UNIQUE PRIMARY KEY NOT NULL, filename TEXT NOT NULL, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id), userId INTEGER NOT NULL REFERENCES user(id), docNum INTEGER NOT NULL, pageNum INTEGER NOT NULL)"
+    "CREATE TABLE snapshots(id INTEGER UNIQUE PRIMARY KEY NOT NULL, filename TEXT NOT NULL, sessionId INTEGER NOT NULL REFERENCES classroom_sessions(id), userId INTEGER NOT NULL REFERENCES users(id), docNum INTEGER NOT NULL, pageNum INTEGER NOT NULL)"
   
   ].join("; ") + "; ";
 

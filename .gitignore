@@ -3,6 +3,7 @@ public/lib
 public/fonts
 media
 stores
+snapshots
 .env
 .remote-sync.json
 embedded.sqlite

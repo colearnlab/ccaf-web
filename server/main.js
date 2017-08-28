@@ -88,7 +88,7 @@ require("./api/classroom_sessions").createRoutes(app, db, studentStats, syncShar
 require("./api/media").createRoutes(app, db);
 require("./api/visualize").createRoutes(app, db, studentStats);
 require("./api/activity").createRoutes(app, db);
-require("./api/snapshots").createRoutes(app, db);
+require("./api/snapshot").createRoutes(app, db);
 
 
 //  verifyClient takes a http upgrade request and ensures that it is authenticated.

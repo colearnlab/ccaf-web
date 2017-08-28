@@ -79,7 +79,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       connection: connection,
         group: params.group,
         groupTitle: params.groupObject.title,
-        appReturn: appReturn;
+        appReturn: appReturn
     }));
 
     connection.addObserver(function(store) {
@@ -771,57 +771,81 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         args.appReturn.exitCallback = function(callback) {
             var pagesLeft = ctrl.pageCount();
             if(ctrl.docs()) {
-                for(var docNum in ctrl.docs()) {
-                    var doc = ctrl.docs()[docNum].canvas;
-                    for(var pageNum in doc) {
-                        var canvas = doc[pageNum];
- 
-                        var exportCanvas = document.createElement('canvas');
-                        exportCanvas.width = canvas.width;
-                        exportCanvas.height = canvas.height;
-                        var ctx = exportCanvas.getContext('2d');
+                for(var _docNum in ctrl.docs()) {
+                    var _doc = ctrl.docs()[_docNum].canvas;
+                    var _contents = ctrl.docs()[_docNum].canvasContents;
+                    for(var _pageNum in _doc) {
 
-                        // Get PDF
-                        var pdfImage = new Image;
-                        pdfImage.onload = function() {
-                            ctx.drawImage(pdfImage, 0, 0, pdfImage.width, pdfImage.height, 0, 0, canvas.width, canvas.height);
-                        
-                            // Export image of drawn objects
-                            var drawingImage = new Image;
-                            drawingImage.onload = function() {
-                                ctx.drawImage(pdfImage, 0, 0);
+                        (function(doc, contents, docNum, pageNum) {
+                            // Change page before trying to save
+                            //ctrl.saveCanvases(doc);   // Save contents of all canvases
+                            //$('.canvas-container').remove();  // Remove canvases from DOM
+                            //ctrl.lastDrawn({});   // Signal that we need to change PDFs
+                            //ctrl.pageNumbers()[args.user] = newDoc; // Set the local page number
+                            //m.redraw(true);   // Rebuild canvases
+                            // ctrl.setPage(newDoc); // Notify group of page change
 
-                                // Now upload as an image
-                                var snapshotUrl = exportCanvas.toDataURL();
-                                
-                                // Upload
-                                return m.request({
-                                    method: 'POST',
-                                    url: '/api/v1/snapshot',
-                                    data: {
-                                        dataUrl: snapshotUrl
-                                    }
-                                }).then(function() {
-                                    pagesLeft--;
-                                    if(pagesLeft <= 0)
-                                        callback(); // run final callback
-                                });
+                            var origCanvas = doc[pageNum];
+                            var tempFabricCanvas = new fabric.StaticCanvas();
+                            tempFabricCanvas.setWidth(origCanvas.width);
+                            tempFabricCanvas.setHeight(origCanvas.height);
+                            tempFabricCanvas.objsByUUID = {}; // leave this
+                            tempFabricCanvas.prevObjectState = {};
+                            var canvContents = contents[pageNum];
+                            if(canvContents) {
+                                for(var i = 0, len = canvContents.length; i < len; i++) {
+                                    ctrl.addObject(canvContents[i], tempFabricCanvas, true, false, "", true);
+                                }
+                            }
+
+                            var exportCanvas = document.createElement('canvas');
+                            exportCanvas.width = origCanvas.width;
+                            exportCanvas.height = origCanvas.height;
+                            var ctx = exportCanvas.getContext('2d');
+
+                            // Get PDF
+                            var pdfImage = new Image;
+                            pdfImage.onload = function() {
+                                ctx.drawImage(pdfImage, 0, 0, pdfImage.width, pdfImage.height, 0, 0, origCanvas.width, origCanvas.height);
+                            
+                                // Export image of drawn objects
+                                var drawingImage = new Image;
+                                drawingImage.onload = function() {
+                                    ctx.drawImage(drawingImage, 0, 0);
+
+                                    // Now upload as an image
+                                    var snapshotUrl = exportCanvas.toDataURL();
+                                    var data = new FormData();
+                                    data.append("upload", snapshotUrl);
+                                    m.request({
+                                        method: "POST",
+                                        url: '/api/v1/snapshot/' + args.session + '/' + args.user + '/' + docNum + '/' + pageNum,
+                                        data: data,
+                                        serialize: function(a) { return a; }
+                                    }).then(function() {
+                                        pagesLeft--;
+                                        if(pagesLeft <= 0)
+                                            callback(); // run final callback
+                                    });
+                                    
+                                };
+                                drawingImage.onerror = function() {
+                                    console.error("Failed to load drawings while saving snapshot");
+                                    pageCount--;
+                                };
+                                drawingImage.src = tempFabricCanvas.toDataURL();
                             };
-                            drawingImage.onerror = function() {
-                                console.error("Failed to load drawings while saving snapshot");
+                            pdfImage.onerror = function() {
+                                console.error("Failed to load PDF image while saving snapshot");
                                 pageCount--;
-                            };
-                            drawingImage.src = canvas.toDataURL();
-                        };
-                        pdfImage.onerror = function() {
-                            console.error("Failed to load PDF image while saving snapshot");
-                            pageCount--;
-                        }
-                        pdfImage.src = ctrl.docs()[docNum].page[pageNum];
+                            }
+                            pdfImage.src = ctrl.docs()[docNum].page[pageNum];
+                        })(_doc, _contents, _docNum, _pageNum);
                     }
                 }
             } 
         };
+        exports.exitCallback = args.appReturn.exitCallback;
 
       return ctrl;
     },

@@ -15,6 +15,15 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     controller: function(args) {
       function refresh() {
         return User.me().then(function(me) {
+          
+            m.request({
+                method: 'GET',
+                url: '/api/v1/snapshot/' + me.id
+            }).then(function(res) {
+                ctrl.snapshots(res.data);
+            });
+
+
           me.classrooms().then(function(classrooms) {
             me.groups().then(function(groups) {
               var groupClassrooms = groups.map(function(group) { return group.classroom; });
@@ -39,6 +48,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
 
       var ctrl = {
         activeSessions: m.prop([]),
+        snapshots: m.prop([]),
         me: refresh(),
         interval: setInterval(function() {
             ctrl.me = refresh();
@@ -51,7 +61,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
       return m(".container-fluid.bg-color-med.stretch",
         m(".row",
           m(widthClasses,
-            m.component(SessionSelect, ctrl)
+            m.component(SessionSelect, ctrl),
+            m.component(SnapshotsMenu, ctrl)
           )
         )
       );
@@ -81,15 +92,16 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                     var groupId = activeSession.group.id;
 
                     var me = args.me();
-                    var appReturn, appExitCallback;
                     args.interval = setInterval(function() {
                       ClassroomSession.get(sessionId).then(function(updatedActiveSession) {
                         if (updatedActiveSession.endTime !== null) {
                           clearInterval(args.interval);
                             
+
+                          console.log(wbApp);
                           // Run the whiteboard app's exit callback
-                          if(appExitCallback) {
-                              appExitCallback(function() {
+                          if(wbApp.exitCallback) {
+                              wbApp.exitCallback(function() {
                                   // After the whiteboard app cleans up, return to our main menu
                                   m.mount(document.body, Main);
                               });
@@ -103,13 +115,11 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
 
                         if (groups[groupIdx].id !== groupId) {
                           groupId = groups[groupIdx].id;
-                          appReturn = loadSession(me, {session: activeSession.session, group: groups[groupIdx]});
-                          appExitCallback = appReturn.exitCallback;
+                          loadSession(me, {session: activeSession.session, group: groups[groupIdx]});
                         }
                       });
                     }, REFRESH_INTERVAL);
-                    appReturn = loadSession(me, activeSession);
-                    appExitCallback = appReturn.exitCallback;
+                    loadSession(me, activeSession);
                   }
                 },
                 m(".list-group-heading", activeSession.session.title)
@@ -121,13 +131,55 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     }
   };
 
+  var SnapshotsMenu = {
+    controller: function(args) {
+        return {
+            snapshots: args.snapshots,
+            showMenu: (args.snapshots().length != 0)
+        };
+    },
+    view: function(ctrl, args) {
+        return m(".main-menu-section.bg-color-white",
+            m(".main-menu-header.primary-color-green.text-color-secondary",
+                "Your saved work"
+            ),
+
+            ctrl.showMenu ?
+                m("table.table.table-striped",
+                    m("thead",
+                        m("tr",
+                           m("th", "Session"),
+                            m("th", "Pages")
+                        )
+                    ),
+                    m("tbody",
+                        ctrl.snapshots().map(function(snapshot) {
+                            return m("tr",
+                                m("td", snapshot.title),
+                                m("td", snapshot.pages.map(function(snapshotPage) {
+                                        return m('a[href="/snapshots/' + snapshotPage.file + '"]', {
+                                                style: "padding-right: 1em",
+                                                download: snapshotPage.file
+                                            },
+                                            "" + (snapshotPage.doc + 1) + "." + (snapshotPage.page + 1)
+                                        );
+                                    })
+                                )
+                            );
+                        })
+                    )
+                )
+            : m("div", {style: "color: gray; text-align: center"}, "(no saved work)")
+        );
+    }
+  };
+
   m.mount(document.body, Main);
+
+    var wbApp;
 
   function loadSession(me, session) {
     m.mount(document.body, null);
-
-    // This object will hold anything the whiteboard app needs to give back to us
-    var appReturn = {};
 
     var group = session.group;
       //console.log("Group: " + group);
@@ -140,6 +192,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
         require(["/apps/" + metadata.app + "/main.js"], function(app) {
           var connection = synchronizedStateClient.connect(wsAddress, function() {
             connection.sync(storeId);
+            var appReturn = {};
             app.load(connection, document.body, {
               //pdf: "/media/" + metadata.pdf.filename,
               user: me,
@@ -148,10 +201,13 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
               session: session,
               appReturn: appReturn
             });
+            
+            wbApp = app;
+            
           });
         });
       });
     });
-    return appReturn;
+    //return app;
   }
 });
