@@ -279,6 +279,10 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
                 };
 
                 emails.forEach(function(email) {
+                  // Make it an illinois.edu email by default (for easy adding of many netIds)
+                  if(!email.includes('@'))
+                      email = email + '@illinois.edu';
+
                   var newUser = new User("", email, 2);
                   newUser.save().then(
                     function success(server) {
