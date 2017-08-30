@@ -101,9 +101,11 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                           console.log(wbApp);
                           // Run the whiteboard app's exit callback
                           if(wbApp.exitCallback) {
-                              wbApp.exitCallback(function() {
+                              wbApp.exitCallback(function(snapshotInterval) {
                                   // After the whiteboard app cleans up, return to our main menu
                                   m.mount(document.body, Main);
+                                  if(snapshotInterval)
+                                      clearInterval(snapshotInterval);
                               });
                           }
                         }

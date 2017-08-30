@@ -574,7 +574,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           }
       });
 
+      //////////////////////////////////
       args.connection.userList.addObserver(function(users) {
+          // TODO on user list change, set page/scroll/color!
         ctrl.userList(users);
           // TODO get correct position!
         // Update users' page positions
@@ -779,14 +781,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     for(var _pageNum in _doc) {
 
                         (function(doc, contents, docNum, pageNum) {
-                            // Change page before trying to save
-                            //ctrl.saveCanvases(doc);   // Save contents of all canvases
-                            //$('.canvas-container').remove();  // Remove canvases from DOM
-                            //ctrl.lastDrawn({});   // Signal that we need to change PDFs
-                            //ctrl.pageNumbers()[args.user] = newDoc; // Set the local page number
-                            //m.redraw(true);   // Rebuild canvases
-                            // ctrl.setPage(newDoc); // Notify group of page change
-
                             var origCanvas = doc[pageNum];
                             var tempFabricCanvas = new fabric.StaticCanvas();
                             tempFabricCanvas.setWidth(origCanvas.width);
@@ -827,7 +821,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                     }).then(function() {
                                         pagesLeft--;
                                         if(pagesLeft <= 0)
-                                            callback(); // run final callback
+                                            callback(ctrl.snapshotInterval); // run final callback
                                     });
                                     
                                 };
@@ -848,6 +842,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             } 
         };
         exports.exitCallback = args.appReturn.exitCallback;
+
+        // run snapshot saving every five minutes
+        ctrl.snapshotInterval = setInterval(exports.exitCallback, 5 * 60 * 1000);
 
       return ctrl;
     },
