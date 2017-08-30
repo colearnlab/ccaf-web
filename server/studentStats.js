@@ -23,7 +23,10 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
     // Add methods for calculating interesting things from the raw event data
     tracker.setReporter("contributionToGroup", function(args) {
         // Get last minute of data (TODO store interval with process.env?)
-        var recentDrawing = this.getInterval("addFreeDrawing", Date.now() - 60000);
+        //var recentDrawing = this.getInterval("addFreeDrawing", Date.now() - 60000);
+        
+        // Get cumulative contributions over class
+        var recentDrawing = this.getInterval("addFreeDrawing");
         
         var groupTotals = {};
         for(var i = 0, len = recentDrawing.data.length; i < len; i++) {
