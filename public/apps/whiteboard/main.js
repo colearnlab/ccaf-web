@@ -561,7 +561,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
       };
 
+      // set page and update group
       ctrl.pageNumbers()[args.user] = 0;
+      ctrl.setPage(0);
 
       var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
       userGroup.users().then(function(userGroupList) {
