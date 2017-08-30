@@ -287,14 +287,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // Does the object exist on the canvas?
                     if(undoEvent.uuid in canvas.objsByUUID) {
                         if(undoEvent.name == 'remove') {
-                            ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "(undo)removeObject", true);
+                            ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "undoAddObject", true);
                         } else {
                             // Modify object
-                            ctrl.modifyObject(undoEvent, canvas, true, true, "(undo)modifyObject", true);
+                            ctrl.modifyObject(undoEvent, canvas, true, true, "undoModifyObject", true);
                         }
                     } else {
                         if(undoEvent.name != 'remove')
-                            ctrl.addObject(undoEvent, canvas, true, true, "(undo)addObject", true);
+                            ctrl.addObject(undoEvent, canvas, true, true, "undoRemoveObject", true);
                     }
 
                     canvas.renderAll();
@@ -1223,7 +1223,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 width: 4 * ctrl.arrowLength,
                                 height: 40
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         );
                     }
                 }, 
@@ -1253,7 +1253,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 originY: 'center',
                                 padding: 5 
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         );
                     }
                 }, 
@@ -1283,7 +1283,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         thickness: ctrl.arrowLength,  
                                         spacing: ctrl.gridsize
                                     },
-                                    ctrl.canvas, true, true
+                                    ctrl.canvas, true, true, "addFBDObject"
                                 );
                             }
                         }, 
@@ -1315,7 +1315,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         minThickness: ctrl.minThickness,
                                         maxThickness: ctrl.maxThickness
                                     },
-                                    ctrl.canvas, true, true
+                                    ctrl.canvas, true, true, "addFBDObject"
                                 );
                             }
                         }, 
@@ -1344,7 +1344,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         radius: ctrl.arrowLength, 
                                         clockwise: (letters == "MC"),
                                     },
-                                    ctrl.canvas, true, true
+                                    ctrl.canvas, true, true, "addFBDObject"
                                 );
                             }    
                         }, 
@@ -1372,7 +1372,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 handleRadius: ctrl.handleRadius,
                                 strokeWidth: ctrl.strokeWidth,
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         );
                     }
                 }, 
@@ -1396,7 +1396,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 strokeWidth: ctrl.strokeWidth,
                                 name: "controlCurvedLine"
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         ); 
                     }    
                 }, 
@@ -1564,7 +1564,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
 
             if(activeObject) {
-                args.removeObject(activeObject, ctrl.canvas, true, true);
+                args.removeObject(activeObject, ctrl.canvas, true, true, "removeObject");
             }
 
             if(activeGroup) {
@@ -1573,7 +1573,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var groupID = uuidv1();
                 objects.forEach(function(obj) {
                     obj.groupID = groupID;
-                    args.removeObject(obj, ctrl.canvas, true, true);
+                    args.removeObject(obj, ctrl.canvas, true, true, "removeObject");
                 });
             }
         },
@@ -1778,7 +1778,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 if(objects.length == 0)
                                     ctrl.canvas.trigger('selection:cleared');
 
-                            } else if(e.target.type == "DistUnifLoad") {
+                            } else if((e.target.type == "DistUnifLoad") || (e.target.type == "DistTrianLoad")) {
                                 // Show new position and scale
                                 //console.log(e.target);
                                 if(e.target.group) {
@@ -1806,7 +1806,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                                 e.target.initialize(e.target);
                                 e.target.setCoords();
-                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
+                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyFBDObject");
 
                             } else {
                                 args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
