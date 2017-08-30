@@ -6,7 +6,12 @@ var fs = require('fs'),
 var accessAllowed = require("./apiPermissions").accessAllowed;
 
 exports.createRoutes = function(app, db) {
-    var upload = multer({dest: "snapshots/"});
+    var upload = multer({
+        dest: "snapshots/",
+        limits: {
+            fieldSize: 25 * 1024 * 1024
+        }
+    });
 
     // Get all snapshots ever created for a student
     app.route("/api/v1/snapshot/:userId")
@@ -137,6 +142,8 @@ exports.createRoutes = function(app, db) {
             ":docNum": req.params.docNum,
             ":pageNum": req.params.pageNum
         });
+
+        console.log("uploaded snapshot (user " + req.params.userId + ", session " + req.params.sessionId + ", " + req.params.docNum + "." + req.params.pageNum + ")");
 
         res.status(200).json({data:{status:200}});
     });
