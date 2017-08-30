@@ -727,11 +727,21 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   
   var StartActivityModal = {
     controller: function(args) {
+        var timeNow = new Date();
+        var hour = timeNow.getHours();
+        if(timeNow.getMinutes() >= 30)
+            hour++;
+        var day = timeNow.getDate();
+        var month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][timeNow.getMonth()];
+        
+        var datestring = "" + day + " " + month + " " + hour + ":00";
+
       var ctrl = {
         title: "Start a session using " + args.activity.title,
         doneButtonLabel: "Start",
         activity: args.activity,
-        sessionTitle: "New session - " + args.activity.title,
+        //sessionTitle: "New session - " + args.activity.title,
+        sessionTitle: args.activity.title + " - " + datestring,
         showEndTime: false,
           // TODO hour and a half?
         scheduledEndTime: Date.now() + 60000,
