@@ -820,7 +820,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         serialize: function(a) { return a; }
                                     }).then(function() {
                                         pagesLeft--;
-                                        if(pagesLeft <= 0)
+                                        if((pagesLeft <= 0) && callback)
                                             callback(ctrl.snapshotInterval); // run final callback
                                     });
                                     
