@@ -61,7 +61,7 @@ Connection.prototype.send = function(channel, message, seq) {
       }
     });
   } catch (e) {
-    console.log("Send error.");
+      console.log(e);
   }
 
   //  Set a timeout to retry the message if an ack is not received.

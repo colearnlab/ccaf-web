@@ -9,7 +9,6 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
     tracker.setRecorder("addFreeDrawing", "addFreeDrawing", function(key, updateObj, timestamp) {
         // Store the number of points in the path
         var pathLength = updateObj.data.path.length;
-        //console.log(pathLength);
         this.push(key, pathLength, updateObj.meta, timestamp);
     });
 
@@ -57,7 +56,6 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
         }
 
         ////
-        //console.log(groupTotals);
         return groupTotals;
     });
 
@@ -74,7 +72,6 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
         while((now - this.latestHistoryUpdate) >= groupHistoryUpdateInterval) {
             var nextHistoryUpdate = this.latestHistoryUpdate + groupHistoryUpdateInterval;
             var drawingData = this.getInterval("addFreeDrawing", this.latestHistoryUpdate, nextHistoryUpdate);
-            //console.log(drawingData);
 
             // Add up group totals
             var groupTotals = {};
@@ -148,7 +145,6 @@ StudentStatsTracker.prototype.setRecorder = function(inputKey, storeKey, recorde
 // If an update has metadata and there is a matching recorder callback, run
 // the callback for the update message
 StudentStatsTracker.prototype.processUpdate = function(updateObj, timestamp) {
-    //console.log(updateObj.data);
     if(updateObj.meta) {
         // Choose the recorder callback
         var inputKey = updateObj.meta.type;

@@ -119,9 +119,6 @@ exports.createRoutes = function(app, db) {
             netid = info.email.split('@')[0];
 
         // save image
-        //console.log(req);
-        //console.log(req.body);
-        //console.log(req.file);
 		var imageData = req.body.upload.replace(/^data:image\/png;base64,/, ''),
             filename = netid + '-' + info.title.replace(/\W/g, '') + '-' + req.params.docNum + '-' + req.params.pageNum + '.png';
 		fs.writeFileSync(
@@ -156,7 +153,6 @@ exports.createRoutes = function(app, db) {
         }
 
         // Check that this snapshot belongs to this user
-        //console.log(req.path);
         var filename = req.path.split("/")[1];
         if(!filename) {
             res.status(404).json({data:{status:404}});

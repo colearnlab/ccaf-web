@@ -181,7 +181,6 @@ Server.prototype.processSync = function(connection, id) {
 Server.prototype.processTransaction = function(connection, transaction) {
   var store = connection.store;
 
-  //console.log("process transaction!");
   //  Precondition 1.
   if (!store || store.id !== transaction.storeId)
     return;
@@ -228,13 +227,11 @@ Server.prototype.processTransaction = function(connection, transaction) {
 
       // Run any stats update hooks
       //var updateObj = JSON.parse(transaction.updates);
-      //console.log(transaction);
       for(var key in transaction.updates) {
           var updateObj = Object.assign({}, transaction.updates[key]);
           if('meta' in updateObj) {
               updateObj.meta = JSON.parse(updateObj.meta);
               updateObj.data = JSON.parse(updateObj.data);
-              console.log(updateObj);
               this.stats.sessionStats[updateObj.meta.s].processUpdate(updateObj, currentTime);
           }
       }

@@ -87,7 +87,6 @@ exports.createRoutes = function(app, db) {
                 + "WHERE activity_page_mapping.activityId=:id;",
                 {":id": activityId},
                 function(row) {
-                    //console.log(row);
                     data.pages[row.pageNumber] = {
                         owner: row.owner,
                         id: row.id,
@@ -143,7 +142,6 @@ exports.createRoutes = function(app, db) {
             // Insert correct page mappings
             for(var i = 0, len = pages.length; i < len; i++) {
                 var pagei = pages[i];
-                //console.log(pagei.metadata, typeof pagei.metadata);
                 db.run("UPDATE activity_pages SET owner=:owner, originalFilename=:originalFilename, timeUploaded=:timeUploaded, filename=:filename, numPages=:numPages, metadata=:metadata WHERE id=:id;", {
                     ":owner": pagei.owner,
                     ":originalFilename": pagei.originalFilename,

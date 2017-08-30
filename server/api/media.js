@@ -12,8 +12,6 @@ exports.createRoutes = function(app, db) {
         }
       try {
 
-        console.log(req.user);
-        console.log(req.file);
         // TODO eliminate media table in favor of activity_pages?
       db.run("PRAGMA foreign_keys = ON");
       db.run("INSERT INTO media VALUES(:owner, :filename, :mime, :metadata)", {

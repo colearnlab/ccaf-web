@@ -16,7 +16,6 @@ if (!fs.existsSync(dbPath))
 //  Load the database and save it every sixty seconds (in case of a bad exit).
 var db = new sql.Database(fs.readFileSync(dbPath));
 setInterval(function() {
-  console.log("database written to disk!!");
   fs.writeFileSync(dbPath, new Buffer(db.export()));
 }, 60000);
 
