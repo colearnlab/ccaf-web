@@ -565,14 +565,17 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       ctrl.pageNumbers()[args.user] = 0;
       ctrl.setPage(0);
 
-      var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
-      userGroup.users().then(function(userGroupList) {
-          //console.log(userGroupList);
-          for(var i = 0, len = userGroupList.length; i < len; i++) {
-              if(ctrl.user == userGroupList[i].id)
-                  ctrl.setColor(userColors.userColors[i]);
-          }
-      });
+      var updateOwnColor = function() {
+          var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
+          userGroup.users().then(function(userGroupList) {
+              //console.log(userGroupList);
+              for(var i = 0, len = userGroupList.length; i < len; i++) {
+                  if(ctrl.user == userGroupList[i].id)
+                      ctrl.setColor(userColors.userColors[i]);
+              }
+          });
+      };
+      updateOwnColor();
 
       //////////////////////////////////
       args.connection.userList.addObserver(function(users) {
@@ -587,6 +590,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             ctrl.pageNumbers()[user.id] = oldPageNumbers[user.id] || 0;
             ctrl.scrollPositions[user.id] = oldScrollPositions[user.id] || {};
         });
+
+          updateOwnColor();
+
         m.redraw(true);
       });
 
