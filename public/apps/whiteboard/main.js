@@ -576,14 +576,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
       //////////////////////////////////
       args.connection.userList.addObserver(function(users) {
-          // TODO on user list change, set page/scroll/color!
         ctrl.userList(users);
-          // TODO get correct position!
-        // Update users' page positions
-          //console.log("user list update");
+
+        // The user list has changed -- update page numbers, scroll positions, and colors.
+        var oldPageNumbers = ctrl.pageNumbers(),
+            oldScrollPositions = ctrl.scrollPositions;
+        ctrl.pageNumbers({});
+        ctrl.scrollPositions = {};
         ctrl.userList().map(function(user) {
-            //if(!(user.id in ctrl.pageNumbers()))
-                //ctrl.pageNumbers()[user.id] = 0;
+            ctrl.pageNumbers()[user.id] = oldPageNumbers[user.id] || 0;
+            ctrl.scrollPositions[user.id] = oldScrollPositions[user.id] || {};
         });
         m.redraw(true);
       });
