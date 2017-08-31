@@ -11,7 +11,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
       ClassroomSession = models.ClassroomSession,
-      Group = models.Group;
+      Group = models.Group,
+      User = models.User;
   var getUserColor = userColors.getColor;
   var array;
  
@@ -79,7 +80,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       connection: connection,
         group: params.group,
         groupTitle: params.groupObject.title,
-        appReturn: appReturn
+        appReturn: appReturn,
+        exitCallback: params.exitCallback
     }));
 
     connection.addObserver(function(store) {
@@ -147,6 +149,20 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
         nextObjectUpdateIdx: 0,
         pageCount: m.prop(0),
+
+        me: m.prop(null),
+        exitCallback: function() {
+            if(ctrl.snapshotInterval) {
+                clearInterval(ctrl.snapshotInterval);
+            }
+
+            // If we're a student, save pages before quitting, otherwise just quit
+            var myType = ctrl.me().type;
+            if((myType == 2) || (myType == 'student') || (myType == 'Student'))
+                ctrl.saveSnapshots(args.exitCallback);
+            else
+                args.exitCallback();
+        },
 
         // make a canvas ID string from document and page numbers
         getCanvasId: function(docIdx, pageNum) {
@@ -561,6 +577,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
       };
 
+      // Make our exit callback visible to whatever loaded the whiteboard app so
+      // that it can be made to quit from the outside
+      exports.exitCallback = ctrl.exitCallback;
+
       // set page and update group
       ctrl.pageNumbers()[args.user] = 0;
       ctrl.setPage(0);
@@ -570,6 +590,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           userGroup.users().then(function(userGroupList) {
               //console.log(userGroupList);
               for(var i = 0, len = userGroupList.length; i < len; i++) {
+                  // TODO set all user colors and don't send log event!
                   if(ctrl.user == userGroupList[i].id)
                       ctrl.setColor(userColors.userColors[i]);
               }
@@ -779,8 +800,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             }
         }
         
-        // Save pages as images on exit
-        args.appReturn.exitCallback = function(callback) {
+        // Save pages as images
+        ctrl.saveSnapshots = function(callback) {
             var pagesLeft = ctrl.pageCount();
             if(ctrl.docs()) {
                 for(var _docNum in ctrl.docs()) {
@@ -849,10 +870,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 }
             } 
         };
-        exports.exitCallback = args.appReturn.exitCallback;
+      
+      // Load own user data
+      User.me().then(ctrl.me).then(function() {  
+          // run snapshot saving every five minutes (students only)
+          var myType = ctrl.me().type;
+          if((myType == 2) || (myType == 'student') || (myType == 'Student'))
+              ctrl.snapshotInterval = setInterval(ctrl.saveSnapshots, 5 * 60 * 1000);
+      });
 
-        // run snapshot saving every five minutes
-        ctrl.snapshotInterval = setInterval(exports.exitCallback, 5 * 60 * 1000);
+
 
       return ctrl;
     },

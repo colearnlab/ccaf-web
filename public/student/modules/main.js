@@ -5,7 +5,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
   var Classroom = models.Classroom;
   var ClassroomSession = models.ClassroomSession;
   //var wsAddress = 'wss://' + window.location.host + "/ws";
-  var wsAddress = 'wss://' + window.location.host + "/ws";
+  var wsAddress = 'ws://' + window.location.host + "/ws";
   var Activity = models.Activity;
   var ActivityPage = models.ActivityPage;
   var appPath = "whiteboard";
@@ -96,17 +96,11 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                       ClassroomSession.get(sessionId).then(function(updatedActiveSession) {
                         if (updatedActiveSession.endTime !== null) {
                           clearInterval(args.interval);
-                            
 
                           console.log(wbApp);
                           // Run the whiteboard app's exit callback
                           if(wbApp.exitCallback) {
-                              wbApp.exitCallback(function(snapshotInterval) {
-                                  // After the whiteboard app cleans up, return to our main menu
-                                  m.mount(document.body, Main);
-                                  if(snapshotInterval)
-                                      clearInterval(snapshotInterval);
-                              });
+                              wbApp.exitCallback();
                           }
                         }
                       });
@@ -196,12 +190,15 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
             connection.sync(storeId);
             var appReturn = {};
             app.load(connection, document.body, {
-              //pdf: "/media/" + metadata.pdf.filename,
               user: me,
               group: group.id,
               groupObject: group,
               session: session,
-              appReturn: appReturn
+              appReturn: appReturn,
+              exitCallback: function() {
+                // After the whiteboard app cleans up, return to our main menu
+                m.mount(document.body, Main);
+              }
             });
             
             wbApp = app;
