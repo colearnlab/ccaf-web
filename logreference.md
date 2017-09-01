@@ -1,6 +1,6 @@
 ### Format
 
-Each session log file records a single group's activity during one session and
+Each log file records a single group's activity during one session and
 is kept in the `stores` directory. A line in a log file represents one log entry and
 has two parts: a timestamp (`"time"`, milliseconds since the Unix epoch) and event-specific data (`"updates"`).
 
@@ -11,7 +11,7 @@ Log files are currently gzip-compressed but future versions of the software will
 -   The `"_id"` attribute is used internally to keep track of different versions of a property.
 -   Some entries will include 
     a `"data"` section and a `"meta"` section. The `"meta"` information is for internal use and may include the
-    user's ID (`"u"`), group ID (`"g"`), and the session ID (`"s"`). 
+    user's ID (`"u"`), group ID (`"g"`), and the session ID (`"s"`). A `"type"` field may be present with a message to do with what sort of action (e.g. clicking the undo button to restore a deleted object).
 
 
 # Events recorded in log files
@@ -22,6 +22,8 @@ Key: `setPage`
 
 Data: `{<userId>: <document (tab) index>}`
 
+Recorded when a user changes pages by clicking a page-change button in the top left.
+
 
 ### Scrolling position change
 
@@ -31,7 +33,7 @@ Data: `{pos: <scroll position in [0, 1]>}`
 
 Reports a user's scrolling position (zero is the topmost position, one is the 
 bottommost) on the given page. In the future this may include information about
-what region of the document are actually visible to the user.
+what region of the document is actually visible to the user.
 
 
 ### Drawing object update
@@ -40,7 +42,7 @@ Key: `objects.<UUID>`
 
 Data `{data: <object data>, meta: <metadata>}`
 
-When an object (universally identified by `<UUID>`) is added/drawn or modified,
+When an object (identified by `<UUID>`) is added/drawn or modified,
 this update reports some or all of the object's properties, or just
 `name: "remove"` for deleting the object.
 
@@ -49,10 +51,10 @@ this update reports some or all of the object's properties, or just
 
 Key: `tool.<userId>`
 
-Data: `{tool: <toolId>}`
+Data: `{tool: <toolId (0 for pen, 2 for eraser, 3 for select)>}`
 
 This event is logged whenever a user changes tools by clicking a tool icon. 
-`toolId` has the following 
+
 
 ### Accelerometer data change
 
