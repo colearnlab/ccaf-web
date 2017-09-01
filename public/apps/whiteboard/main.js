@@ -156,7 +156,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         pageCount: m.prop(0),
 
         me: m.prop(null),
-        exitCallback: function() {
+        exitCallback: function(appCallback) {
             if(ctrl.snapshotInterval) {
                 clearInterval(ctrl.snapshotInterval);
             }
@@ -164,9 +164,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             // If we're a student, save pages before quitting, otherwise just quit
             var myType = ctrl.me().type;
             if((myType == 2) || (myType == 'student') || (myType == 'Student'))
-                ctrl.saveSnapshots(args.exitCallback);
+                ctrl.saveSnapshots(args.exitCallback.bind(null, appCallback));
             else
-                args.exitCallback();
+                args.exitCallback(appCallback);
         },
 
         // make a canvas ID string from document and page numbers
@@ -1157,8 +1157,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 // Tray contents here!
                 m("button.btn.btn-info.mech-obj-button", {
                         onclick: function() {
-                            args.exitCallback();
-                            location.reload();
+                            if(args.me().type == 2) {
+                                args.exitCallback(function() {
+                                    location.reload();
+                                });
+                            } else {
+                                args.exitCallback();
+                            }
                         }
                     },
                             args.me() ?

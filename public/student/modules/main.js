@@ -195,7 +195,10 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
               groupObject: group,
               session: session,
               appReturn: appReturn,
-              exitCallback: function() {
+              exitCallback: function(appCallback) {
+                if(appCallback)
+                      appCallback();
+
                 // After the whiteboard app cleans up, return to our main menu
                 m.mount(document.body, Main);
               }

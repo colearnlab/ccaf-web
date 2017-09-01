@@ -410,9 +410,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                             session: session,
                                             appReturn: appReturn,
 
-                                            exitCallback: function() {
+                                            exitCallback: function(callback) {
                                                 // Remove self from group and then return to datavis
-                                                args.me().removeGroup(group).then(function() {
+                                                args.me().removeGroup(group).then(function(appCallback) {
+                                                    if(appCallback)
+                                                        appCallback();
                                                     m.mount(document.body, exports.DataVis);
                                                 });
                                             }
