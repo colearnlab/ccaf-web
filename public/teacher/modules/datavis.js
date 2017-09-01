@@ -95,7 +95,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                             }
                         }
                         ctrl.groupHistoryMax(maxPoint);
-                    }).then(m.redraw);  
+                    }).then(m.redraw);
+
+                    // Also refresh studentsByGroup
+                    ctrl.groups().map(function(group) {
+                        group.users().then(function(students) {
+                            ctrl.studentsByGroup()[group.id] = students;
+                            for(var i = 0, len = students.length; i < len; i++)
+                                ctrl.userColors[students[i].id] = userColors.userColors[i];
+
+                            m.redraw();
+                        });
+                    });
                 }
             };
 
