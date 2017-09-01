@@ -877,6 +877,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           var myType = ctrl.me().type;
           if((myType == 2) || (myType == 'student') || (myType == 'Student'))
               ctrl.snapshotInterval = setInterval(ctrl.saveSnapshots, 5 * 60 * 1000);
+      
+          m.redraw();
       });
 
 
@@ -1151,7 +1153,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 }
             ),
             m("div#options-tray", {
-                    style: "left: -5vw; width: 10vw; text-align: center", 
+                    style: "right: -1vw; position: absolute; text-align: center", 
                     class: ctrl.open() ? "tray-open" : "tray-closed"
                 },
 
@@ -1161,7 +1163,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             location.reload();
                         }
                     },
-                    "Reload"
+                            args.me() ?
+                                (args.me().type == 1) ?
+                                    "Return to classroom view"
+                                : "Reload"
+                            : "Reload"
                 )
             )
         );
