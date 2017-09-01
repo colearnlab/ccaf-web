@@ -21,7 +21,8 @@ var apiAccessPermissions = {
             documents: true,
             users: true,
             visualize: true,
-            snapshots: true
+            snapshots: true,
+            getStoreId: true
         },
         PUT: {
             activity: true,
@@ -94,7 +95,7 @@ exports.accessAllowed = function(req, apiPath) {
         }
     }
 
-    console.log(userTypes[req.user.type] + " attempted forbidden " + req.method + " request on \"" + apiPath + "\"");
+    console.log("" + req.user.email + " (" + userTypes[req.user.type] + ") attempted forbidden " + req.method + " request on \"" + apiPath + "\"");
     return false;
 };
 
