@@ -1,10 +1,13 @@
-define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","userColors"], function(exports, pdfjs, m, models, css, userColors) {
+define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","userColors", "synchronizedStateClient"], function(exports, pdfjs, m, models, css, userColors, synchronizedStateClient) {
     var PDFJS = pdfjs.PDFJS,
         getUserColor = userColors.getColor,
 
         Classroom = models.Classroom,
         Activity = models.Activity,
-        ClassroomSession = models.ClassroomSession;
+        ClassroomSession = models.ClassroomSession,
+        User = models.User;
+    //var wsAddress = 'wss://' + window.location.host + "/ws";
+    var wsAddress = 'ws://' + window.location.host + "/ws";
 
     PDFJS.disableWorker = true; 
 
@@ -54,6 +57,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                 sessionId: m.prop(m.route.param("sessionId")),
                 
                 session: m.prop(null),
+                me: m.prop(null),
                 groups: m.prop([]),
                 studentsByGroup: m.prop({}),
                 userColors: {},
@@ -149,6 +153,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                 }); // Activity.get
             }); // ClassroomSession.get
 
+            // Load own user info
+            User.me().then(ctrl.me);
+
             // Start repeatedly updating summary data
             ctrl.refreshData();
             ctrl.refreshInterval = setInterval(ctrl.refreshData, 10000);
@@ -174,6 +181,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
             return m("div", {
                 // config here?
                 },
+                m.component(GroupOptionsBar, ctrl),
                 m("div.graph-view",
                     m("div.linechart-y-label", "Class Activity"),
                     m("svg.linechart", {
@@ -363,6 +371,88 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
             );
         } // view
+    };
+
+    var GroupOptionsBar = {
+        controller: function(args) {
+            return {
+                launchWhiteboardApp: function(group) {
+                    // Add self to group and launch whiteboard
+                    args.me().addGroup(group).then(function() {
+                        m.mount(document.body, null);
+                        
+                        var session = args.session(),
+                            me = args.me();
+                        var metadata = (session.metadata ? JSON.parse(session.metadata) : {});
+                        
+                        session.getStoreId(group.id, me.id).then(function(storeId) {
+                            group.users().then(function(userList) {
+
+                                require(["/apps/" + metadata.app + "/main.js"], function(app) {
+                                    var connection = synchronizedStateClient.connect(wsAddress, function() {
+                                        connection.sync(storeId);
+                                        var appReturn = {};
+                                        app.load(connection, document.body, {
+                                            user: me,
+                                            group: group.id,
+                                            groupObject: group,
+                                            session: session,
+                                            appReturn: appReturn,
+
+                                            exitCallback: function() {
+                                                // Remove self from group and then return to datavis
+                                                args.me().removeGroup(group).then(function() {
+                                                    m.mount(document.body, exports.DataVis);
+                                                });
+                                            }
+                                        }); // app.load
+                
+                                    }); // connect
+                                });
+
+                            }); // group.users
+
+                        }); // getStoreId
+                    });
+                } // launchWhiteboardApp
+            };
+        },
+        view: function(ctrl, args) {
+            var selectedGroup = args.groups()[args.selectedGroupNumber()] || null;
+            if(selectedGroup) {
+                return m("div.group-options-bar",
+                    selectedGroup.title,
+                    m("div.group-options-buttons",
+                        m("button.btn.btn-default.button1", {
+                                onclick: function() {
+                                    console.log("launching whiteboard app");
+                                    ctrl.launchWhiteboardApp(selectedGroup);
+                                }
+                            },
+                            "Join shared document"
+                        ),
+                        m("button.btn.btn-default.button1", {
+                                onclick: function() {
+                                    // Go to group editor with current group selected
+                                    console.log("clicked");
+                                    exports.DataVis.exitCallback();
+                                    var qs = m.route.buildQueryString({
+                                        selected: selectedGroup.id
+                                    });
+                                    m.route("/session/" + args.sessionId() + "?" + qs);
+                                }
+                            },
+                            "Show group in roster"
+                        )
+                        // others here?
+                        // show group members
+                        // edit roster
+                    )
+                );
+            } else {
+                return m("div", "");
+            }
+        }
     };
 
 });
