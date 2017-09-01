@@ -100,6 +100,13 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                           console.log(wbApp);
                           // Run the whiteboard app's exit callback
                           if(wbApp.exitCallback) {
+                              if(wbApp.logOnly) {
+                                  wbApp.logOnly("membershipChange", 
+                                      Object.assign({}, args.me(), {
+                                          action: "leave app (session ended)"
+                                      })
+                                  );
+                              }
                               wbApp.exitCallback();
                           }
                         }
@@ -109,7 +116,16 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                         var groupClassrooms = groups.map(function(group) { return group.classroom; });
                         var groupIdx = groupClassrooms.indexOf(classroomId);
 
+
                         if (groups[groupIdx].id !== groupId) {
+                            console.log("group change; reload app");
+                              if(wbApp.logOnly) {
+                                  wbApp.logOnly("membershipChange", 
+                                      Object.assign({}, args.me(), {
+                                          action: "reload app (changed groups)"
+                                      })
+                                  );
+                              }
                           groupId = groups[groupIdx].id;
                           loadSession(me, {session: activeSession.session, group: groups[groupIdx]});
                         }

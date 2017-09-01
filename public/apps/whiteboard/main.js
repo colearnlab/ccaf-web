@@ -70,6 +70,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
   exports.load = function(connection, el, params) {
     array = connection.array;
+    exports.logOnly = connection.logOnly;
     connection.errorCallback = errorPrompt;
     css.load("/apps/whiteboard/styles.css");
     var appReturn = {};
@@ -84,6 +85,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         exitCallback: params.exitCallback
     }));
 
+    ///////////////
+    // TODO remove this
     connection.addObserver(function(store) {
       if (store.scrollPositions) {
         ctrl.scrollPositions = store.scrollPositions || {};
@@ -91,8 +94,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       //ctrl.remotePages(store.pages || {});
       requestAnimationFrame(m.redraw);
     });
+    ///////////////
 
     window.addEventListener("resize", m.redraw.bind(null, true));
+
+    document.addEventListener("visibilityChange", function() {
+        var data = {};
+        data[params.user.id] = document.visibilityState;
+        connection.logOnly("appVisible", data);
+    });
 
     // Return a callback to save screenshots for students
     return appReturn;
@@ -107,15 +117,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     controller: function(args) {
       var ctrl = {
         userColor: function(userId) {
-            /*
-            return (args.connection ?
-                args.connection.store ?
-                  args.connection.store.userColors ?
-                      args.connection.store.userColors[userId]
-                    : '#888888'
-                  : '#888888'
-                : '#888888');
-            */
             return ctrl.userColors()[userId] || '#888888';
         },
         allowUndo: m.prop({}),
@@ -874,6 +875,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           var myType = ctrl.me().type;
           if((myType == 2) || (myType == 'student') || (myType == 'Student'))
               ctrl.snapshotInterval = setInterval(ctrl.saveSnapshots, 5 * 60 * 1000);
+
+          // Log that we've joined the group
+          args.connection.logOnly("membershipChange", 
+              Object.assign({}, ctrl.me(), {action: "load app"})
+          );
       
           m.redraw();
       });
@@ -1157,6 +1163,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 // Tray contents here!
                 m("button.btn.btn-info.mech-obj-button", {
                         onclick: function() {
+                            // Log that we've joined the group
+                            args.connection.logOnly("membershipChange", 
+                                Object.assign({}, ctrl.me(), {action: "leave app (clicked reload/exit button)"})
+                            );
+                            
                             if(args.me().type == 2) {
                                 args.exitCallback(function() {
                                     location.reload();
