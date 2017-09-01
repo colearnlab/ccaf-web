@@ -23,9 +23,10 @@ exports.createRoutes = function(app, db) {
         }
 
         var snapshotRows = [];
-        db.each("SELECT snapshots.id AS snapshotId, classroom_sessions.id AS sessionId, title, docNum, pageNum, filename, userId, startTime, endTime "
+        db.each("SELECT DISTINCT classroom_sessions.id AS sessionId, title, docNum, pageNum, filename, userId, startTime, endTime "
                 + "FROM snapshots INNER JOIN classroom_sessions ON snapshots.sessionId=classroom_sessions.id "
-                + "WHERE userId=:userId;", {
+                + "WHERE userId=:userId "
+                + "ORDER BY snapshots.id ASC;", {
                 ":userId": req.params.userId
             }, 
             snapshotRows.push.bind(snapshotRows)
