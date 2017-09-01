@@ -192,12 +192,15 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
   var GroupComponent = {
     controller: function(args) {
       return {
-        users: args.group.currentUsers
+        users: args.group.currentUsers,
+        selected: m.route.param("selected") == args.group.id
       };
     },
     view: function(ctrl, args) {
       return m(".group.bg-color-white",
-        m(".main-menu-header.primary-color-green",
+        m(".main-menu-header.primary-color-green", {
+            style: ctrl.selected ? "color: white; background-color: black !important" : ""
+          },
           args.group.title,
           m("span.glyphicon.glyphicon-remove.pull-right.delete-group", {
             style: (args.sidebarState() === "close" ? "display: none" : ""),
