@@ -116,7 +116,11 @@ Server.prototype.processLogOnly = function(connection, message) {
     var store = connection.store;
     if(!store || (store.id != message.storeId))
         return;
-    
+
+    if(message.update.meta) {
+        this.stats.sessionStats[message.update.meta.s].processUpdate(message.update, message.clientTime);
+    }
+
     // Write log
     store.writeUpdateToLog(message.update);
 };
