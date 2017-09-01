@@ -13,12 +13,14 @@ The following information is reported in the log files:
 ## User's current page (tab) number
 
 Key: `setPage`
-Data: `user ID -> page index`
+
+Data: `{<userId>: <document (tab) index>}`
 
 
 ## User's scrolling position
 
 Key: `scrollPositions.<userId>.<pageIndex>`
+
 Data: `{pos: <scroll position in [0, 1]>}`
 
 Reports a user's scrolling position (zero is the topmost position, one is the 
@@ -29,6 +31,7 @@ what region of the document are actually visible to the user.
 ## Drawing object update
 
 Key: `objects.<UUID>`
+
 Data `{data: <object data>, meta: <metadata>}`
 
 When an object (universally identified by `<UUID>`) is added/drawn or modified,
@@ -39,6 +42,7 @@ this update reports some or all of the object's properties, or just
 ## Tool change
 
 Key: `tool.<userId>`
+
 Data: `{tool: <toolId>}`
 
 This event is logged whenever a user changes tools by clicking a tool icon. 
@@ -47,15 +51,18 @@ This event is logged whenever a user changes tools by clicking a tool icon.
 ## Accelerometer data
 
 Key: `accel.<userId>`
-Data:
-    {
-        x: <x>,
-        y: <y>,
-        z: <z>,
-        a: <alpha>,
-        b: <beta>,
-        g: <gamma>
-    }
+
+Data: 
+```
+{
+    x: <x>,
+    y: <y>,
+    z: <z>,
+    a: <alpha>,
+    b: <beta>,
+    g: <gamma>
+}
+```
 
 The browser reports six values to do with the device's motion -- `x`, `y` and
 `z` give acceleration along three axis in m/s^2, and `a`, `b` and `g` report
@@ -67,6 +74,7 @@ or more values changes.
 ## Pen color
 
 Key: `penColor.<userId>`
+
 Data: `{color: <color string>}`
 
 Reports an update to a user's pen drawing color as an HTML color string.
@@ -75,17 +83,20 @@ Reports an update to a user's pen drawing color as an HTML color string.
 ## Selection box
 
 Key: `selectionBox.<userId>`
+
 Data:
-    {
-        visible: <boolean flag>,
-        doc: <document (tab) index>,
-        page: <index of page within document (tab)>,
-        left: <x position of selection box (left edge)>,
-        top: <y position (top edge)>,
-        width: <width>,
-        height: <height>,
-        contents: <list of object UUIDs>
-    }
+```
+{
+    visible: <boolean flag>,
+    doc: <document (tab) index>,
+    page: <index of page within document (tab)>,
+    left: <x position of selection box (left edge)>,
+    top: <y position (top edge)>,
+    width: <width>,
+    height: <height>,
+    contents: <list of object UUIDs>
+}
+```
 
 This event occurs when a user finishes selecting one or more objects, or when
 the selection is cleared (in which case the only field present might be
@@ -97,14 +108,17 @@ coordinates, and a list of UUIDs for the objects in the selection.
 ## Group membership change
 
 Key: `membershipChange`
-Data: 
-    {
-        id: <user ID>
-        name: <user name>
-        email: <user email>
-        type: <user type (0 for admin, 1 for teacher, 2 for student)>
-        action: <brief message about what happened>
-    }
+
+Data:
+```
+{
+    id: <user ID>
+    name: <user name>
+    email: <user email>
+    type: <user type (0 for admin, 1 for teacher, 2 for student)>
+    action: <brief message about what happened>
+}
+```
 
 This event is logged each time a user loads the app, unloads by clicking the 
 "Reload" or "Exit" button, or is moved into or out of a group.
@@ -113,6 +127,7 @@ This event is logged each time a user loads the app, unloads by clicking the
 ## App visibility
 
 Key: `appVisible`
+
 Data: `{<userId>: <boolean flag, true if app is visible>}`
 
 This should be logged any time the app is minimized, restored, or if the window
