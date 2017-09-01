@@ -421,7 +421,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
             var selectedGroup = args.groups()[args.selectedGroupNumber()] || null;
             if(selectedGroup) {
                 return m("div.group-options-bar",
-                    selectedGroup.title,
+                    m("div", {style: "display: inline-block; width: 7vw"}, selectedGroup.title),
                     m("div.group-options-buttons",
                         m("button.btn.btn-default.button1", {
                                 onclick: function() {

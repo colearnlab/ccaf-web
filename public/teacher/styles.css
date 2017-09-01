@@ -248,7 +248,7 @@ div.group-options-bar {
 .group-options-buttons {
     position: relative;
     display: inline-block;
-    left: 10%;
+    left: 5vw;
 }
 
 .group-options-button {  
