@@ -1157,12 +1157,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 // Tray contents here!
                 m("button.btn.btn-info.mech-obj-button", {
                         onclick: function() {
+                            args.exitCallback();
                             location.reload();
                         }
                     },
                             args.me() ?
                                 (args.me().type == 1) ?
-                                    "Return to classroom view"
+                                    "Exit"
                                 : "Reload"
                             : "Reload"
                 )
