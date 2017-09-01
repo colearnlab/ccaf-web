@@ -107,6 +107,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     controller: function(args) {
       var ctrl = {
         userColor: function(userId) {
+            /*
             return (args.connection ?
                 args.connection.store ?
                   args.connection.store.userColors ?
@@ -114,6 +115,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     : '#888888'
                   : '#888888'
                 : '#888888');
+            */
+            return ctrl.userColors()[userId] || '#888888';
         },
         allowUndo: m.prop({}),
         lastToModify: {},
@@ -140,7 +143,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         docs: m.prop({}),
         firstLoad: true,
         user: args.user,
-        myColor: m.prop('#888888'),
+        myColor: function() {
+            return ctrl.userColor(args.user);
+        },
         lastDrawn: m.prop({}),
 
         groupUsers: [],        
@@ -260,14 +265,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         setPenColor: function(penColorIdx) {
             args.connection.transaction([["penColor", args.user]], function(color) {
                 color.color = penColors[ctrl.penColorIdx(penColorIdx)];
-            });
-        },
-
-        setColor: function(color) {
-            args.connection.transaction([["userColors"]], function(colors) {
-                colors[ctrl.user] = color;
-                //console.log("set color " + color);
-                ctrl.myColor(color);
             });
         },
 
@@ -573,7 +570,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   // object does not exist so create (no transaction)
                   ctrl.addObject(updateObj, canvas, true, false);
               }
-          }
+          },
+
+          userColors: m.prop({})
 
       };
 
@@ -585,18 +584,16 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       ctrl.pageNumbers()[args.user] = 0;
       ctrl.setPage(0);
 
-      var updateOwnColor = function() {
+      var updateColors = function() {
           var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
           userGroup.users().then(function(userGroupList) {
-              //console.log(userGroupList);
+              ctrl.userColors({});
               for(var i = 0, len = userGroupList.length; i < len; i++) {
-                  // TODO set all user colors and don't send log event!
-                  if(ctrl.user == userGroupList[i].id)
-                      ctrl.setColor(userColors.userColors[i]);
+                  ctrl.userColors()[userGroupList[i].id] = userColors.userColors[i];
               }
           });
       };
-      updateOwnColor();
+      updateColors();
 
       //////////////////////////////////
       args.connection.userList.addObserver(function(users) {
@@ -612,7 +609,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             ctrl.scrollPositions[user.id] = oldScrollPositions[user.id] || {};
         });
 
-          updateOwnColor();
+        updateColors();
 
         m.redraw(true);
       });
@@ -1492,13 +1489,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                           getScroll: args.getScroll,
                           user: user,
                           dragging: ctrl.dragging,
-                          color: args.connection ?
-                              args.connection.store ?
-                                args.connection.store.userColors ?
-                                    args.connection.store.userColors[user.id]
-                                  : '#888888'
-                                : '#888888'
-                              : '#888888',
+                          color: args.userColor(user.id),
                           userList: args.userList,
                           pointerEvents: args.user === user.id,
                           scrollbarHeight: ctrl.scrollbarHeight,
