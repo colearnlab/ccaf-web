@@ -70,7 +70,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
   exports.load = function(connection, el, params) {
     array = connection.array;
-    exports.logOnly = connection.logOnly;
+    exports.logOnly = connection.logOnly.bind(connection);
     connection.errorCallback = errorPrompt;
     css.load("/apps/whiteboard/styles.css");
     var appReturn = {};
@@ -810,8 +810,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         (function(doc, contents, docNum, pageNum) {
                             var origCanvas = doc[pageNum];
                             var tempFabricCanvas = new fabric.StaticCanvas();
-                            tempFabricCanvas.setWidth(origCanvas.width);
-                            tempFabricCanvas.setHeight(origCanvas.height);
+                            tempFabricCanvas.setWidth(origCanvas.width || virtualPageWidth);
+                            tempFabricCanvas.setHeight(origCanvas.height || virtualPageHeight);
                             tempFabricCanvas.objsByUUID = {}; // leave this
                             tempFabricCanvas.prevObjectState = {};
                             var canvContents = contents[pageNum];
@@ -847,20 +847,23 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         serialize: function(a) { return a; }
                                     }).then(function() {
                                         pagesLeft--;
-                                        if((pagesLeft <= 0) && callback)
-                                            callback(ctrl.snapshotInterval); // run final callback
+										//console.log(pagesLeft);
+                                        if((pagesLeft <= 0) && callback) {
+											//console.log("finished saving pages " + callback);
+                                            callback(); // run final callback
+										}
                                     });
                                     
                                 };
                                 drawingImage.onerror = function() {
                                     console.error("Failed to load drawings while saving snapshot");
-                                    pageCount--;
+                                    pagesLeft--;
                                 };
                                 drawingImage.src = tempFabricCanvas.toDataURL();
                             };
                             pdfImage.onerror = function() {
                                 console.error("Failed to load PDF image while saving snapshot");
-                                pageCount--;
+                                pagesLeft--;
                             }
                             pdfImage.src = ctrl.docs()[docNum].page[pageNum];
                         })(_doc, _contents, _docNum, _pageNum);
@@ -1165,13 +1168,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         onclick: function() {
                             // Log that we've joined the group
                             args.connection.logOnly("membershipChange", 
-                                Object.assign({}, ctrl.me(), {action: "leave app (clicked reload/exit button)"})
+                                Object.assign({}, args.me(), {action: "leave app (clicked reload/exit button)"})
                             );
                             
                             if(args.me().type == 2) {
-                                args.exitCallback(function() {
+                                //args.exitCallback(function() {
+								//	console.log("Reload");
                                     location.reload();
-                                });
+                                //});
                             } else {
                                 args.exitCallback();
                             }

@@ -6,8 +6,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
         Activity = models.Activity,
         ClassroomSession = models.ClassroomSession,
         User = models.User;
-    //var wsAddress = 'wss://' + window.location.host + "/ws";
-    var wsAddress = 'ws://' + window.location.host + "/ws";
+    var wsAddress = 'wss://' + window.location.host + "/ws";
+    //var wsAddress = 'ws://' + window.location.host + "/ws";
 
     PDFJS.disableWorker = true; 
 
@@ -410,12 +410,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                             session: session,
                                             appReturn: appReturn,
 
-                                            exitCallback: function(callback) {
+                                            exitCallback: function(appCallback) {
                                                 // Remove self from group and then return to datavis
-                                                args.me().removeGroup(group).then(function(appCallback) {
-                                                    if(appCallback)
-                                                        appCallback();
-                                                    m.mount(document.body, exports.DataVis);
+                                                args.me().removeGroup(group).then(function() {
+                                                    if(appCallback) {
+                                                        appCallback(function() {
+                                                            //m.mount(document.body, exports.DataVis);
+                                                            location.reload();
+                                                        });
+                                                    } else {
+                                                        //m.mount(document.body, exports.DataVis);
+                                                        location.reload();
+                                                    }
                                                 });
                                             }
                                         }); // app.load
@@ -442,7 +448,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                     ctrl.launchWhiteboardApp(selectedGroup);
                                 }
                             },
-                            "Join shared document"
+                            "View document"
                         ),
                         m("button.btn.btn-default.button1", {
                                 onclick: function() {
@@ -455,7 +461,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                     m.route("/session/" + args.sessionId() + "?" + qs);
                                 }
                             },
-                            "Show group in roster"
+                            "Edit group"
                         )
                         // others here?
                         // show group members
