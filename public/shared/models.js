@@ -125,6 +125,10 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
     return m.request({
       method: "DELETE",
       url: apiPrefix + "users/" + this.id + "/groups/" + groupId
+    }).then(function(data) {
+        return data;
+    }, function(data) {
+        return data
     });
   };
 

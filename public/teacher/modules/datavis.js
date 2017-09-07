@@ -411,17 +411,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                             appReturn: appReturn,
 
                                             exitCallback: function(appCallback) {
-                                                // Remove self from group and then return to datavis
-                                                args.me().removeGroup(group).then(function() {
-                                                    if(appCallback) {
-                                                        appCallback(function() {
+                                                // Remove self from first group (dirty, but shouldn't be in more than one group)
+                                                args.me().groups().then(function(groups) {
+                                                    var group = groups[0];
+
+                                                    // Remove self from group and then return to datavis
+                                                    args.me().removeGroup(group).then(function() {
+                                                        if(appCallback) {
+                                                            appCallback(function() {
+                                                                //m.mount(document.body, exports.DataVis);
+                                                                location.reload();
+                                                            });
+                                                        } else {
                                                             //m.mount(document.body, exports.DataVis);
                                                             location.reload();
-                                                        });
-                                                    } else {
-                                                        //m.mount(document.body, exports.DataVis);
-                                                        location.reload();
-                                                    }
+                                                        }
+                                                    });
                                                 });
                                             }
                                         }); // app.load
