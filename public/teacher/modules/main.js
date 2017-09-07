@@ -44,10 +44,14 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             sessions: false,
             activities: false,
             classrooms: false
+        },
+        onunload: function() {
+            clearInterval(ctrl.refreshInterval);
         }
       };
 
       ctrl.refreshData();
+      ctrl.refreshInterval = setInterval(ctrl.refreshData, 10000);
 
       return ctrl;
     },
@@ -196,10 +200,14 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 }));
                 m.redraw();
             });
+        },
+        onunload: function() {
+            clearInterval(ctrl.refreshInterval);
         }
       };
 
         ctrl.refresh();
+        ctrl.refreshInterval = setInterval(ctrl.refresh, 10000);
 
         return ctrl;
     },
