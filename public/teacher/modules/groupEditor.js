@@ -56,6 +56,14 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
         }
       };
       ctrl.triggerReload();
+
+      // Refresh data every ten seconds
+      ctrl.reloadInterval = setInterval(ctrl.triggerReload, 10000);
+      exports.groupEditor.exitCallback = function() {
+          clearInterval(ctrl.reloadInterval);
+      };
+
+
       firstLoad = false;
       return ctrl;
     },
