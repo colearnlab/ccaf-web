@@ -51,6 +51,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
        '#00ffff' // teal
    ];
 
+   var realViewHeight = 1;
+
    var errmsg = null, errobj = null;
    var errorPrompt = function(msg, obj) {
         errmsg = msg;
@@ -97,6 +99,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     ///////////////
 
     window.addEventListener("resize", m.redraw.bind(null, true));
+    window.addEventListener("resize", function(e) {
+        realViewHeight = document.body.clientHeight;
+    });
 
     document.addEventListener("visibilityChange", function() {
         var data = {};
@@ -245,6 +250,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           //var scrollPositions = ctrl.scrollPositions();
           args.connection.transaction([["scrollPositions", args.user, ctrl.pageNumbers()[args.user]]], function(userScrollPositions) {
             userScrollPositions.pos = pos;
+
+            // Report the part of the page the user can actually see
+            /**/
+            var docHeight = ctrl.docs()[ctrl.pageNumbers()[args.user]].totalRealHeight,
+                innerRange = docHeight - realViewHeight;
+            userScrollPositions.viewTop = pos * innerRange / docHeight;
+            userScrollPositions.viewBottom = (realViewHeight + (pos * innerRange)) / docHeight;
+            /**/
 
             // dumb
             if(!ctrl.scrollPositions) {
@@ -581,10 +594,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       // that it can be made to quit from the outside
       exports.exitCallback = ctrl.exitCallback;
 
-      // set page and update group
-      ctrl.pageNumbers()[args.user] = 0;
-      ctrl.setPage(0);
-
       var updateColors = function() {
           var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
           userGroup.users().then(function(userGroupList) {
@@ -703,6 +712,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
     // Get dimensions for rendering PDF. We don't re-render the PDF when the size 
     // changes since it's expensive.
+    //
+    // TODO remove?
     var pdfWidth = document.body.clientWidth,
         pdfHeight = pdfWidth * 11.0 / 8.5;
 
@@ -710,8 +721,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       ClassroomSession.get(args.session).then(function(session) {
           // Retrieve activity info for the session
           Activity.get(session.activityId).then(ctrl.activity).then(function() {
-              ctrl.activity().pages.map(function(activitypage) {
-
+              ctrl.activity().pages.map(function(activitypage, _i) {
                   // Retrieve document
                   PDFJS.getDocument("/media/" + activitypage.filename).then(function(pdf) {
                     ctrl.numPages()[activitypage.pageNumber] = pdf.numPages;
@@ -720,33 +730,38 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         canvas: {},
                         canvasWidth: {},
                         canvasHeight: {},
-                        canvasAspectRatio: {},
+                        virtualCanvasHeight: {},
+                        totalRealHeight: 0,
                         canvasContents: {},
                         prevObjectState: {},
                         undoStack: []
                     };
+                    
 
                     for(var i = 0, len = pdf.numPages; i < len; i++) {
-                        // Render page
                         (function(pn) {
                             var canvas = document.createElement('canvas');
                             pdf.getPage(pn + 1).then(function(page) {
-
-                                // TODO fix pdf resolution
                                 var viewport = page.getViewport(pdfWidth / page.getViewport(1).width * 1);
                                 canvas.height = viewport.height;
+                                ctrl.docs()[activitypage.pageNumber].totalRealHeight += canvas.height;
+                                ctrl.docs()[activitypage.pageNumber].virtualCanvasHeight[pn] = virtualPageWidth * viewport.height / viewport.width;
+                                
+
                                 canvas.width = viewport.width;
-                                ctrl.docs()[activitypage.pageNumber].canvasAspectRatio[pn] = canvas.height / canvas.width;
 
                                 canvasctx = canvas.getContext("2d");
                                 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
                                     ctrl.pageCount(ctrl.pageCount() + 1);
+
+
                                     m.redraw(true);
                                 });
                             });
                         })(i);
+
                     }
                   });
               });
@@ -887,7 +902,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           m.redraw();
       });
 
-
+      realViewHeight = document.body.clientHeight;
+      
+      // set page and update group
+      if(!(args.user in ctrl.pageNumbers())) {
+          ctrl.pageNumbers()[args.user] = 0;
+          ctrl.setPage(0);
+      }
 
       return ctrl;
     },
@@ -1673,6 +1694,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var docs = args.docs();
                 docs[currentDocument].canvasWidth[args.pageNum] = el.clientWidth;
                 docs[currentDocument].canvasHeight[args.pageNum] = el.clientHeight;
+
+                console.log(el.clientWidth, el.clientHeight, el.clientHeight / el.clientWidth);
                 args.docs(docs);
             }
           }
@@ -1704,7 +1727,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         true
                     );
                     
-                }
+                },
             },
             m("canvas.drawing-surface", {
                 config: function(el, isInit) {
@@ -1739,7 +1762,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // Use the same coordinate system as all other users but scale to 
                     // the size of the page.
                     ctrl.canvas.setWidth(virtualPageWidth);
-                    ctrl.canvas.setHeight(virtualPageHeight);
+
+
+                    var vheight = args.docs()[currentDocument].virtualCanvasHeight[args.pageNum];
+                    if(vheight)
+                        ctrl.canvas.setHeight(vheight);
+                    else
+                        ctrl.canvas.setHeight(virtualPageHeight);
                     ctrl.canvas.setDimensions({
                             width: "100%",
                             height: "100%"
