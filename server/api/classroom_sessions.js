@@ -249,8 +249,8 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
             return;
         }
         
-      res.setHeader("Content-Type", "application/gzip");
-      res.setHeader("Content-Disposition", 'attachment; filename="log' + req.path + '.txt.gz"');
+      res.setHeader("Content-Type", "text/plain");
+      res.setHeader("Content-Disposition", 'attachment; filename="log' + req.path + '.logfile"');
       next();
     }, express.static("stores"));
 };
