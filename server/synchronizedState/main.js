@@ -12,7 +12,8 @@ var fs = require("fs"),
 
 //  The Store object represents a datastore. It handles all operations on the
 //  store (loading, saving, updating, accessing etc).
-var Store = require("./store").Store,
+//var Store = require("./store").Store,
+var Store = require("./storeUncompressed").Store;
 
   //  The Connection object represents a connected client. It handles sending
   //  and receiving (e.g. queueing, guarantees messages are delivered in order.)
