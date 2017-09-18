@@ -27,9 +27,9 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
           me.classrooms().then(function(classrooms) {
             me.groups().then(function(groups) {
               var groupClassrooms = groups.map(function(group) { return group.classroom; });
+              ctrl.activeSessions([]);
               classrooms.forEach(function(classroom) {
                 classroom.sessions().then(function(sessions) {
-                  ctrl.activeSessions([]);
                   sessions.forEach(function(session) {
                     if (session.endTime !== null)
                       return;
@@ -38,6 +38,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                     ctrl.activeSessions().push({session: session, group: groups[groupIdx]});
                   });
 
+                }).then(function() {
+                    console.log(ctrl.activeSessions());
                 });
               });
             });
