@@ -34,6 +34,8 @@ function Store(id, dir) {
   //  to the logfile.
   this.writeStream = null;
 
+    this.hasClosed = false;
+
   /* TODO remove
   //  We'll compress the log file; it can get big but is also very well suited
   //  for compression (plain repetitive text).
@@ -93,6 +95,9 @@ Store.prototype.applyUpdates = function(toApply) {
 
 
 Store.prototype.writeUpdateToLog = function(toApply) {
+    if(this.hasClosed)
+        return;
+    
     this.readStream.push(JSON.stringify({
         time: + new Date(),
         updates: toApply
@@ -189,6 +194,7 @@ Store.prototype.getByPath = function(curPath, obj) {
 
 //  Close all streams and return when finished writing to the disk.
 Store.prototype.close = function(callback) {
+  this.hasClosed = true;
   this.readStream.push(null);
   // TODO remove // this.gzipStream.flush();
   this.writeStream.on("finish", callback);
