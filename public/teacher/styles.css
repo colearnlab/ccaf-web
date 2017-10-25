@@ -239,6 +239,7 @@ div.group-options-bar {
     background-color: #06354f;
     display: inline-block;
     color: white;
+    z-index: 100;
 }
 
 .button1 {
