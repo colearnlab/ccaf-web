@@ -1165,12 +1165,19 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     height: 32,
                     src: "/shared/icons/Icons_F_Dropdown_W.png",
                     draggable: false,
-                    onmousedown: function(e) {
+
+                    onclick: function(e) {
                         ctrl.open(!ctrl.open());
-                    },
+                    }
+                    /*,
+                    ontouchstart: function() {
+                        ctrl.open(!ctrl.open());
+                    }
+                    /*
                     ontouchend: function() {
                         ctrl.open(!ctrl.open());
                     },
+                    */
                 }
             ),
             m("div#options-tray", {
@@ -1266,12 +1273,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           onclick: m.redraw
         },
         m("div.mechanics-objects-holder", {
-          onmousedown: function(e) {
-            ctrl.open(!ctrl.open());
-          },
-          ontouchend: function() {
-            ctrl.open(!ctrl.open());
-          },
+                    onclick: function(e) {
+                        ctrl.open(!ctrl.open());
+                    }
         },
         "Tools"
         ),
@@ -1515,6 +1519,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                       ctrl.dragging(false);
                       ctrl.setScroll(e);
                   }*/
+                  ontouchstart: function(e) {
+                      console.log(e);
+                      var touch = e.touches[0];
+                      e.offsetY = touch.pageY - touch.target.getBoundingClientRect().top;// + window.scrollY;
+                      ctrl.setScroll(e);
+                  },
+                  /*
+                  ontouchend: function(e) {
+                      var touch = e.touches[0];
+                      e.offsetY = touch.pageY - touch.target.getBoundingClientRect().top;// + window.scrollY;
+                      ctrl.setScroll(e);
+                  },
+                  */
+                  ontouchmove: function(e) {
+                      var touch = e.touches[0];
+                      e.offsetY = touch.pageY - touch.target.getBoundingClientRect().top;// + window.scrollY;
+                      ctrl.setScroll(e);
+                  }
               },
               args.userList().map(function(user) {
                   // Draw circle on scroll bar if the user is on our page.
@@ -1710,25 +1732,33 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // the user is finger-scrolling.
                     el.addEventListener(
                         "touchstart",
-                        function() {
+                        function(e) {
+                            /*
                             if(ctrl.canvas)
                                 ctrl.canvas.isDrawingMode = false;
+                            */
+                            e.preventDefault();
                         },
                         true
                     );
                     el.addEventListener(
                         "touchend",
-                        function() {
+                        function(e) {
+                            /*
                             if(ctrl.canvas) {
                                 //ctrl.canvas.isDrawingMode = (args.tool() == 1);
                                 ctrl.setTool();
                             }
+                            */
+                            e.preventDefault();
                         },
                         true
                     );
                     
                 },
             },
+            
+
             m("canvas.drawing-surface", {
                 config: function(el, isInit) {
                     if(ctrl.canvas)
@@ -1804,6 +1834,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                     // Set up event handlers
                     ctrl.canvas.on({
+
                         // Enforce scaling limits
                         "object:scaling": function(e) {
                             var scaleX = e.target.scaleX,
