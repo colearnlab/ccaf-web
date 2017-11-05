@@ -6,6 +6,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             e.preventDefault();
         }
     }, {passive: false});
+
     
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
@@ -160,6 +161,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
         nextObjectUpdateIdx: 0,
         pageCount: m.prop(0),
+
+        // TODO check this properly
+        offline: m.prop(false),
 
         me: m.prop(null),
         exitCallback: function(appCallback) {
@@ -910,6 +914,31 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           ctrl.setPage(0);
       }
 
+      // Set up a network-disconnect message
+        window.addEventListener('offline', function(e) {
+            console.log('offline', e);
+
+            ctrl.offline(true);
+            
+            // setting errmsg triggers the error modal
+            errmsg = "Probably Wi-Fi issues as usual.";
+            // force synchronous redraw to show the modal
+            m.redraw(true);
+        });
+
+        window.addEventListener('online', function(e) {
+            console.log('online', e);
+
+            ctrl.offline(false);
+
+            // hide the error modal
+            errmsg = null;
+            m.redraw(true);
+
+            document.body.classList.remove('modal-open');
+            $('.modal-backdrop').remove();
+        });
+
       return ctrl;
     },
     view: function(ctrl, args) {
@@ -988,16 +1017,19 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 m(".modal-content" + widthClasses,
                     m(".modal-header",
                         m("h4.modal-title", 
-                            "Oops"
+                            "Lost network connection"
                         )
                     ),
                     m(".modal-body",
-                        m('p', 'The application encountered a problem. Please let Ian know before reloading.'),
-                        
+                        m('p', 'Please wait. This message will disappear when network connectivity returns.')//,
+                       
+                       /* 
                         ctrl.showDetails()
                             ? m('p', 'Cause: ' + errmsg)
                             : m('a', {onclick: function() { ctrl.showDetails(true); }}, 'Details')
-                    ),
+                        */
+                    )//,
+                    /*
                     m(".modal-footer",
                         m("button.btn.btn-danger.pull-right", {
                                 onclick: location.reload.bind(location),
@@ -1005,6 +1037,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             "Reload"
                         )
                     )
+                    */
                 )
             );
         }
@@ -1493,6 +1526,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       controller: function(args) {
           var ctrl = {
               scrollbarHeight: m.prop(null),
+              scrollbarTop: m.prop(0),
               dragging: m.prop(false),
               setScroll: function(e) {
                   var scrollDest = e.offsetY / ctrl.scrollbarHeight();
@@ -1503,9 +1537,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           return ctrl;
       },
       view: function(ctrl, args) {
+          var barTop = ctrl.scrollbarTop();
           return m("svg.scrollbar#scrollbar", {
-                  config: function(el) {
+                  config: function(el, isInit) {
+
+                      if(isInit) {
+                          return;
+                      }
                       ctrl.scrollbarHeight(el.clientHeight);
+                      ctrl.scrollbarTop(el.getBoundingClientRect().top);
                   },
                   onmousedown: function(e) {
                       args.scrollDragging(true);
@@ -1522,7 +1562,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   ontouchstart: function(e) {
                       console.log(e);
                       var touch = e.touches[0];
-                      e.offsetY = touch.pageY - touch.target.getBoundingClientRect().top;// + window.scrollY;
+                      e.offsetY = touch.pageY - ctrl.scrollbarTop();// + window.scrollY;
                       ctrl.setScroll(e);
                   },
                   /*
@@ -1534,7 +1574,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   */
                   ontouchmove: function(e) {
                       var touch = e.touches[0];
-                      e.offsetY = touch.pageY - touch.target.getBoundingClientRect().top;// + window.scrollY;
+                      e.offsetY = touch.pageY - ctrl.scrollbarTop();// + window.scrollY;
                       ctrl.setScroll(e);
                   }
               },
