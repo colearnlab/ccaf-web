@@ -239,6 +239,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         // for recording which document each user is looking at
         setPage: function(pageNum) {
             //ctrl.flushUpdateQueue(pageNum);
+            
+            console.log('Set page number: ' + pageNum);
 
             // Notify group
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
@@ -909,10 +911,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       realViewHeight = document.body.clientHeight;
       
       // set page and update group
-      if(!(args.user in ctrl.pageNumbers())) {
-          ctrl.pageNumbers()[args.user] = 0;
-          ctrl.setPage(0);
-      }
+      //if(!(args.user in ctrl.pageNumbers())) {
+      //    ctrl.pageNumbers()[args.user] = 0;
+      //    ctrl.setPage(0);
+      //}
 
       // Set up a network-disconnect message
         window.addEventListener('offline', function(e) {
@@ -930,13 +932,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             console.log('online', e);
 
             ctrl.offline(false);
+                //location.reload();
 
-            // hide the error modal
-            errmsg = null;
-            m.redraw(true);
+            setTimeout(function() {
+                // h
+                //
+                // ide the error modal
+                errmsg = null;
+                m.redraw(true);
 
-            document.body.classList.remove('modal-open');
-            $('.modal-backdrop').remove();
+                document.body.classList.remove('modal-open');
+                $('.modal-backdrop').remove();
+            }, 5000);
         });
 
       return ctrl;
