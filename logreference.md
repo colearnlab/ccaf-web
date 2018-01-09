@@ -2,25 +2,25 @@
 
 Each log file records a single group's activity during one session and
 is kept in the `stores` directory. A line in a log file represents one log entry and
-has two parts: a timestamp (`"time"`, milliseconds since the Unix epoch) and event-specific data (`"updates"`).
+has two parts: a timestamp (`"time"`, milliseconds since 1/1/1970) and event-specific data (`"updates"`).
 
-Log files are currently gzip-compressed but future versions of the software will likely store the logs uncompressed.
+Log files were originally gzip-compressed but after changes on September 18 they are stored uncompressed.
 
 ### Information included with many types of entries
 
 -   The `"_id"` attribute is used internally to keep track of different versions of a property.
 -   Some entries will include 
     a `"data"` section and a `"meta"` section. The `"meta"` information is for internal use and may include the
-    user's ID (`"u"`), group ID (`"g"`), and the session ID (`"s"`). A `"type"` field may be present with a message to do with what sort of action (e.g. clicking the undo button to restore a deleted object).
+    user's ID (`"u"`), group ID (`"g"`), and the session ID (`"s"`). A `"type"` field may be present with a message describing the action (e.g. clicking the undo button to restore a deleted object).
 
 
 # Events recorded in log files
 
-### Page (tab) change
+### Page change
 
 Key: `setPage`
 
-Data: `{<userId>: <document (tab) index>}`
+Data: `{<userId>: <page index>}`
 
 Recorded when a user changes pages by clicking a page-change button in the top left.
 
@@ -29,18 +29,25 @@ Recorded when a user changes pages by clicking a page-change button in the top l
 
 Key: `scrollPositions.<userId>.<pageIndex>`
 
-Data: `{pos: <scroll position in [0, 1]>}`
+Data: 
+```
+{
+    pos: <scroll position in range [0, 1]>,
+    viewTop: <position of the top edge of the visible region>,
+    viewBottom: <position of the bottom edge of the visible region>
+}
+```    
 
 Reports a user's scrolling position (zero is the topmost position, one is the 
-bottommost) on the given page. In the future this may include information about
-what region of the document is actually visible to the user.
+bottommost) on the given page. `viewTop` and `viewBottom` describe what
+portion of the page is visible on the screen.
 
 
 ### Drawing object update
 
 Key: `objects.<UUID>`
 
-Data `{data: <object data>, meta: <metadata>}`
+Data: `{data: <object data>, meta: <metadata>}`
 
 When an object (identified by `<UUID>`) is added/drawn or modified,
 this update reports some or all of the object's properties, or just
@@ -74,9 +81,9 @@ Data:
 
 The browser reports six values to do with the device's motion -- `x`, `y` and
 `z` give acceleration along three axis in m/s^2, and `a`, `b` and `g` report
-rate of rotation (degrees/second) on three axes (alpha, beta, gamma). While
-Chromium fires the event sixty times per second, we only log the event when one
-or more values changes.
+rate of rotation in degrees per second on three axes (alpha, beta, gamma). While
+the browser fires the event sixty times per second, we only log the event when one
+or more of these values changes.
 
 
 ### Pen color change
@@ -96,7 +103,7 @@ Data:
 ```
 {
     visible: <boolean flag>,
-    doc: <document (tab) index>,
+    doc: <page index>,
     page: <index of page within document (tab)>,
     left: <x position of selection box (left edge)>,
     top: <y position (top edge)>,
@@ -138,7 +145,7 @@ Key: `appVisible`
 
 Data: `{<userId>: <boolean flag, true if app is visible>}`
 
-This should be logged any time the app is minimized, restored, or if the window
+This is logged any time the app is minimized or restored, or if the window
 comes into or out of focus. 
 
 
