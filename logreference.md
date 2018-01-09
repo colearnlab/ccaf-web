@@ -1,3 +1,5 @@
+# Log files
+
 ### Format
 
 Each log file records a single group's activity during one session and
