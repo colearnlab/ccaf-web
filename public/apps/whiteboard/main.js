@@ -932,7 +932,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             console.log('online', e);
 
             ctrl.offline(false);
-                //location.reload();
+                location.reload();
 
             setTimeout(function() {
                 // h
@@ -1028,7 +1028,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         )
                     ),
                     m(".modal-body",
-                        m('p', 'Please wait. This message will disappear when network connectivity returns.')//,
+                        m('p', 'The app will reload when network connectivity returns.')//,
                        
                        /* 
                         ctrl.showDetails()
@@ -1537,7 +1537,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
               dragging: m.prop(false),
               setScroll: function(e) {
                   var scrollDest = e.offsetY / ctrl.scrollbarHeight();
-                  args.setScroll(scrollDest);
+                  console.log(scrollDest);
+                  if((typeof(scrollDest) == 'number') && (scrollDest >= 0) && (scrollDest <= 1)) {
+                      args.setScroll(scrollDest);
+                  }
               }
           };
 
@@ -1548,9 +1551,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           return m("svg.scrollbar#scrollbar", {
                   config: function(el, isInit) {
 
+                      /*
                       if(isInit) {
                           return;
                       }
+                      */
                       ctrl.scrollbarHeight(el.clientHeight);
                       ctrl.scrollbarTop(el.getBoundingClientRect().top);
                   },
