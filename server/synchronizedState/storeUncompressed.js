@@ -194,10 +194,12 @@ Store.prototype.getByPath = function(curPath, obj) {
 
 //  Close all streams and return when finished writing to the disk.
 Store.prototype.close = function(callback) {
-  this.hasClosed = true;
-  this.readStream.push(null);
-  // TODO remove // this.gzipStream.flush();
-  this.writeStream.on("finish", callback);
+    setTimeout((function() {
+      this.hasClosed = true;
+      this.readStream.push(null);
+      // TODO remove // this.gzipStream.flush();
+      this.writeStream.on("finish", callback);
+    }).bind(this), 3000);
 };
 
 exports.Store = Store;
