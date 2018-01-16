@@ -13,11 +13,13 @@ var dbPath = path.resolve(__dirname, "..", "embedded.sqlite");
 if (!fs.existsSync(dbPath))
   require("./createDB").mkdb(dbPath);
 
-//  Load the database and save it every sixty seconds (in case of a bad exit).
+
+//  Load the database and save it every 180 seconds (in case of a bad exit).
 var db = new sql.Database(fs.readFileSync(dbPath));
 setInterval(function() {
+    // TODO prevent updates while exporting?
   fs.writeFileSync(dbPath, new Buffer(db.export()));
-}, 60000);
+}, 180000);
 
 //  The framework used to create the API.
 var express = require("express");
