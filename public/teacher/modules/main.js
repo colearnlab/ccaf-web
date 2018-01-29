@@ -85,7 +85,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             m.component(Sessions, args),
           //m.component(StartSessionMenu, args),
           //m.component(ActiveSessions, args),
-          //m.component(PastSessions, args),
+          m.component(PastSessions, args),
           
           // TODO make these menus
           m.component(ActivitiesMenu, args),
@@ -273,22 +273,90 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   
   var PastSessions = {
     controller: function(args) {
-      return {
-        sessions: ClassroomSession.list()
+      var ctrl = {
+        sessions: m.prop([]),
+        showBody: args.showMenus.sessions,
+        refresh: function() {
+            ClassroomSession.list().then(function(sessions) {
+                ctrl.sessions(sessions.filter(function(session) {
+                    return session.endTime !== null;
+                }));
+                m.redraw();
+            });
+        },
+        onunload: function() {
+            clearInterval(ctrl.refreshInterval);
+        },
+        // TODO need: group, me, session, syncStateClient(?) 
+        launchWhiteboardApp: function(group) {
+            // Add self to group and launch whiteboard
+            args.me().addGroup(group).then(function() {
+                m.mount(document.body, null);
+                
+                var session = args.session(),
+                    me = args.me();
+                var metadata = (session.metadata ? JSON.parse(session.metadata) : {});
+                
+                session.getStoreId(group.id, me.id).then(function(storeId) {
+                    group.users().then(function(userList) {
+
+                        require(["/apps/" + metadata.app + "/main.js"], function(app) {
+                            var connection = synchronizedStateClient.connect(wsAddress, function() {
+                                connection.sync(storeId);
+                                var appReturn = {};
+                                app.load(connection, document.body, {
+                                    user: me,
+                                    group: group.id,
+                                    groupObject: group,
+                                    session: session,
+                                    appReturn: appReturn,
+
+                                    exitCallback: function(appCallback) {
+                                        // Remove self from first group (dirty, but shouldn't be in more than one group)
+                                        args.me().groups().then(function(groups) {
+                                            var group = groups[0];
+
+                                            // Remove self from group and then return
+                                            args.me().removeGroup(group).then(function() {
+                                                if(appCallback) {
+                                                    appCallback(function() {
+                                                        //m.mount(document.body, exports.DataVis);
+                                                        location.reload();
+                                                    });
+                                                } else {
+                                                    //m.mount(document.body, exports.DataVis);
+                                                    location.reload();
+                                                }
+                                            });
+                                        });
+                                    }
+                                }); // app.load
+        
+                            }); // connect
+                        });
+
+                    }); // group.users
+
+                }); // getStoreId
+            });
+        } // launchWhiteboardApp
       };
+
+        ctrl.refresh();
+        ctrl.refreshInterval = setInterval(ctrl.refresh, 10000);
+
+        return ctrl;
     },
     view: function(ctrl, args) {
-      var mySessions = args.sessions().filter(function(session) {
-        return session.endTime !== null;
-      });
+
 
       return m(".main-menu-section.bg-color-white", {
-          style: mySessions.length > 0 ? "" : "display: none"
+          style: ctrl.sessions().length > 0 ? "" : "display: none"
         },
-        m(".main-menu-header.primary-color-green.text-color-secondary", "Past Sessions"),
+        m(".main-menu-header.primary-color-green.text-color-secondary", "View past sessions"),
         m(".main-menu-body",
           m(".list-group",
-            mySessions.map(function(session) {
+            ctrl.sessions().map(function(session) {
               var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
               var classroom = args.classrooms()[classroomIdx];
               return m(".list-group-item.classroom",
@@ -308,12 +376,13 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                     },
                     m.trust("&laquo;Edit groups&raquo;")
                   ),*/
-                  m("a.session-link", {
+                  m("a.session-link.pull-right", {
                       onclick: function() {
+                          // TODO change link!
                           m.route("/visualize/" + session.id);
                       }
                     }, 
-                    m.trust("&laquo;Visualize&raquo;")
+                    m.trust("&laquo;Play back session&raquo;")
                   )
                 )
               );
