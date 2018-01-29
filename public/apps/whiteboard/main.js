@@ -77,16 +77,25 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     connection.errorCallback = errorPrompt;
     css.load("/apps/whiteboard/styles.css");
     var appReturn = {};
-    var ctrl = m.mount(el, m.component(Main, {
-      pdf: params.pdf,
-      user: params.user.id,
-      session: params.session.id,
-      connection: connection,
-        group: params.group,
-        groupTitle: params.groupObject.title,
-        appReturn: appReturn,
-        exitCallback: params.exitCallback
-    }));
+    
+    // If we load the app in observer mode, wrap all components in an invisible
+    // div to catch events
+    var ctrl;
+    var mainArgs = {
+          pdf: params.pdf,
+          user: params.user.id,
+          session: params.session.id,
+          connection: connection,
+            group: params.group,
+            groupTitle: params.groupObject.title,
+            appReturn: appReturn,
+            exitCallback: params.exitCallback
+        };
+    if(params.observerMode) {
+      ctrl = m.mount(el, m.component(Main, mainArgs));
+    } else {
+      ctrl = m.mount(el, m.component(ObserverWrapper, mainArgs));
+    }
 
     ///////////////
     // TODO remove this
@@ -118,6 +127,35 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     var d = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
     return d;
   }
+
+  var ObserverWrapper = {
+      // ObserverWrapper: should cover all of the app except for page change and
+      // playback controls
+    controller: function(args) {
+        var ctrl = {
+            
+        };
+
+        return ctrl;
+    },
+    view: function(ctrl, args) {
+        return m("#observerWrapper", {
+                config: function(el, isInit) {
+                    if(isInit)
+                        return;
+
+                    // Capture all events
+                    el.addEventListener('mousedown', function(e) {
+                        console.log('captured mousedown event');
+                        e.stopPropagation();
+                    }, true);
+                },
+ 
+            },
+            m.component(Main, args)
+        );
+    }
+  };
 
   var Main = {
     controller: function(args) {

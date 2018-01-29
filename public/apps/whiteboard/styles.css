@@ -19,6 +19,12 @@ html, body {
   overflow-x: auto;
 }
 
+#observerWrapper {
+    width: 100vw;
+    height: 100vh;
+    z-index: 10;
+}
+
 #controls {
   position: fixed;
   top: 0;
