@@ -92,9 +92,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             exitCallback: params.exitCallback
         };
     if(params.observerMode) {
-      ctrl = m.mount(el, m.component(Main, mainArgs));
-    } else {
       ctrl = m.mount(el, m.component(ObserverWrapper, mainArgs));
+    } else {
+      ctrl = m.mount(el, m.component(Main, mainArgs));
     }
 
     ///////////////
