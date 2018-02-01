@@ -35,6 +35,14 @@ define(["exports"], function(exports) {
     this.send("sync", id);
   };
 
+  Connection.prototype.startPlayback = function(storeId, startTime) {
+    this.storeId = storeId;
+      this.send("playback", {
+        storeId: storeId,
+        playbackTime: startTime
+      });
+  };
+
   Connection.prototype.addObserver = function(observer) {
     this.observers.push(observer);
   };
