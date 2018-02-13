@@ -1,4 +1,4 @@
-define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor, dataVis, bs) {
+define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "bootstrap", "synchronizedStateClient"], function(exports, m, $, models, userPicker, groupEditor, dataVis, bs, synchronizedStateClient) {
   var Classroom = models.Classroom;
   var User = models.User;
   var ClassroomSession = models.ClassroomSession;
@@ -9,6 +9,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var UserPicker = userPicker.userPicker;
   var GroupEditor = groupEditor.groupEditor;
   var DataVis = dataVis.DataVis;
+
+    var wsAddress = 'ws://' + window.location.host + "/ws";
 
   var Shell = {
     controller: function(args) {
@@ -281,6 +283,16 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 ctrl.sessions(sessions.filter(function(session) {
                     return session.endTime !== null;
                 }));
+
+                // Fetch groups
+                sessions.map(function(session) {
+                    Classroom.get(session.classroom).then(function(classroom) {
+                        classroom.groups().then(function(groups) {
+                            session.groups = groups;
+                        });
+                    });
+                });
+
                 m.redraw();
             });
         },
@@ -288,13 +300,12 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             clearInterval(ctrl.refreshInterval);
         },
         // TODO need: group, me, session, syncStateClient(?) 
-        launchWhiteboardApp: function(group) {
+        launchWhiteboardApp: function(group, session) {
             // Add self to group and launch whiteboard
             args.me().addGroup(group).then(function() {
                 m.mount(document.body, null);
                 
-                var session = args.session(),
-                    me = args.me();
+                var me = args.me();
                 var metadata = (session.metadata ? JSON.parse(session.metadata) : {});
                 
                 session.getStoreId(group.id, me.id).then(function(storeId) {
@@ -302,7 +313,9 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
 
                         require(["/apps/" + metadata.app + "/main.js"], function(app) {
                             var connection = synchronizedStateClient.connect(wsAddress, function() {
-                                connection.sync(storeId);
+                                connection.sync(storeId, 0); // playback start time is 0
+                                
+                                //connection.startPlayback(storeId, 0);
                                 var appReturn = {};
                                 app.load(connection, document.body, {
                                     user: me,
@@ -343,7 +356,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       };
 
         ctrl.refresh();
-        ctrl.refreshInterval = setInterval(ctrl.refresh, 10000);
+        //ctrl.refreshInterval = setInterval(ctrl.refresh, 10000);
 
         return ctrl;
     },
@@ -354,41 +367,48 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
           style: ctrl.sessions().length > 0 ? "" : "display: none"
         },
         m(".main-menu-header.primary-color-green.text-color-secondary", "View past sessions"),
-        m(".main-menu-body",
-          m(".list-group",
-            ctrl.sessions().map(function(session) {
-              var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
-              var classroom = args.classrooms()[classroomIdx];
-              return m(".list-group-item.classroom",
-                m(".list-group-heading", {
-                    /*onclick: function() {
-                      m.route("/session/" + session.id);
-                    }*/
-                  },
-                  session.title,
-                  " [",
-                  classroom.title,
-                  "]",
-                  /*m("a.session-link", {
-                      onclick: function() {
-                          m.route("/session/" + session.id);
-                      }
-                    },
-                    m.trust("&laquo;Edit groups&raquo;")
-                  ),*/
+          m(".main-menu-body.canscroll",
+              m(".list-group.canscroll",
+                  ctrl.sessions().map(function(session) {
+                      var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
+                      var classroom = args.classrooms()[classroomIdx];
+
+                      return m(".list-group-item.classroom",
+                          m(".list-group-heading", {},
+                              session.title,
+                              " [",
+                              classroom.title,
+                              "]",
+
+
+                              (session.groups ? session.groups.map(function(g) { 
+                                  return m("a.session-link.pull-right", {
+                                      onclick: function() {
+                                          ctrl.launchWhiteboardApp(g, session);
+                                      }
+                                    },
+                                      g.id
+                                  ); 
+                              }) : ""),
+                                m(".pull-right", "Watch recorded session for group:"),
+
+
+
+                              /* TODO remove this
                   m("a.session-link.pull-right", {
                       onclick: function() {
-                          // TODO change link!
+                              // TODO change link!
                           m.route("/visualize/" + session.id);
                       }
                     }, 
                     m.trust("&laquo;Play back session&raquo;")
-                  )
-                )
-              );
-            })
+                  ) */
+
+                          )
+                      );
+                  })
+              )
           )
-        )
       );
     }
   };
