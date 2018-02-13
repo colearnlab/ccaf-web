@@ -91,11 +91,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             appReturn: appReturn,
             exitCallback: params.exitCallback
         };
+
+      // Check if the session is playing back
+      if(connection.store && connection.store.playback) {
+        params.observerMode = connection.store.playback[0];
+      }
+
     if(params.observerMode) {
       ctrl = m.mount(el, m.component(ObserverWrapper, mainArgs));
     } else {
       ctrl = m.mount(el, m.component(Main, mainArgs));
     }
+
 
     ///////////////
     // TODO remove this
@@ -103,6 +110,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       if (store.scrollPositions) {
         ctrl.scrollPositions = store.scrollPositions || {};
       }
+
       //ctrl.remotePages(store.pages || {});
       requestAnimationFrame(m.redraw);
     });
@@ -135,6 +143,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         var ctrl = {
             
         };
+        
+        args.connection.transaction([["playback"]], function(isPlayback) {
+            isPlayback[0] = true;
+        });
+
 
         return ctrl;
     },
