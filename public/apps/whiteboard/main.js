@@ -1099,6 +1099,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           args.setPage(newDoc); // Notify group of page change
       };
 
+      var pageNum = args.pageNumbers()[args.user];
+      if(typeof(pageNum) == 'undefined') {
+          pageNum = 0;
+      }
+
       return m("#controls", {
           style: "background-color: " + args.myColor()
         },
@@ -1211,7 +1216,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           
           // Only show the objects menu if we're on a sketch page
           (args.activity() ? 
-            (args.activity().pages[args.pageNumbers()[args.user]].metadata.hasFBD) ? 
+            (args.activity().pages[pageNum].metadata.hasFBD) ? 
                 m.component(MechanicsObjectSelect, args) 
             : ""
           : "")
