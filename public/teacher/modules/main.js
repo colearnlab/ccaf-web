@@ -324,6 +324,9 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                                     session: session,
                                     appReturn: appReturn,
 
+                                    // start in observer mode!
+                                    observerMode: true,
+
                                     exitCallback: function(appCallback) {
                                         // Remove self from first group (dirty, but shouldn't be in more than one group)
                                         args.me().groups().then(function(groups) {
