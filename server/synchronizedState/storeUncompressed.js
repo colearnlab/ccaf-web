@@ -36,11 +36,8 @@ function Store(id, dir) {
 
     this.hasClosed = false;
 
-  /* TODO remove
-  //  We'll compress the log file; it can get big but is also very well suited
-  //  for compression (plain repetitive text).
-  this.gzipStream = zlib.createGzip();
-  */
+    // for playback
+    this.updateQueue = [];
 }
 
 //  Utility function to create and load a store id in dir.
@@ -95,7 +92,7 @@ Store.prototype.applyUpdates = function(toApply) {
 
 
 Store.prototype.writeUpdateToLog = function(toApply) {
-    if(this.hasClosed)
+    if(this.hasClosed || this.playback)
         return;
     
     this.readStream.push(JSON.stringify({
@@ -106,7 +103,10 @@ Store.prototype.writeUpdateToLog = function(toApply) {
 
 
 //  Load a logfile (or continue if no file exists).
-Store.prototype.load = function(callback) {
+Store.prototype.load = function(callback, doNotApply) {
+    if(typeof(doNotApply) === 'undefined')
+        doNotApply = false;
+
   if (fs.existsSync(this.path)) {
     //  A stream that will uncompress the log file.
     // TODO remove // var tmpGunzip = zlib.createGunzip();
@@ -134,22 +134,31 @@ Store.prototype.load = function(callback) {
     //  @TODO: this will break if a single line is bigger than a chunk, so that
     //    needs to be accounted for.
     var leftovers = "";
-    tmpWriteStream._write = (function(chunk, encoding, done) {
-      //  Take the remainder of the last chunk and combine it with the current
-      //  chunk. Then break up the resulting string by line into an array.
-      var lines = (leftovers + chunk.toString()).split("\n");
+    tmpWriteStream._write = (function(_doNotApply) {
+        return (function(chunk, encoding, done) {
+          //  Take the remainder of the last chunk and combine it with the current
+          //  chunk. Then break up the resulting string by line into an array.
+          var lines = (leftovers + chunk.toString()).split("\n");
 
-      //  Treat the last line as incomplete and save for later.
-      leftovers = lines.pop();
+          //  Treat the last line as incomplete and save for later.
+          leftovers = lines.pop();
 
-      //  Each line is its own set of updates, so apply them in order.
-      lines.forEach((function(line) {
-        this.applyUpdates(JSON.parse(line).updates);
-      }).bind(this));
+          //  Each line is its own set of updates, so apply them in order.
+          lines.forEach((function(line) {
+              var lineObj = JSON.parse(line);
+              var updateObject = lineObj.updates;
+              console.log(_doNotApply);
+              if(_doNotApply) {
+                  this.updateQueue.push(lineObj);
+              } else {
+                  this.applyUpdates(updateObject);
+              }
+          }).bind(this));
 
-      //  The chunk is processed, so signal that we're ready for the next one.
-      done();
-    }).bind(this);
+          //  The chunk is processed, so signal that we're ready for the next one.
+          done();
+        }).bind(this);
+    }).bind(this)(doNotApply);
 
     //  After we're done processing the stream, return with our callback.
     tmpWriteStream.on("finish", function() {
@@ -165,6 +174,7 @@ Store.prototype.load = function(callback) {
     callback();
   }
 };
+
 
 //  Take a period-delimited path and find it in the store. For example, paths.4.2
 //  would look like:
@@ -194,12 +204,13 @@ Store.prototype.getByPath = function(curPath, obj) {
 
 //  Close all streams and return when finished writing to the disk.
 Store.prototype.close = function(callback) {
-    setTimeout((function() {
+    //setTimeout((function() {
       this.hasClosed = true;
       this.readStream.push(null);
       // TODO remove // this.gzipStream.flush();
-      this.writeStream.on("finish", callback);
-    }).bind(this), 3000);
+      //if(this.writeStream)
+        this.writeStream.on("finish", callback);
+    //}).bind(this), 3000);
 };
 
 exports.Store = Store;

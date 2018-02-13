@@ -127,34 +127,83 @@ Server.prototype.processLogOnly = function(connection, message) {
 };
 
 
+// Start playback mode
+Server.prototype.processPlayback = function(connection, message) { 
+    if(connection.store) {
+        connection.store.removeSubscriber(connection);
+        this.handleSubscriptionUpdate(connection.store);
+    }
+
+    if(!message.action)
+        message.action = 'start'
+
+    if(message.action == 'start') {
+        this.startPlayback(message.storeId, message.playbackTime, function() {
+            console.log('Started playback');
+        });
+    } else if(message.action == 'stop') {
+        var store = connection.store;
+        if(!store || (store.id != message.storeId))
+            return;
+        
+        store.playback = false;
+    }
+    
+    //  Add the client to the list of subscribers of that store, and update
+    //  clients' subscription lists. Since we add the subscriber first, they'll
+    //  also get a message with the client list.
+    store.addSubscriber(connection);
+    this.handleSubscriptionUpdate(connection.store);
+};
+
+
 //  Subscribe a client to the datastore.
-Server.prototype.processSync = function(connection, id) {
+Server.prototype.processSync = function(connection, message) {
   //  If the client was already connected, remove them from the subscription list
   //  and update the remaining clients' subscription lists.
   if (connection.store) {
     connection.store.removeSubscriber(connection);
     this.handleSubscriptionUpdate(connection.store);
   }
+    
+    var id = message.id;
 
-  // TODO set up collection of accelerometer data here?
+    var playbackTime = null;
+    if(typeof(message.playbackTime) != 'undefined') {
+        playbackTime = message.playbackTime;
+    }
+    console.log(message);
 
-  //  Obtain the store associated with that id.
-  this.getOrCreateStore(id, (function(store) {
-    //  Keep a reference to the store with the connection object.
-    connection.store = store;
+    // Define a function to finish setting up the sync state after loading the
+    // session one way or another
+    var afterLoadCallback = (function(store, callback) {
+            //  Keep a reference to the store with the connection object.
+            connection.store = store;
 
-    //  Send a message to the client with the current state of the datastore.
-    connection.send("set-store", {
-      storeId: id,
-      store: store.data
-    });
+            //  send a message to the client with the current state of the datastore.
+            connection.send("set-store", {
+                storeid: id,
+                store: store.data
+            });
 
-    //  Add the client to the list of subscribers of that store, and update
-    //  clients' subscription lists. Since we add the subscriber first, they'll
-    //  also get a message with the client list.
-    store.addSubscriber(connection);
-    this.handleSubscriptionUpdate(connection.store);
-  }).bind(this));
+            console.log('sent store! Playback time: ' + playbackTime);
+
+            //  Add the client to the list of subscribers of that store, and update
+            //  clients' subscription lists. Since we add the subscriber first, they'll
+            //  also get a message with the client list.
+            store.addSubscriber(connection);
+            this.handleSubscriptionUpdate(connection.store);
+
+            if(callback)
+                callback();
+        }).bind(this);
+
+    if(playbackTime == null) {
+        //  Obtain the store associated with that id.
+        this.getOrCreateStore(id, afterLoadCallback);
+    } else {
+        this.startPlayback(id, playbackTime, connection, afterLoadCallback);
+    }
 };
 
 //  Handle an attempt by a client to update the datastore. The basic algorithm
@@ -320,6 +369,108 @@ Server.prototype.getOrCreateStore = function(id, callback) {
     }).bind(this));
   }
 };
+
+
+// Seeks to a given time relative to the beginning of the session and starts
+// broadcasting events to clients
+Server.prototype.startPlayback = function(storeId, time, connection, callback) {
+    var store = this.stores[storeId];
+    if(store) {
+        if(store.currentTimeout)
+            clearTimeout(store.currentTimeout);
+    } else {
+        store = new Store(storeId, this.dir);
+        store.load((function() {
+            this.stores[storeId] = store;
+            
+            store.playback = true;
+
+            // If we're resuming from having already played something, don't bother
+            // seeking to the right state.
+            if(!store.hasPlaybackState) {
+                // Find target timestamp: adjust to the one immediately before
+                console.log(store.updateQueue);
+                var sessionStartTime = store.updateQueue[0].time;
+                store.sessionTargetTime = sessionStartTime + time;
+                store.sessionTime = sessionStartTime;
+
+                // Seek to the right update
+                store.updateIndex = 0;
+                var queue = store.updateQueue;
+                for(store.updateIndex = 0; store.updateIndex < queue.length; store.updateIndex++) {
+                    var updateObject = queue[store.updateIndex];
+                    if(updateObject.time > store.sessionTargetTime)
+                        break;
+
+                    store.applyUpdates(updateObject);
+                    store.sessionTime = updateObject.time;
+                }
+                store.hasPlaybackState = true;
+
+                console.log('set up playback state. number of updates: ' + queue.length);
+            }
+
+            /*
+                // send state to client
+    store.subscriptions.forEach(function(subscription) {
+        subscription.send("set-store", {
+            storeid: store.id,
+            store: store.data
+        });
+    });
+    */
+
+            // start counting server time right after sending state
+            store.sessionStartTime = store.sessionTime,
+                store.serverStartTime = Date.now();
+
+            // Update function
+            var sendUpdate = (function() {
+                var updateObject = store.updateQueue[store.updateIndex];
+                store.sessionTime = updateObject.time;
+
+                console.log('Sending update!');
+
+                // Send update to all clients
+                store.subscriptions.forEach(function(subscription) {
+                    subscription.send("updates", {
+                        storeId: store.id,
+                        updates: updateObject.updates
+                    });
+                });
+
+                store.serverTime = Date.now();
+
+                // Prepare for next update
+                store.updateIndex++;
+                if(store.updateQueue.length == store.updateIndex)
+                    return;
+
+                var nextUpdateObject = store.updateQueue[store.updateIndex];
+
+                var serverElapsedTime = store.serverTime - store.serverStartTime,
+                    delayTime = nextUpdateObject.time - store.sessionStartTime - serverElapsedTime;
+
+                // Set up timeout
+                if(store.playback)
+                    store.currentTimeout = setTimeout(sendUpdate, delayTime);
+            }).bind(this);
+
+            // We allow the processSync handler to send the set-store message; that's
+            // what this callback is for, and then we start sending updates after that
+            // finishes
+            callback(store, (function() {
+                // Start updating
+                store.currentTimeout = setTimeout(sendUpdate, 
+                    updateObject.time - store.sessionStartTime - (Date.now() - store.serverStartTime));
+            }).bind(this));
+
+
+        }).bind(this), true);
+    }
+
+};
+
 
 //  Call close on each opened store, which will finish writing them to the disk.
 Server.prototype.close = function(callback) {
