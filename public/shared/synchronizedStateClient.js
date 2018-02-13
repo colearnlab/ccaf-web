@@ -30,9 +30,13 @@ define(["exports"], function(exports) {
     timeout: 1000
   };
 
-  Connection.prototype.sync = function(id) {
+  Connection.prototype.sync = function(id, playbackTime) {
     this.storeId = id;
-    this.send("sync", id);
+    var message = {id: id}
+    if(typeof(playbackTime) != 'undefined') {
+        message.playbackTime = playbackTime;
+    }
+    this.send("sync", message);
   };
 
   Connection.prototype.startPlayback = function(storeId, startTime) {
