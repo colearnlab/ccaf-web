@@ -286,7 +286,9 @@ Server.prototype.processTransaction = function(connection, transaction) {
           if('meta' in updateObj) {
               updateObj.meta = JSON.parse(updateObj.meta);
               updateObj.data = JSON.parse(updateObj.data);
-              this.stats.sessionStats[updateObj.meta.s].processUpdate(updateObj, currentTime);
+              if(this.stats.sessionStats[updateObj.meta.s]) {
+                this.stats.sessionStats[updateObj.meta.s].processUpdate(updateObj, currentTime);
+              }
           }
       }
     //  Iterate through all other clients subscribed to that store to update
