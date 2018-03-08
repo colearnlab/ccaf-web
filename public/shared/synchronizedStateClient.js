@@ -207,7 +207,7 @@ define(["exports"], function(exports) {
         this.store = message.store;
 
         this.observers.forEach((function(observer) {
-          observer(this.store);
+          observer(this.store, true);
         }).bind(this));
 
         break;
