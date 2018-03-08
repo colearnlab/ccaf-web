@@ -10,7 +10,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var GroupEditor = groupEditor.groupEditor;
   var DataVis = dataVis.DataVis;
 
-    var wsAddress = 'ws://' + window.location.host + "/ws";
+    var wsAddress = 'wss://' + window.location.host + "/ws";
 
   var Shell = {
     controller: function(args) {
@@ -390,7 +390,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                                           ctrl.launchWhiteboardApp(g, session);
                                       }
                                     },
-                                      g.id
+                                      g.title
                                   ); 
                               }) : ""),
                                 m(".pull-right", "Watch recorded session for group:"),
