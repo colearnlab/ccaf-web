@@ -131,6 +131,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     return appReturn;
   };
 
+  // TODO remove??
   function dist(x1, y1, x2, y2) {
     var d = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
     return d;
@@ -141,13 +142,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       // playback controls
     controller: function(args) {
         var ctrl = {
-            
+            resetting: false           
         };
+
         
         args.connection.transaction([["playback"]], function(isPlayback) {
             isPlayback[0] = true;
         });
-
 
         return ctrl;
     },
@@ -156,7 +157,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 config: function(el, isInit) {
                     if(isInit)
                         return;
-
+                    
                     // Capture all events
                     el.addEventListener('mousedown', function(e) {
                         console.log('captured mousedown event');
@@ -165,10 +166,163 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 },
  
             },
-            m.component(Main, args)
+            ctrl.resetting ? null : m.component(Main, args),
+            m.component(PlaybackControls, args)
         );
     }
   };
+
+
+    var PlaybackControls = {
+        controller: function(args) {
+            var ctrl;
+            ctrl = {
+                lastMode: "pause",
+                draggingSeek: false,
+                seekBarPosition: 0,
+                secondUpdateInterval: null,
+                playbackTime: 0,
+                duration: 0,
+               
+                seek: function(time) {
+                    // Ask the server to seek to the given time relative to the
+                    // beginning of the session
+                    args.connection.transaction([['playback']], function(playback) {
+                        playback.mode = "seek";
+                        playback.time = time;
+                        ctrl.playbackTime = time;
+                    });
+                },
+                seekFromBar: function(e, el) {
+                    var seekPercent = 100 * e.offsetX / el.clientWidth;
+                    ctrl.seek(ctrl.getSeekTime(seekPercent));
+                    ctrl.draggingSeek = false;
+                    console.log(e);
+                },
+                getSeekPercent: function() { 
+                    if(ctrl.duration) {
+                        return 100 * ctrl.playbackTime / ctrl.duration;
+                    } else {
+                        return 0;
+                    }
+                },
+                getSeekTime: function(percent) {
+                    return (percent / 100) * ctrl.duration;
+                },
+                getTimeString: function() {
+                    var formatTime = function(date) {
+                        var hours = date.getUTCHours(),
+                            minutes = date.getMinutes(),
+                            seconds = date.getSeconds();
+                        return ("" + hours + ":" + (minutes >= 10 ? "" : "0")
+                            + minutes + ":" + (seconds >= 10 ? "" : "0") + seconds);
+                    };
+
+                    var t = new Date(ctrl.playbackTime),
+                        d = new Date(ctrl.duration);
+                    return formatTime(t) + " / " + formatTime(d);
+                },
+                togglePlayPause: function() {
+                    args.connection.transaction([['playback']], function(playback) {
+                        if(playback.mode == "pause") {
+                            playback.mode = "play";
+                        } else if(playback.mode == "play") {
+                            playback.mode = "pause";
+                        } else {
+                            playback.mode = "play";
+                        }
+                    });
+                },
+
+            };
+
+            ctrl.seek(0);
+
+            // Listen for users
+
+
+            // TODO
+            // Set up listener for play/pause/seek events
+            args.connection.addObserver(function(store, isReset) {
+
+                if(store.playback) {
+                    ctrl.duration = store.playback.duration;
+                    ctrl.playbackTime = store.playback.time;
+                    console.log(ctrl.playbackTime, ctrl.duration);
+                    if(store.playback.mode == "play" && ctrl.lastMode != "play") {
+                        // start updating the time
+                        ctrl.secondUpdateInterval = setInterval(function() {
+                            ctrl.playbackTime += 1000;
+                            if(!ctrl.draggingSeek) {
+                                ctrl.seekBarPosition = ctrl.getSeekPercent();
+                            }
+
+                            // check for end of playback
+                            if(ctrl.playbackTime >= ctrl.duration) {
+                                // Stop
+                                console.log('TODO stop/reset');
+                            }
+                            m.redraw(true);
+                        }, 1000);
+                        
+                        ctrl.lastMode = "play";
+                    } else if(store.playback.mode != "play" && ctrl.lastMode == "play") {
+                        
+                        if(ctrl.secondUpdateInterval)
+                            clearInterval(ctrl.secondUpdateInterval);
+
+                        ctrl.lastMode = store.playback.mode;
+                    }
+                }
+            });
+
+
+            return ctrl;
+        },
+        view: function(ctrl, args) {
+
+            return m("div",
+                m("div#playback-controls",
+                    m("button.btn.btn-primary", {
+                        onclick: ctrl.togglePlayPause,
+                    }, m(".playback-button-text", {
+                        style: "text-align: center"
+                    },
+                        (ctrl.lastMode == "play" ? m.trust("&#9612;&#9612;") : m.trust("&#x25b6;")))),
+                    m("#playbackTime", ctrl.getTimeString())
+                ),
+                m("svg#playbackSeekBar", {
+                    onmousedown: function(e) {
+                        // Get seek position
+                        ctrl.draggingSeek = true;
+                        ctrl.seekBarPosition = 100 * (e.offsetX / e.target.clientWidth);
+                    },
+                    onmousemove: function(e) {
+                        if(ctrl.draggingSeek)
+                            ctrl.seekBarPosition = 100 * (e.offsetX / e.target.clientWidth);
+                    },
+                    onmouseup: function(e) {
+                        if(e.target.clientWidth) {
+                            ctrl.seekFromBar(e, e.target);
+                        }
+                    },
+
+                    width: '100%',
+                    height: '1em'
+                }, 
+                    m("rect#playbackElapsed", {
+                        width: '' + ctrl.getSeekPercent() + '%',
+                        height: '100%',
+                        color: 'blue',
+                        onmouseup: function(e) {
+                            ctrl.seekFromBar(e, e.target.parentElement);
+                        }
+                    })
+                )
+            );
+
+        }
+    };
 
   var Main = {
     controller: function(args) {
@@ -643,9 +797,62 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
               }
           },
 
-          userColors: m.prop({})
-
+          userColors: m.prop({}),
+          setStoreCallbacks: []
       };
+
+        ctrl.addSetStoreCallback = function(callback) {
+            ctrl.setStoreCallbacks.push(callback);
+        };
+
+        ctrl.removeSetStoreCallback = function(callback) {
+            for(var i = 0; i < ctrl.setStoreCallbacks.length; i++) {
+                if(ctrl.setStoreCallbacks[i] == callback) {
+                    delete ctrl.setStoreCallbacks[i];
+                    break;
+                }
+            }
+        };
+
+        // Playback set-store observer
+        args.connection.addObserver(function(store, isReset) {
+            // If we've recieved a set-store, remove all objects and add back
+            if(isReset) {
+                // clear canvas cache contents
+                var docs = ctrl.docs();
+                for(var docIdx in docs) {
+                    docs[docIdx].canvasContents = {};
+                    var numPages = ctrl.numPages()[docIdx];
+                    for(var pageIdx = 0; pageIdx < numPages; pageIdx++) {
+                        docs[docIdx].canvasContents[pageIdx] = [];
+                    }
+                }
+
+                // TODO TODO TODO why aren't there objects?
+                console.log(JSON.stringify(store.objects));
+                // set up page contents
+                for(var uuid in store.objects) {
+                    var update = store.objects[uuid],
+                        obj = JSON.parse(update.data),
+                        meta = JSON.parse(update.meta);
+                    obj.uuid = uuid;
+                    
+                    // put object in canvas cache
+                    docs[meta.doc].canvasContents[meta.page].push(obj);
+                    console.log(docs[meta.doc].canvasContents[meta.page]);
+
+                    // set curId so we don't reject subsequent updates after rewind
+                    ctrl.curId[uuid] = meta._id - 1;
+                }
+
+                console.log(docs);
+
+                // Run callbacks
+                ctrl.setStoreCallbacks.forEach(function(callback) {
+                    callback();
+                });
+            }
+        });
 
       // Make our exit callback visible to whatever loaded the whiteboard app so
       // that it can be made to quit from the outside
@@ -680,6 +887,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
         m.redraw(true);
       });
+
 
       // Watch for selection changes
       args.connection.addObserver(function(store) {
@@ -1709,6 +1917,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     controller: function(args) {
       var ctrl = {
         canvas: null,
+          // TODO use docIdx everywhere
+        docIdx: args.pageNumbers()[args.user],
         erasing: false,
         fingerScrolling: m.prop(false),
         selecting: false,
@@ -1803,7 +2013,25 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 ctrl.canvas.renderAll();
             }
         }
+
       };
+
+        // for reloading objects on the current page for a store change
+        ctrl.loadCanvasContents = function(contents) {
+            ctrl.canvas.objsByUUID = {};
+            if(contents) {
+                for(var i = 0, len = contents.length; i < len; i++)
+                    args.addObject(contents[i], ctrl.canvas, true, false);
+            }
+        };
+
+        // after we receive a 'set-store' message, clear canvas and add objects
+        ctrl.setStoreCallback = function() {
+            ctrl.canvas.clear();
+            var contents = args.docs()[ctrl.docIdx].canvasContents[args.pageNum];
+            console.log(contents);
+            ctrl.loadCanvasContents(contents);
+        };
 
       return ctrl;
     },
@@ -1868,6 +2096,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             
 
             m("canvas.drawing-surface", {
+                onbeforeunload: function() {
+                    args.removeSetStoreCallback(ctrl.setStoreCallback);
+                },
                 config: function(el, isInit) {
                     if(ctrl.canvas)
                         ctrl.canvas.undoStack = doc.undoStack;
@@ -1916,12 +2147,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     );
 
                     // Load canvas data if any
-                    ctrl.canvas.objsByUUID = {};
                     var contents = docs[currentDocument].canvasContents[args.pageNum];
-                    if(contents) {
-                        for(var i = 0, len = contents.length; i < len; i++)
-                            args.addObject(contents[i], ctrl.canvas, true, false);
-                    }
+                    ctrl.loadCanvasContents(contents);
 
                     args.flushUpdateQueue(args.pageNumbers()[args.user], args.pageNum);
                     
@@ -1936,6 +2163,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         }
                     }
                     
+                    // If we receive set-store, clear contents and update
+                    args.addSetStoreCallback(ctrl.setStoreCallback);
 
                     // Use the right tool
                     ctrl.setTool();

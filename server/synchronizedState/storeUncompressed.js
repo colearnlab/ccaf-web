@@ -147,7 +147,7 @@ Store.prototype.load = function(callback, doNotApply) {
           lines.forEach((function(line) {
               var lineObj = JSON.parse(line);
               var updateObject = lineObj.updates;
-              console.log(_doNotApply);
+              //console.log(_doNotApply);
               if(_doNotApply) {
                   this.updateQueue.push(lineObj);
               } else {
@@ -205,10 +205,13 @@ Store.prototype.getByPath = function(curPath, obj) {
 //  Close all streams and return when finished writing to the disk.
 Store.prototype.close = function(callback) {
     //setTimeout((function() {
-      this.hasClosed = true;
-      this.readStream.push(null);
-      // TODO remove // this.gzipStream.flush();
-      //if(this.writeStream)
+    this.hasClosed = true;
+    if(this.currentTimeout)
+        clearTimeout(this.currentTimeout);
+    this.readStream.push(null);
+    // TODO remove // this.gzipStream.flush();
+    //if(this.writeStream)
+    if(this.writeStream)
         this.writeStream.on("finish", callback);
     //}).bind(this), 3000);
 };
