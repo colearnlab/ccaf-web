@@ -85,6 +85,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           pdf: params.pdf,
           user: params.user.id,
           session: params.session.id,
+          observerMode: params.observerMode,
           connection: connection,
             group: params.group,
             groupTitle: params.groupObject.title,
@@ -159,7 +160,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     
                     // Capture all events
                     el.addEventListener('mousedown', function(e) {
-                        console.log('captured mousedown event');
+                        //console.log('captured mousedown event');
                         e.stopPropagation();
                     }, true);
                 },
@@ -197,7 +198,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     var seekPercent = 100 * e.offsetX / el.clientWidth;
                     ctrl.seek(ctrl.getSeekTime(seekPercent));
                     ctrl.draggingSeek = false;
-                    console.log(e);
+                    //console.log(e);
                 },
                 getSeekPercent: function() { 
                     if(ctrl.duration) {
@@ -254,7 +255,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 if(store.playback) {
                     ctrl.duration = store.playback.duration;
                     ctrl.playbackTime = store.playback.time;
-                    console.log(ctrl.playbackTime, ctrl.duration);
+                    //console.log(ctrl.playbackTime, ctrl.duration);
                     if(store.playback.mode == "play" && ctrl.lastMode != "play") {
                         // start updating the time
                         ctrl.secondUpdateInterval = setInterval(function() {
@@ -845,8 +846,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     }
                 }
 
-                // TODO TODO TODO why aren't there objects?
-                console.log(JSON.stringify(store.objects));
                 // set up page contents
                 for(var uuid in store.objects) {
                     var update = store.objects[uuid],
@@ -882,7 +881,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
               for(var i = 0, len = userGroupList.length; i < len; i++) {
                   ctrl.userColors()[userGroupList[i].id] = userColors.userColors[i];
               }
-              console.log(ctrl.userColors());
+              //console.log(ctrl.userColors());
           });
       };
       updateColors();
@@ -905,30 +904,62 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       };
       args.connection.userList.addObserver(userListChangeHandler);
 
-      // if playback, watch "membershipChange" events and simulate userList changes
-      args.connection.addObserver(function(store) {
-          if(store.playback && store.membershipChange) {
-              if(store.membershipChange.action.includes("load")) {
-                  // add a member
-                  if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length == 0) {
-                      ctrl.userList().push(store.membershipChange);
-                  }
-              } else {
-                  // remove a member
-                  if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length > 0) {
-                      var idx = 0;
-                      for(; idx < ctrl.userList().length; idx++) {
-                          if(ctrl.userList()[idx].id == store.membershipChange.id)
-                              break;
+      if(args.observerMode) {
+          // if playback, watch "membershipChange" events and simulate userList changes
+          args.connection.addObserver(function(store) {
+              if(store.membershipChange) {
+                  if(store.membershipChange.action.includes("load")) {
+                      // add a member
+                      if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length == 0) {
+                          ctrl.userList().push(store.membershipChange);
                       }
-                      delete ctrl.userList()[idx];
+                  } else {
+                      // remove a member
+                      if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length > 0) {
+                          var idx = 0;
+                          for(; idx < ctrl.userList().length; idx++) {
+                              if(ctrl.userList()[idx].id == store.membershipChange.id)
+                                  break;
+                          }
+                          delete ctrl.userList()[idx];
+                      }
+                  }
+
+                  // 
+                  userListChangeHandler(ctrl.userList());
+              }
+          });
+        
+          // Watch page and scroll position
+          args.connection.addObserver(function(store) {
+              var currentPage = ctrl.pageNumbers()[args.user] || 0;
+              var newPage = currentPage;
+              if(store.setPage && store.setPage.data) {
+                  var pages = JSON.parse(store.setPage.data);
+                  if(("" + args.user) in pages) {
+                      newPage = pages[args.user];
                   }
               }
 
-              // 
-              userListChangeHandler(ctrl.userList());
-          }
-      });
+              if((newPage != currentPage) && ctrl.changePage) {
+                  ctrl.changePage(currentPage, newPage);
+              }
+
+              // Set own scroll position
+              var scrollPosition = store.scrollPositions ?
+                  store.scrollPositions[args.user] ? 
+                      store.scrollPositions[args.user][newPage] ?
+                          store.scrollPositions[args.user][newPage].pos
+                    : 0
+                : 0
+              : 0;
+              if(ctrl.setMainScroll)
+                  ctrl.setMainScroll(scrollPosition);
+
+              Object.assign(ctrl.scrollPositions, store.scrollPositions);
+          });
+      }
+
         
       // Watch for selection changes
       args.connection.addObserver(function(store) {
@@ -1235,9 +1266,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 location.reload();
 
             setTimeout(function() {
-                // h
-                //
-                // ide the error modal
+                // hide the error modal
                 errmsg = null;
                 m.redraw(true);
 
@@ -1262,6 +1291,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
         ctrl.setScroll(scrollDest);
       };
+
+
       return m("#main", {
           class: "errormodal-" + (errmsg ? "show" : "hide"),
           config: function(el) {
@@ -1274,7 +1305,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         ctrl.scrollDragging(false);
             });
 
-            // TODO if playback, set scroll position based on events coming in
+              // TODO remove?
+            ctrl.setMainScroll = function(scroll) {
+                el.scrollTop = parseInt(scroll * (el.scrollHeight - window.innerHeight));
+                m.redraw();
+                console.log(el.scrollTop);
+            };
+ 
           },
           onscroll: function(e) {
             var el = e.target;
@@ -1355,6 +1392,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var Controls = {
     view: function(__, args) {
       var changePage = function(doc, newDoc) {
+          console.log("change page!");
           args.saveCanvases(doc);   // Save contents of all canvases
           $('.canvas-container').remove();  // Remove canvases from DOM
           args.lastDrawn({});   // Signal that we need to change PDFs
@@ -1362,6 +1400,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           m.redraw();   // Rebuild canvases
           args.setPage(newDoc); // Notify group of page change
       };
+      args.changePage = changePage;
 
       var pageNum = args.pageNumbers()[args.user];
       if(typeof(pageNum) == 'undefined') {
