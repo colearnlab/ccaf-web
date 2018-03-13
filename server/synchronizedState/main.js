@@ -173,7 +173,7 @@ Server.prototype.processSync = function(connection, message) {
 
     if(playbackTime == null) {
         //  Obtain the store associated with that id.
-        this.getOrCreateStore(id, afterLoadCallback);
+        this.getOrCreateStore(id, afterLoadCallback.bind(this));
     } else {
         this.loadPlayback(id, afterLoadCallback.bind(
             this, null, this.seekPlayback.bind(this)
@@ -412,15 +412,15 @@ Server.prototype.seekPlayback = function(store, time, callback) {
     var queue = store.updateQueue;
     for(store.updateIndex = 0; store.updateIndex < queue.length; store.updateIndex++) {
         var updateObject = queue[store.updateIndex];
-        if(updateObject.time >= store.sessionTargetTime)
+        if(updateObject.time > store.sessionTargetTime)
             break;
 
         store.applyUpdates(updateObject.updates);
         store.sessionTime = updateObject.time;
     }
-    console.log(store.data);
 
-    console.log('set up playback state. number of updates: ' + queue.length);
+    store.seekDelay = store.sessionTargetTime - store.sessionTime;
+    store.sessionTime = store.sessionTargetTime;
 
     // Set up playback state
     if(!store.data.playback) {
@@ -494,7 +494,9 @@ Server.prototype.startPlayback = function(store, callback) {
 
     // Find extra delay before the first update
     var nextUpdateTime = store.updateQueue[store.updateIndex].time;
-    var firstUpdateDelay = nextUpdateTime - store.sessionStartTime;
+    var firstUpdateDelay = nextUpdateTime - store.sessionStartTime + (store.seekDelay || 0);
+
+    console.log(firstUpdateDelay / 1000);
 
     // TODO send play mode, time
     store.subscriptions.forEach(function(subscription) {
