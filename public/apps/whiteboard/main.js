@@ -145,7 +145,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             resetting: false           
         };
 
-        
         args.connection.transaction([["playback"]], function(isPlayback) {
             isPlayback[0] = true;
         });
@@ -183,6 +182,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 secondUpdateInterval: null,
                 playbackTime: 0,
                 duration: 0,
+                mouseOver: false,
                
                 seek: function(time) {
                     // Ask the server to seek to the given time relative to the
@@ -233,18 +233,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         }
                     });
                 },
-
+                becomeUser: function(user) {
+                    console.log("switched user: " + user.email);
+                    args.user = user.id;
+                    m.redraw();
+                }
             };
+            
+            // Retrieve group members
+            var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
+            userGroup.users().then(function(userGroupList) {
+                ctrl.users = userGroupList;
+            });
+
 
             ctrl.seek(0);
 
-            // Listen for users
-
-
-            // TODO
             // Set up listener for play/pause/seek events
             args.connection.addObserver(function(store, isReset) {
-
                 if(store.playback) {
                     ctrl.duration = store.playback.duration;
                     ctrl.playbackTime = store.playback.time;
@@ -259,8 +265,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                             // check for end of playback
                             if(ctrl.playbackTime >= ctrl.duration) {
-                                // Stop
-                                console.log('TODO stop/reset');
+                                console.log("reached end of playback");
+                                ctrl.togglePlayPause();
+                                return;
                             }
                             m.redraw(true);
                         }, 1000);
@@ -282,14 +289,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         view: function(ctrl, args) {
 
             return m("div",
-                m("div#playback-controls",
+                m("div#playback-controls", {
+                    onmouseenter: function(e) {
+                        ctrl.mouseOver = true;
+                        e.target.style.opacity = 1.0;
+                    },
+                    onmouseleave: function(e) {
+                        ctrl.mouseOver = false;
+                        e.target.style.opacity = 0.7;
+                    }
+                },
                     m("button.btn.btn-primary", {
                         onclick: ctrl.togglePlayPause,
                     }, m(".playback-button-text", {
                         style: "text-align: center"
                     },
                         (ctrl.lastMode == "play" ? m.trust("&#9612;&#9612;") : m.trust("&#x25b6;")))),
-                    m("#playbackTime", ctrl.getTimeString())
+                    m("#playbackTime", ctrl.getTimeString()),
+                    ctrl.mouseOver ? ctrl.users.map(user => m("a.playback-name", {onclick: ctrl.becomeUser.bind(null, user)}, user.name)) : ""
                 ),
                 m("svg#playbackSeekBar", {
                     onmousedown: function(e) {
@@ -865,30 +882,54 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
               for(var i = 0, len = userGroupList.length; i < len; i++) {
                   ctrl.userColors()[userGroupList[i].id] = userColors.userColors[i];
               }
+              console.log(ctrl.userColors());
           });
       };
       updateColors();
 
-      //////////////////////////////////
-      args.connection.userList.addObserver(function(users) {
-        ctrl.userList(users);
+      var userListChangeHandler = function(users) {
+          ctrl.userList(users);
 
-        // The user list has changed -- update page numbers, scroll positions, and colors.
-        var oldPageNumbers = ctrl.pageNumbers(),
-            oldScrollPositions = ctrl.scrollPositions;
-        ctrl.pageNumbers({});
-        ctrl.scrollPositions = {};
-        ctrl.userList().map(function(user) {
-            ctrl.pageNumbers()[user.id] = oldPageNumbers[user.id] || 0;
-            ctrl.scrollPositions[user.id] = oldScrollPositions[user.id] || {};
-        });
+          // The user list has changed -- update page numbers, scroll positions, and colors.
+          var oldPageNumbers = ctrl.pageNumbers(),
+              oldScrollPositions = ctrl.scrollPositions;
+          ctrl.pageNumbers({});
+          ctrl.scrollPositions = {};
+          ctrl.userList().map(function(user) {
+              ctrl.pageNumbers()[user.id] = oldPageNumbers[user.id] || 0;
+              ctrl.scrollPositions[user.id] = oldScrollPositions[user.id] || {};
+          });
 
-        updateColors();
+          updateColors();
+          m.redraw(true);
+      };
+      args.connection.userList.addObserver(userListChangeHandler);
 
-        m.redraw(true);
+      // if playback, watch "membershipChange" events and simulate userList changes
+      args.connection.addObserver(function(store) {
+          if(store.playback && store.membershipChange) {
+              if(store.membershipChange.action.includes("load")) {
+                  // add a member
+                  if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length == 0) {
+                      ctrl.userList().push(store.membershipChange);
+                  }
+              } else {
+                  // remove a member
+                  if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length > 0) {
+                      var idx = 0;
+                      for(; idx < ctrl.userList().length; idx++) {
+                          if(ctrl.userList()[idx].id == store.membershipChange.id)
+                              break;
+                      }
+                      delete ctrl.userList()[idx];
+                  }
+              }
+
+              // 
+              userListChangeHandler(ctrl.userList());
+          }
       });
-
-
+        
       // Watch for selection changes
       args.connection.addObserver(function(store) {
         if(store.selectionBox) {
@@ -1232,6 +1273,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     if(ctrl.scrollDragging())
                         ctrl.scrollDragging(false);
             });
+
+            // TODO if playback, set scroll position based on events coming in
           },
           onscroll: function(e) {
             var el = e.target;

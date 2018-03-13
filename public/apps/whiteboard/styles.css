@@ -34,6 +34,7 @@ html, body {
     border-radius: 0.5em;
     
     background-color: black;
+    opacity: 0.5;
     color: white;
 
     z-index: 100;
@@ -43,6 +44,10 @@ html, body {
     /*
     font-family: Arial;
     */
+}
+
+.playback-name {
+    margin-left: 1em;
 }
 
 #playbackSeekBar {
