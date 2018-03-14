@@ -142,7 +142,7 @@ Server.prototype.processSync = function(connection, message) {
     if(typeof(message.playbackTime) != 'undefined') {
         playbackTime = message.playbackTime;
     }
-    console.log(message);
+    //console.log(message);
 
     // Define a function to finish setting up the sync state after loading the
     // session one way or another
@@ -153,14 +153,13 @@ Server.prototype.processSync = function(connection, message) {
         //  Keep a reference to the store with the connection object.
         connection.store = store;
 
-        console.log(store.data);
         //  send a message to the client with the current state of the datastore.
         connection.send("set-store", {
             storeId: id,
             store: store.data
         });
 
-        console.log('sent store! Playback time: ' + playbackTime);
+        //console.log('sent store! Playback time: ' + playbackTime);
 
         //  Add the client to the list of subscribers of that store, and update
         //  clients' subscription lists. Since we add the subscriber first, they'll
@@ -413,23 +412,24 @@ Server.prototype.seekPlayback = function(store, time, callback) {
     var queue = store.updateQueue;
     for(store.updateIndex = 0; store.updateIndex < queue.length; store.updateIndex++) {
         var updateObject = queue[store.updateIndex];
+        store.sessionTime = updateObject.time;
+
         if(updateObject.time > store.sessionTargetTime)
             break;
 
         store.applyUpdates(updateObject.updates);
-        store.sessionTime = updateObject.time;
     }
 
-    store.seekDelay = store.sessionTargetTime - store.sessionTime;
+    store.seekDelay = store.sessionTime - store.sessionTargetTime;
+    //console.log(store.seekDelay);
     store.sessionTime = store.sessionTargetTime;
 
     // Set up playback state
     if(!store.data.playback) {
         store.data.playback = {};
     }
-    store.data.playback.time = store.sessionTime;
-    //store.data.playback.duration = store.sessionEndTime - store.sessionTime0;
-    console.log("duration: " + store.data.playback.duration);
+    store.data.playback.time = store.sessionTime - store.sessionTime0;
+    store.data.playback.duration = store.sessionEndTime - store.sessionTime0;
 
     // Send state to clients
     store.subscriptions.forEach(function(subscription) {
@@ -488,15 +488,15 @@ Server.prototype.startPlayback = function(store, callback) {
     }).bind(this);
 
     // Set up timing: we keep the "session" time for synchronization with the server's timekeeping
-    store.sessionTime = store.updateQueue[store.updateIndex].time;
+    //store.sessionTime = store.updateQueue[store.updateIndex].time;
     store.sessionStartTime = store.sessionTime;
     store.serverStartTime = Date.now();
 
     // Find extra delay before the first update
     var nextUpdateTime = store.updateQueue[store.updateIndex].time;
-    var firstUpdateDelay = nextUpdateTime - store.sessionStartTime + (store.seekDelay || 0);
+    var firstUpdateDelay = store.seekDelay || 0;
 
-    console.log(firstUpdateDelay / 1000);
+    //console.log(firstUpdateDelay / 1000);
 
     // TODO send play mode, time
     store.subscriptions.forEach(function(subscription) {
@@ -511,6 +511,8 @@ Server.prototype.startPlayback = function(store, callback) {
             }
         });
     });
+
+    store.seekDelay = 0;
 
     // Start updating
     if(store.currentTimeout) {
@@ -535,7 +537,7 @@ Server.prototype.pausePlayback = function(store) {
         store.sessionTime = store.sessionStartTime + (Date.now() - store.serverStartTime);
     }
 
-    console.log(store.sessionTime0, store.sessionEndTime);
+    //console.log(store.sessionTime0, store.sessionEndTime);
 
     // Send update to clients 
     store.subscriptions.forEach(function(subscription) {
