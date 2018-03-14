@@ -123,6 +123,11 @@ Store.prototype.load = function(callback, doNotApply) {
     });
     */
 
+      // If playing back, we will collect all users from logged data since we 
+      // can't count on the group in the database being correct.
+    if(doNotApply)
+      this.data.users = {};
+
     //  The write stream will receive the uncompressed data from the gunzip stream.
     var tmpWriteStream = new stream.Writable();
 
@@ -150,6 +155,12 @@ Store.prototype.load = function(callback, doNotApply) {
               //console.log(_doNotApply);
               if(_doNotApply) {
                   this.updateQueue.push(lineObj);
+                  
+                  // If we're playing a session back, figure out which students
+                  // were part of the group
+                  if(updateObject.membershipChange)
+                      this.data.users[updateObject.membershipChange.id] = updateObject.membershipChange;
+
               } else {
                   this.applyUpdates(updateObject);
               }

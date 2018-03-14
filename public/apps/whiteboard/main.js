@@ -241,13 +241,22 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 }
             };
             
-            // Retrieve group members
-            var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
-            userGroup.users().then(function(userGroupList) {
-                ctrl.users = userGroupList;
-            });
-
-
+            // Watch for user list
+            var userUpdate;
+            userUpdate = function(store) {
+                // Get group members
+                ctrl.users = [];
+                if(args.connection.store.users) {
+                    if(Object.keys(args.connection.store.users).length != ctrl.users.length) {
+                        for(var userId in args.connection.store.users) {
+                            ctrl.users.push(args.connection.store.users[userId]);
+                        }
+                    }
+                }
+                args.connection.removeObserver(userUpdate);
+            };
+            args.connection.addObserver(userUpdate);
+            
             ctrl.seek(0);
 
             // Set up listener for play/pause/seek events
@@ -902,7 +911,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           updateColors();
           m.redraw(true);
       };
-      args.connection.userList.addObserver(userListChangeHandler);
 
       if(args.observerMode) {
           // if playback, watch "membershipChange" events and simulate userList changes
@@ -958,6 +966,23 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
               Object.assign(ctrl.scrollPositions, store.scrollPositions);
           });
+          
+          // Set up user list
+          var getPlaybackUsers;
+          getPlaybackUsers = function(store) {
+              var users = [];
+              if(args.connection.store.users) {
+                  for(var userId in args.connection.store.users) {
+                      users.push(args.connection.store.users[userId]);
+                  }
+              }
+              ctrl.userList(users);
+              args.connection.removeObserver(getPlaybackUsers);
+          };
+          args.connection.addObserver(getPlaybackUsers);
+
+      } else {
+          args.connection.userList.addObserver(userListChangeHandler);
       }
 
         
@@ -1247,33 +1272,35 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       //    ctrl.setPage(0);
       //}
 
-      // Set up a network-disconnect message
-        window.addEventListener('offline', function(e) {
-            console.log('offline', e);
+        if(!args.observerMode) {
+            // Set up a network-disconnect message
+            window.addEventListener('offline', function(e) {
+                console.log('offline', e);
 
-            ctrl.offline(true);
-            
-            // setting errmsg triggers the error modal
-            errmsg = "Probably Wi-Fi issues as usual.";
-            // force synchronous redraw to show the modal
-            m.redraw(true);
-        });
+                ctrl.offline(true);
 
-        window.addEventListener('online', function(e) {
-            console.log('online', e);
+                // setting errmsg triggers the error modal
+                errmsg = "Probably Wi-Fi issues as usual.";
+                // force synchronous redraw to show the modal
+                m.redraw(true);
+            });
 
-            ctrl.offline(false);
+            window.addEventListener('online', function(e) {
+                console.log('online', e);
+
+                ctrl.offline(false);
                 location.reload();
 
-            setTimeout(function() {
-                // hide the error modal
-                errmsg = null;
-                m.redraw(true);
+                setTimeout(function() {
+                    // hide the error modal
+                    errmsg = null;
+                    m.redraw(true);
 
-                document.body.classList.remove('modal-open');
-                $('.modal-backdrop').remove();
-            }, 5000);
-        });
+                    document.body.classList.remove('modal-open');
+                    $('.modal-backdrop').remove();
+                }, 5000);
+            });
+        }
 
       return ctrl;
     },

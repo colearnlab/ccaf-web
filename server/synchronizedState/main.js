@@ -153,6 +153,7 @@ Server.prototype.processSync = function(connection, message) {
         //  Keep a reference to the store with the connection object.
         connection.store = store;
 
+        console.log(store.data);
         //  send a message to the client with the current state of the datastore.
         connection.send("set-store", {
             storeId: id,
@@ -404,8 +405,8 @@ Server.prototype.seekPlayback = function(store, time, callback) {
     store.sessionStartTime = store.sessionTime0;
     store.sessionTargetTime = store.sessionTime0 + time;
     
-    // Nuke state
-    store.data = {};
+    // Nuke state but preserve users
+    store.data = {users: store.data.users};
 
     // Seek to the right update
     store.updateIndex = 0;
@@ -432,7 +433,6 @@ Server.prototype.seekPlayback = function(store, time, callback) {
 
     // Send state to clients
     store.subscriptions.forEach(function(subscription) {
-        console.log('sending state!');
         subscription.send("set-store", {
             storeId: store.id,
             store: store.data
