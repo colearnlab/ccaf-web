@@ -395,6 +395,7 @@ Server.prototype.loadPlayback = function(storeId, callback) {
 Server.prototype.seekPlayback = function(store, time, callback) {
     // TODO handle seeking forward as special case
     
+    // TODO handle setPage issue
     if(!store.updateQueue || !store.updateQueue[0])
         return;
 
@@ -404,8 +405,8 @@ Server.prototype.seekPlayback = function(store, time, callback) {
     store.sessionStartTime = store.sessionTime0;
     store.sessionTargetTime = store.sessionTime0 + time;
     
-    // Nuke state but preserve users
-    store.data = {users: store.data.users};
+    // Nuke state but preserve users, _pages
+    store.data = {users: store.data.users, _pages: {}};
 
     // Seek to the right update
     store.updateIndex = 0;
@@ -417,8 +418,20 @@ Server.prototype.seekPlayback = function(store, time, callback) {
         if(updateObject.time > store.sessionTargetTime)
             break;
 
+        // collect page numbers
+        // TODO this is stupid and needs to be fixed properly in a new version
+        for(var p in updateObject.updates) {
+            if(p == "setPage") {
+                //console.log(updateObject.updates[p]);
+                var setPageObj = JSON.parse(updateObject.updates[p].data);
+                for(var userId in setPageObj)
+                    store.data._pages[parseInt(userId)] = setPageObj[userId];
+            }
+        }
+
         store.applyUpdates(updateObject.updates);
     }
+    //console.log(store.data._pages);
 
     store.seekDelay = store.sessionTime - store.sessionTargetTime;
     //console.log(store.seekDelay);

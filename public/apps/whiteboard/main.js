@@ -193,6 +193,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         playback.time = time;
                         ctrl.playbackTime = time;
                     });
+
+                    // TODO add one-time observers to handle page change etc.
                 },
                 seekFromBar: function(e, el) {
                     var seekPercent = 100 * e.offsetX / el.clientWidth;
@@ -939,7 +941,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           });
         
           // Watch page and scroll position
-          args.connection.addObserver(function(store) {
+          args.connection.addObserver(function(store, isReset) {
               var currentPage = ctrl.pageNumbers()[args.user] || 0;
               var newPage = currentPage;
               if(store.setPage && store.setPage.data) {
@@ -947,6 +949,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   if(("" + args.user) in pages) {
                       newPage = pages[args.user];
                   }
+              }
+              if(isReset) {
+                  if(store._pages && store._pages[args.user])
+                      newPage = store._pages[args.user];
+                  else
+                      newPage = 0;
               }
 
               if((newPage != currentPage) && ctrl.changePage) {
