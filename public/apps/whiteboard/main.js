@@ -1002,7 +1002,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var box = selectionBox[userId];
                 if(ctrl.pageNumbers()[args.user] == box.doc && ctrl.docs()[box.doc]) {
                     var canvas = ctrl.docs()[box.doc].canvas[box.page];
-                    if(canvas)
+                    if(canvas && canvas.setSelectionBox)
                         canvas.setSelectionBox(userId, box);
                 }
             }
@@ -2022,8 +2022,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         },
         view: function(ctrl, args) {
             //return m("#pdf-container", drawPDF(ctrl, args, 1));
+            var pageNum = args.pageNumbers()[args.user] || 0;
             return m("#pdf-container", 
-                Array.apply(null, {length: args.numPages()[args.pageNumbers()[args.user]]}).map(function(__, i) {
+                Array.apply(null, {length: args.numPages()[pageNum]}).map(function(__, i) {
+                    console.log('page '+i);
                     return m.component(PDFPageHolder, Object.assign({}, args, {pageNum: i}));
                 })
             );
@@ -2154,7 +2156,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     },
     view: function(ctrl, args) {
 
-      var currentDocument = args.pageNumbers()[args.user];
+      var currentDocument = args.pageNumbers()[args.user] || 0;
       var canvasId = args.getCanvasId(currentDocument, args.pageNum);
       var doc = args.docs()[currentDocument];
 
