@@ -64,7 +64,6 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
         });
     })
     .post(function(req, res) {
-      //console.log(req.body);
         if(!accessAllowed(req, "classroom_sessions")) {
             res.status(403).json({data:{status:403}});
             return;
@@ -91,7 +90,6 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
             }
           });
       } catch(e) {
-        console.log(e);
         res.status(400).json({data:{status:400}});
       }
     });
@@ -225,13 +223,13 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
                 try {
                     var err, stats = fs.statSync(path.resolve(__dirname, "../../stores", row.storeId.toString()));
                     if(err) {
-                        console.log("xxxxCouldn't stat log file " + row.storeId + ": " + err.message);
+                        console.log(err);
                         return;
                     }
                 
                     row.size = stats.size;
                 } catch(e) {
-                    console.log("Couldn't stat log file " + row.storeId + ": " + e.message);
+                    console.log(e);
                 }
 
                 
@@ -251,8 +249,8 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
             return;
         }
         
-      res.setHeader("Content-Type", "application/gzip");
-      res.setHeader("Content-Disposition", 'attachment; filename="log' + req.path + '.txt.gz"');
+      res.setHeader("Content-Type", "text/plain");
+      res.setHeader("Content-Disposition", 'attachment; filename="log' + req.path + '.logfile"');
       next();
     }, express.static("stores"));
 };

@@ -30,9 +30,21 @@ define(["exports"], function(exports) {
     timeout: 1000
   };
 
-  Connection.prototype.sync = function(id) {
+  Connection.prototype.sync = function(id, playbackTime) {
     this.storeId = id;
-    this.send("sync", id);
+    var message = {id: id}
+    if(typeof(playbackTime) != 'undefined') {
+        message.playbackTime = playbackTime;
+    }
+    this.send("sync", message);
+  };
+
+  Connection.prototype.startPlayback = function(storeId, startTime) {
+    this.storeId = storeId;
+      this.send("playback", {
+        storeId: storeId,
+        playbackTime: startTime
+      });
   };
 
   Connection.prototype.addObserver = function(observer) {
@@ -195,7 +207,7 @@ define(["exports"], function(exports) {
         this.store = message.store;
 
         this.observers.forEach((function(observer) {
-          observer(this.store);
+          observer(this.store, true);
         }).bind(this));
 
         break;

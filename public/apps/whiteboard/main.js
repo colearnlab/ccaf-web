@@ -1,17 +1,19 @@
 define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootstrap", "models", "css", "uuidv1", "userColors", "./mechanicsObjects.js"], function(exports, pdfjs, m, $, bootstrap, models, css, uuidv1, userColors, mechanicsObjects) {
- 
+    
     // Disable two-or-more finger touches to prevent pinch zooming
     document.addEventListener('touchstart', function(e){
         if( e.touches.length > 1) {   
             e.preventDefault();
         }
     }, {passive: false});
+
     
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
       ClassroomSession = models.ClassroomSession,
-      Group = models.Group;
+      Group = models.Group,
+      User = models.User;
   var getUserColor = userColors.getColor;
   var array;
  
@@ -50,6 +52,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
        '#00ffff' // teal
    ];
 
+   var realViewHeight = 1;
+
    var errmsg = null, errobj = null;
    var errorPrompt = function(msg, obj) {
         errmsg = msg;
@@ -69,44 +73,291 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
   exports.load = function(connection, el, params) {
     array = connection.array;
+    exports.logOnly = connection.logOnly.bind(connection);
     connection.errorCallback = errorPrompt;
     css.load("/apps/whiteboard/styles.css");
-    var ctrl = m.mount(el, m.component(Main, {
-      pdf: params.pdf,
-      user: params.user.id,
-      session: params.session.id,
-      connection: connection,
-        group: params.group,
-        groupTitle: params.groupObject.title
-    }));
+    var appReturn = {};
+    
+    // If we load the app in observer mode, wrap all components in an invisible
+    // div to catch events
+    var ctrl;
+    var mainArgs = {
+          pdf: params.pdf,
+          user: params.user.id,
+          session: params.session.id,
+          observerMode: params.observerMode,
+          connection: connection,
+            group: params.group,
+            groupTitle: params.groupObject.title,
+            appReturn: appReturn,
+            exitCallback: params.exitCallback
+        };
 
+      // Check if the session is playing back
+      if(connection.store && connection.store.playback) {
+        params.observerMode = connection.store.playback[0];
+      }
+
+    if(params.observerMode) {
+      ctrl = m.mount(el, m.component(ObserverWrapper, mainArgs));
+    } else {
+      ctrl = m.mount(el, m.component(Main, mainArgs));
+    }
+
+
+    ///////////////
+    // TODO remove this
     connection.addObserver(function(store) {
       if (store.scrollPositions) {
         ctrl.scrollPositions = store.scrollPositions || {};
       }
+
       //ctrl.remotePages(store.pages || {});
       requestAnimationFrame(m.redraw);
     });
+    ///////////////
 
     window.addEventListener("resize", m.redraw.bind(null, true));
+    window.addEventListener("resize", function(e) {
+        realViewHeight = document.body.clientHeight;
+    });
+
+    document.addEventListener("visibilityChange", function() {
+        var data = {};
+        data[params.user.id] = document.visibilityState;
+        connection.logOnly("appVisible", data);
+    });
+
+    // Return a callback to save screenshots for students
+    return appReturn;
   };
 
+  // TODO remove??
   function dist(x1, y1, x2, y2) {
     var d = Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
     return d;
   }
 
+  var ObserverWrapper = {
+      // ObserverWrapper: should cover all of the app except for page change and
+      // playback controls
+    controller: function(args) {
+        var ctrl = {
+            resetting: false           
+        };
+
+        args.connection.transaction([["playback"]], function(isPlayback) {
+            isPlayback[0] = true;
+        });
+
+        return ctrl;
+    },
+    view: function(ctrl, args) {
+        return m("#observerWrapper", {
+                config: function(el, isInit) {
+                    if(isInit)
+                        return;
+                    
+                    // Capture all events
+                    el.addEventListener('mousedown', function(e) {
+                        //console.log('captured mousedown event');
+                        e.stopPropagation();
+                    }, true);
+                },
+ 
+            },
+            ctrl.resetting ? null : m.component(Main, args),
+            m.component(PlaybackControls, args)
+        );
+    }
+  };
+
+
+    var PlaybackControls = {
+        controller: function(args) {
+            var ctrl;
+            ctrl = {
+                lastMode: "pause",
+                draggingSeek: false,
+                seekBarPosition: 0,
+                secondUpdateInterval: null,
+                playbackTime: 0,
+                duration: 0,
+                mouseOver: false,
+               
+                seek: function(time) {
+                    // Ask the server to seek to the given time relative to the
+                    // beginning of the session
+                    args.connection.transaction([['playback']], function(playback) {
+                        playback.mode = "seek";
+                        playback.time = time;
+                        ctrl.playbackTime = time;
+                    });
+
+                    // TODO add one-time observers to handle page change etc.
+                },
+                seekFromBar: function(e, el) {
+                    var seekPercent = 100 * e.offsetX / el.clientWidth;
+                    ctrl.seek(ctrl.getSeekTime(seekPercent));
+                    ctrl.draggingSeek = false;
+                    //console.log(e);
+                },
+                getSeekPercent: function() { 
+                    if(ctrl.duration) {
+                        return 100 * ctrl.playbackTime / ctrl.duration;
+                    } else {
+                        return 0;
+                    }
+                },
+                getSeekTime: function(percent) {
+                    return (percent / 100) * ctrl.duration;
+                },
+                getTimeString: function() {
+                    var formatTime = function(date) {
+                        var hours = date.getUTCHours(),
+                            minutes = date.getMinutes(),
+                            seconds = date.getSeconds();
+                        return ("" + hours + ":" + (minutes >= 10 ? "" : "0")
+                            + minutes + ":" + (seconds >= 10 ? "" : "0") + seconds);
+                    };
+
+                    var t = new Date(ctrl.playbackTime),
+                        d = new Date(ctrl.duration);
+                    return formatTime(t) + " / " + formatTime(d);
+                },
+                togglePlayPause: function() {
+                    args.connection.transaction([['playback']], function(playback) {
+                        if(playback.mode == "pause") {
+                            playback.mode = "play";
+                        } else if(playback.mode == "play") {
+                            playback.mode = "pause";
+                        } else {
+                            playback.mode = "play";
+                        }
+                    });
+                },
+                becomeUser: function(user) {
+                    console.log("switched user: " + user.email);
+                    args.user = user.id;
+                    m.redraw();
+                }
+            };
+            
+            // Watch for user list
+            var userUpdate;
+            userUpdate = function(store) {
+                // Get group members
+                ctrl.users = [];
+                if(args.connection.store.users) {
+                    if(Object.keys(args.connection.store.users).length != ctrl.users.length) {
+                        for(var userId in args.connection.store.users) {
+                            ctrl.users.push(args.connection.store.users[userId]);
+                        }
+                    }
+                }
+                args.connection.removeObserver(userUpdate);
+            };
+            args.connection.addObserver(userUpdate);
+            
+            ctrl.seek(0);
+
+            // Set up listener for play/pause/seek events
+            args.connection.addObserver(function(store, isReset) {
+                if(store.playback) {
+                    ctrl.duration = store.playback.duration;
+                    ctrl.playbackTime = store.playback.time;
+                    //console.log(ctrl.playbackTime, ctrl.duration);
+                    if(store.playback.mode == "play" && ctrl.lastMode != "play") {
+                        // start updating the time
+                        ctrl.secondUpdateInterval = setInterval(function() {
+                            ctrl.playbackTime += 1000;
+                            if(!ctrl.draggingSeek) {
+                                ctrl.seekBarPosition = ctrl.getSeekPercent();
+                            }
+
+                            // check for end of playback
+                            if(ctrl.playbackTime >= ctrl.duration) {
+                                console.log("reached end of playback");
+                                ctrl.togglePlayPause();
+                                return;
+                            }
+                            m.redraw(true);
+                        }, 1000);
+                        
+                        ctrl.lastMode = "play";
+                    } else if(store.playback.mode != "play" && ctrl.lastMode == "play") {
+                        
+                        if(ctrl.secondUpdateInterval)
+                            clearInterval(ctrl.secondUpdateInterval);
+
+                        ctrl.lastMode = store.playback.mode;
+                    }
+                }
+            });
+
+
+            return ctrl;
+        },
+        view: function(ctrl, args) {
+
+            return m("div",
+                m("div#playback-controls", {
+                    onmouseenter: function(e) {
+                        ctrl.mouseOver = true;
+                        e.target.style.opacity = 1.0;
+                    },
+                    onmouseleave: function(e) {
+                        ctrl.mouseOver = false;
+                        e.target.style.opacity = 0.7;
+                    }
+                },
+                    m("button.btn.btn-primary", {
+                        onclick: ctrl.togglePlayPause,
+                    }, m(".playback-button-text", {
+                        style: "text-align: center"
+                    },
+                        (ctrl.lastMode == "play" ? m.trust("&#9612;&#9612;") : m.trust("&#x25b6;")))),
+                    m("#playbackTime", ctrl.getTimeString()),
+                    ctrl.mouseOver ? ctrl.users.map(user => m("a.playback-name", {onclick: ctrl.becomeUser.bind(null, user)}, user.name)) : ""
+                ),
+                m("svg#playbackSeekBar", {
+                    onmousedown: function(e) {
+                        // Get seek position
+                        ctrl.draggingSeek = true;
+                        ctrl.seekBarPosition = 100 * (e.offsetX / e.target.clientWidth);
+                    },
+                    onmousemove: function(e) {
+                        if(ctrl.draggingSeek)
+                            ctrl.seekBarPosition = 100 * (e.offsetX / e.target.clientWidth);
+                    },
+                    onmouseup: function(e) {
+                        if(e.target.clientWidth) {
+                            ctrl.seekFromBar(e, e.target);
+                        }
+                    },
+
+                    width: '100%',
+                    height: '1em'
+                }, 
+                    m("rect#playbackElapsed", {
+                        width: '' + ctrl.getSeekPercent() + '%',
+                        height: '100%',
+                        color: 'blue',
+                        onmouseup: function(e) {
+                            ctrl.seekFromBar(e, e.target.parentElement);
+                        }
+                    })
+                )
+            );
+
+        }
+    };
+
   var Main = {
     controller: function(args) {
       var ctrl = {
         userColor: function(userId) {
-            return (args.connection ?
-                args.connection.store ?
-                  args.connection.store.userColors ?
-                      args.connection.store.userColors[userId]
-                    : '#888888'
-                  : '#888888'
-                : '#888888');
+            return ctrl.userColors()[userId] || '#888888';
         },
         allowUndo: m.prop({}),
         lastToModify: {},
@@ -133,7 +384,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         docs: m.prop({}),
         firstLoad: true,
         user: args.user,
-        myColor: m.prop('#888888'),
+        myColor: function() {
+            return ctrl.userColor(args.user);
+        },
         lastDrawn: m.prop({}),
 
         groupUsers: [],        
@@ -141,6 +394,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         updateQueue: [],
 
         nextObjectUpdateIdx: 0,
+        pageCount: m.prop(0),
+
+        // TODO check this properly
+        offline: m.prop(false),
+
+        me: m.prop(null),
+        exitCallback: function(appCallback) {
+            if(ctrl.snapshotInterval) {
+                clearInterval(ctrl.snapshotInterval);
+            }
+
+            // If we're a student, save pages before quitting, otherwise just quit
+            var myType = ctrl.me().type;
+            if((myType == 2) || (myType == 'student') || (myType == 'Student'))
+                ctrl.saveSnapshots(args.exitCallback.bind(null, appCallback));
+            else
+                args.exitCallback(appCallback);
+        },
 
         // make a canvas ID string from document and page numbers
         getCanvasId: function(docIdx, pageNum) {
@@ -202,6 +473,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         // for recording which document each user is looking at
         setPage: function(pageNum) {
             //ctrl.flushUpdateQueue(pageNum);
+            
+            console.log('Set page number: ' + pageNum);
 
             // Notify group
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
@@ -217,6 +490,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           //var scrollPositions = ctrl.scrollPositions();
           args.connection.transaction([["scrollPositions", args.user, ctrl.pageNumbers()[args.user]]], function(userScrollPositions) {
             userScrollPositions.pos = pos;
+
+            // Report the part of the page the user can actually see
+            /**/
+            var docHeight = ctrl.docs()[ctrl.pageNumbers()[args.user]].totalRealHeight,
+                innerRange = docHeight - realViewHeight;
+            userScrollPositions.viewTop = pos * innerRange / docHeight;
+            userScrollPositions.viewBottom = (realViewHeight + (pos * innerRange)) / docHeight;
+            /**/
 
             // dumb
             if(!ctrl.scrollPositions) {
@@ -238,14 +519,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         setPenColor: function(penColorIdx) {
             args.connection.transaction([["penColor", args.user]], function(color) {
                 color.color = penColors[ctrl.penColorIdx(penColorIdx)];
-            });
-        },
-
-        setColor: function(color) {
-            args.connection.transaction([["userColors"]], function(colors) {
-                colors[ctrl.user] = color;
-                //console.log("set color " + color);
-                ctrl.myColor(color);
             });
         },
 
@@ -281,14 +554,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // Does the object exist on the canvas?
                     if(undoEvent.uuid in canvas.objsByUUID) {
                         if(undoEvent.name == 'remove') {
-                            ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "removeObject", true);
+                            ctrl.removeObject(canvas.objsByUUID[undoEvent.uuid], canvas, true, true, "undoAddObject", true);
                         } else {
                             // Modify object
-                            ctrl.modifyObject(undoEvent, canvas, true, true, "modifyObject", true);
+                            ctrl.modifyObject(undoEvent, canvas, true, true, "undoModifyObject", true);
                         }
                     } else {
                         if(undoEvent.name != 'remove')
-                            ctrl.addObject(undoEvent, canvas, true, true, "addObject", true);
+                            ctrl.addObject(undoEvent, canvas, true, true, "undoRemoveObject", true);
                     }
 
                     canvas.renderAll();
@@ -551,33 +824,176 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   // object does not exist so create (no transaction)
                   ctrl.addObject(updateObj, canvas, true, false);
               }
-          }
+          },
 
+          userColors: m.prop({}),
+          setStoreCallbacks: []
       };
 
-      ctrl.pageNumbers()[args.user] = 0;
+        ctrl.addSetStoreCallback = function(callback) {
+            ctrl.setStoreCallbacks.push(callback);
+        };
 
-      var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
-      userGroup.users().then(function(userGroupList) {
-          //console.log(userGroupList);
-          for(var i = 0, len = userGroupList.length; i < len; i++) {
-              if(ctrl.user == userGroupList[i].id)
-                  ctrl.setColor(userColors.userColors[i]);
-          }
-      });
+        ctrl.removeSetStoreCallback = function(callback) {
+            for(var i = 0; i < ctrl.setStoreCallbacks.length; i++) {
+                if(ctrl.setStoreCallbacks[i] == callback) {
+                    delete ctrl.setStoreCallbacks[i];
+                    break;
+                }
+            }
+        };
 
-      args.connection.userList.addObserver(function(users) {
-        ctrl.userList(users);
-          // TODO get correct position!
-        // Update users' page positions
-          //console.log("user list update");
-        ctrl.userList().map(function(user) {
-            //if(!(user.id in ctrl.pageNumbers()))
-                //ctrl.pageNumbers()[user.id] = 0;
+        // Playback set-store observer
+        args.connection.addObserver(function(store, isReset) {
+            // If we've recieved a set-store, remove all objects and add back
+            if(isReset) {
+                // clear canvas cache contents
+                var docs = ctrl.docs();
+                for(var docIdx in docs) {
+                    docs[docIdx].canvasContents = {};
+                    var numPages = ctrl.numPages()[docIdx];
+                    for(var pageIdx = 0; pageIdx < numPages; pageIdx++) {
+                        docs[docIdx].canvasContents[pageIdx] = [];
+                    }
+                }
+
+                // set up page contents
+                for(var uuid in store.objects) {
+                    var update = store.objects[uuid],
+                        obj = JSON.parse(update.data),
+                        meta = JSON.parse(update.meta);
+                    obj.uuid = uuid;
+                    
+                    // put object in canvas cache
+                    docs[meta.doc].canvasContents[meta.page].push(obj);
+                    console.log(docs[meta.doc].canvasContents[meta.page]);
+
+                    // set curId so we don't reject subsequent updates after rewind
+                    ctrl.curId[uuid] = meta._id - 1;
+                }
+
+                console.log(docs);
+
+                // Run callbacks
+                ctrl.setStoreCallbacks.forEach(function(callback) {
+                    callback();
+                });
+            }
         });
-        m.redraw(true);
-      });
 
+      // Make our exit callback visible to whatever loaded the whiteboard app so
+      // that it can be made to quit from the outside
+      exports.exitCallback = ctrl.exitCallback;
+
+      var updateColors = function() {
+          var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
+          userGroup.users().then(function(userGroupList) {
+              ctrl.userColors({});
+              for(var i = 0, len = userGroupList.length; i < len; i++) {
+                  ctrl.userColors()[userGroupList[i].id] = userColors.userColors[i];
+              }
+              //console.log(ctrl.userColors());
+          });
+      };
+      updateColors();
+
+      var userListChangeHandler = function(users) {
+          ctrl.userList(users);
+
+          // The user list has changed -- update page numbers, scroll positions, and colors.
+          var oldPageNumbers = ctrl.pageNumbers(),
+              oldScrollPositions = ctrl.scrollPositions;
+          ctrl.pageNumbers({});
+          ctrl.scrollPositions = {};
+          ctrl.userList().map(function(user) {
+              ctrl.pageNumbers()[user.id] = oldPageNumbers[user.id] || 0;
+              ctrl.scrollPositions[user.id] = oldScrollPositions[user.id] || {};
+          });
+
+          updateColors();
+          m.redraw(true);
+      };
+
+      if(args.observerMode) {
+          // if playback, watch "membershipChange" events and simulate userList changes
+          args.connection.addObserver(function(store) {
+              if(store.membershipChange) {
+                  if(store.membershipChange.action.includes("load")) {
+                      // add a member
+                      if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length == 0) {
+                          ctrl.userList().push(store.membershipChange);
+                      }
+                  } else {
+                      // remove a member
+                      if(ctrl.userList().filter(user => store.membershipChange.id == user.id).length > 0) {
+                          var idx = 0;
+                          for(; idx < ctrl.userList().length; idx++) {
+                              if(ctrl.userList()[idx].id == store.membershipChange.id)
+                                  break;
+                          }
+                          delete ctrl.userList()[idx];
+                      }
+                  }
+
+                  // 
+                  userListChangeHandler(ctrl.userList());
+              }
+          });
+        
+          // Watch page and scroll position
+          args.connection.addObserver(function(store, isReset) {
+              var currentPage = ctrl.pageNumbers()[args.user] || 0;
+              var newPage = currentPage;
+              if(store.setPage && store.setPage.data) {
+                  var pages = JSON.parse(store.setPage.data);
+                  if(("" + args.user) in pages) {
+                      newPage = pages[args.user];
+                  }
+              }
+              if(isReset) {
+                  if(store._pages && store._pages[args.user])
+                      newPage = store._pages[args.user];
+                  else
+                      newPage = 0;
+              }
+
+              if((newPage != currentPage) && ctrl.changePage) {
+                  ctrl.changePage(currentPage, newPage);
+              }
+
+              // Set own scroll position
+              var scrollPosition = store.scrollPositions ?
+                  store.scrollPositions[args.user] ? 
+                      store.scrollPositions[args.user][newPage] ?
+                          store.scrollPositions[args.user][newPage].pos
+                    : 0
+                : 0
+              : 0;
+              if(ctrl.setMainScroll)
+                  ctrl.setMainScroll(scrollPosition);
+
+              Object.assign(ctrl.scrollPositions, store.scrollPositions);
+          });
+          
+          // Set up user list
+          var getPlaybackUsers;
+          getPlaybackUsers = function(store) {
+              var users = [];
+              if(args.connection.store.users) {
+                  for(var userId in args.connection.store.users) {
+                      users.push(args.connection.store.users[userId]);
+                  }
+              }
+              ctrl.userList(users);
+              args.connection.removeObserver(getPlaybackUsers);
+          };
+          args.connection.addObserver(getPlaybackUsers);
+
+      } else {
+          args.connection.userList.addObserver(userListChangeHandler);
+      }
+
+        
       // Watch for selection changes
       args.connection.addObserver(function(store) {
         if(store.selectionBox) {
@@ -586,7 +1002,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var box = selectionBox[userId];
                 if(ctrl.pageNumbers()[args.user] == box.doc && ctrl.docs()[box.doc]) {
                     var canvas = ctrl.docs()[box.doc].canvas[box.page];
-                    if(canvas)
+                    if(canvas && canvas.setSelectionBox)
                         canvas.setSelectionBox(userId, box);
                 }
             }
@@ -666,6 +1082,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
     // Get dimensions for rendering PDF. We don't re-render the PDF when the size 
     // changes since it's expensive.
+    //
+    // TODO remove?
     var pdfWidth = document.body.clientWidth,
         pdfHeight = pdfWidth * 11.0 / 8.5;
 
@@ -673,8 +1091,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       ClassroomSession.get(args.session).then(function(session) {
           // Retrieve activity info for the session
           Activity.get(session.activityId).then(ctrl.activity).then(function() {
-              ctrl.activity().pages.map(function(activitypage) {
-
+              ctrl.activity().pages.map(function(activitypage, _i) {
                   // Retrieve document
                   PDFJS.getDocument("/media/" + activitypage.filename).then(function(pdf) {
                     ctrl.numPages()[activitypage.pageNumber] = pdf.numPages;
@@ -683,32 +1100,38 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         canvas: {},
                         canvasWidth: {},
                         canvasHeight: {},
-                        canvasAspectRatio: {},
+                        virtualCanvasHeight: {},
+                        totalRealHeight: 0,
                         canvasContents: {},
                         prevObjectState: {},
                         undoStack: []
                     };
+                    
 
                     for(var i = 0, len = pdf.numPages; i < len; i++) {
-                        // Render page
                         (function(pn) {
                             var canvas = document.createElement('canvas');
                             pdf.getPage(pn + 1).then(function(page) {
-
-                                // TODO fix pdf resolution
                                 var viewport = page.getViewport(pdfWidth / page.getViewport(1).width * 1);
                                 canvas.height = viewport.height;
+                                ctrl.docs()[activitypage.pageNumber].totalRealHeight += canvas.height;
+                                ctrl.docs()[activitypage.pageNumber].virtualCanvasHeight[pn] = virtualPageWidth * viewport.height / viewport.width;
+                                
+
                                 canvas.width = viewport.width;
-                                ctrl.docs()[activitypage.pageNumber].canvasAspectRatio[pn] = canvas.height / canvas.width;
 
                                 canvasctx = canvas.getContext("2d");
                                 
                                 page.render({canvasContext: canvasctx, viewport: viewport}).then(function() {
                                     ctrl.docs()[activitypage.pageNumber].page[pn] = canvas.toDataURL();
+                                    ctrl.pageCount(ctrl.pageCount() + 1);
+
+
                                     m.redraw(true);
                                 });
                             });
                         })(i);
+
                     }
                   });
               });
@@ -759,6 +1182,133 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 console.warn("Device orientation logging not supported!");
             }
         }
+        
+        // Save pages as images
+        ctrl.saveSnapshots = function(callback) {
+            var pagesLeft = ctrl.pageCount();
+            if(ctrl.docs()) {
+                for(var _docNum in ctrl.docs()) {
+                    var _doc = ctrl.docs()[_docNum].canvas;
+                    var _contents = ctrl.docs()[_docNum].canvasContents;
+                    for(var _pageNum in _doc) {
+
+                        (function(doc, contents, docNum, pageNum) {
+                            var origCanvas = doc[pageNum];
+                            var tempFabricCanvas = new fabric.StaticCanvas();
+                            tempFabricCanvas.setWidth(origCanvas.width || virtualPageWidth);
+                            tempFabricCanvas.setHeight(origCanvas.height || virtualPageHeight);
+                            tempFabricCanvas.objsByUUID = {}; // leave this
+                            tempFabricCanvas.prevObjectState = {};
+                            var canvContents = contents[pageNum];
+                            if(canvContents) {
+                                for(var i = 0, len = canvContents.length; i < len; i++) {
+                                    ctrl.addObject(canvContents[i], tempFabricCanvas, true, false, "", true);
+                                }
+                            }
+
+                            var exportCanvas = document.createElement('canvas');
+                            exportCanvas.width = origCanvas.width;
+                            exportCanvas.height = origCanvas.height;
+                            var ctx = exportCanvas.getContext('2d');
+
+                            // Get PDF
+                            var pdfImage = new Image;
+                            pdfImage.onload = function() {
+                                ctx.drawImage(pdfImage, 0, 0, pdfImage.width, pdfImage.height, 0, 0, origCanvas.width, origCanvas.height);
+                            
+                                // Export image of drawn objects
+                                var drawingImage = new Image;
+                                drawingImage.onload = function() {
+                                    ctx.drawImage(drawingImage, 0, 0);
+
+                                    // Now upload as an image
+                                    var snapshotUrl = exportCanvas.toDataURL();
+                                    var data = new FormData();
+                                    data.append("upload", snapshotUrl);
+                                    m.request({
+                                        method: "POST",
+                                        url: '/api/v1/snapshot/' + args.session + '/' + args.user + '/' + docNum + '/' + pageNum,
+                                        data: data,
+                                        serialize: function(a) { return a; }
+                                    }).then(function() {
+                                        pagesLeft--;
+										//console.log(pagesLeft);
+                                        if((pagesLeft <= 0) && callback) {
+											//console.log("finished saving pages " + callback);
+                                            callback(); // run final callback
+										}
+                                    });
+                                    
+                                };
+                                drawingImage.onerror = function() {
+                                    console.error("Failed to load drawings while saving snapshot");
+                                    pagesLeft--;
+                                };
+                                drawingImage.src = tempFabricCanvas.toDataURL();
+                            };
+                            pdfImage.onerror = function() {
+                                console.error("Failed to load PDF image while saving snapshot");
+                                pagesLeft--;
+                            }
+                            pdfImage.src = ctrl.docs()[docNum].page[pageNum];
+                        })(_doc, _contents, _docNum, _pageNum);
+                    }
+                }
+            } 
+        };
+      
+      // Load own user data
+      User.me().then(ctrl.me).then(function() {  
+          // run snapshot saving every five minutes (students only)
+          var myType = ctrl.me().type;
+          if((myType == 2) || (myType == 'student') || (myType == 'Student'))
+              ctrl.snapshotInterval = setInterval(ctrl.saveSnapshots, 5 * 60 * 1000);
+
+          // Log that we've joined the group
+          args.connection.logOnly("membershipChange", 
+              Object.assign({}, ctrl.me(), {action: "load app"})
+          );
+      
+          m.redraw();
+      });
+
+      realViewHeight = document.body.clientHeight;
+      
+      // set page and update group
+      //if(!(args.user in ctrl.pageNumbers())) {
+      //    ctrl.pageNumbers()[args.user] = 0;
+      //    ctrl.setPage(0);
+      //}
+
+        if(!args.observerMode) {
+            // Set up a network-disconnect message
+            window.addEventListener('offline', function(e) {
+                console.log('offline', e);
+
+                ctrl.offline(true);
+
+                // setting errmsg triggers the error modal
+                errmsg = "Probably Wi-Fi issues as usual.";
+                // force synchronous redraw to show the modal
+                m.redraw(true);
+            });
+
+            window.addEventListener('online', function(e) {
+                console.log('online', e);
+
+                ctrl.offline(false);
+                location.reload();
+
+                setTimeout(function() {
+                    // hide the error modal
+                    errmsg = null;
+                    m.redraw(true);
+
+                    document.body.classList.remove('modal-open');
+                    $('.modal-backdrop').remove();
+                }, 5000);
+            });
+        }
 
       return ctrl;
     },
@@ -776,6 +1326,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
         ctrl.setScroll(scrollDest);
       };
+
+
       return m("#main", {
           class: "errormodal-" + (errmsg ? "show" : "hide"),
           config: function(el) {
@@ -787,6 +1339,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     if(ctrl.scrollDragging())
                         ctrl.scrollDragging(false);
             });
+
+              // TODO remove?
+            ctrl.setMainScroll = function(scroll) {
+                el.scrollTop = parseInt(scroll * (el.scrollHeight - window.innerHeight));
+                m.redraw();
+                console.log(el.scrollTop);
+            };
+ 
           },
           onscroll: function(e) {
             var el = e.target;
@@ -838,16 +1398,19 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 m(".modal-content" + widthClasses,
                     m(".modal-header",
                         m("h4.modal-title", 
-                            "Oops"
+                            "Lost network connection"
                         )
                     ),
                     m(".modal-body",
-                        m('p', 'The application encountered a problem. Please let Ian know before reloading.'),
-                        
+                        m('p', 'The app will reload when network connectivity returns.')//,
+                       
+                       /* 
                         ctrl.showDetails()
                             ? m('p', 'Cause: ' + errmsg)
                             : m('a', {onclick: function() { ctrl.showDetails(true); }}, 'Details')
-                    ),
+                        */
+                    )//,
+                    /*
                     m(".modal-footer",
                         m("button.btn.btn-danger.pull-right", {
                                 onclick: location.reload.bind(location),
@@ -855,6 +1418,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             "Reload"
                         )
                     )
+                    */
                 )
             );
         }
@@ -863,6 +1427,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var Controls = {
     view: function(__, args) {
       var changePage = function(doc, newDoc) {
+          console.log("change page!");
           args.saveCanvases(doc);   // Save contents of all canvases
           $('.canvas-container').remove();  // Remove canvases from DOM
           args.lastDrawn({});   // Signal that we need to change PDFs
@@ -870,6 +1435,12 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           m.redraw();   // Rebuild canvases
           args.setPage(newDoc); // Notify group of page change
       };
+      args.changePage = changePage;
+
+      var pageNum = args.pageNumbers()[args.user];
+      if(typeof(pageNum) == 'undefined') {
+          pageNum = 0;
+      }
 
       return m("#controls", {
           style: "background-color: " + args.myColor()
@@ -893,13 +1464,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             args.userList().map(function(user) {
                 if(args.pageNumbers()[user.id] == page.pageNumber)
                     usersHere.push(m("p.user-dot", {style: "color: " + 
-                          (args.connection ?
-                              args.connection.store ?
-                                args.connection.store.userColors ?
-                                    args.connection.store.userColors[user.id]
-                                  : '#888888'
-                                : '#888888'
-                              : '#888888')
+                            args.userColor(user.id)
                         }, m.trust("&#9679;")));
             });
             
@@ -989,7 +1554,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           
           // Only show the objects menu if we're on a sketch page
           (args.activity() ? 
-            (args.activity().pages[args.pageNumbers()[args.user]].metadata.hasFBD) ? 
+            (args.activity().pages[pageNum].metadata.hasFBD) ? 
                 m.component(MechanicsObjectSelect, args) 
             : ""
           : "")
@@ -1021,26 +1586,49 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     height: 32,
                     src: "/shared/icons/Icons_F_Dropdown_W.png",
                     draggable: false,
-                    onmousedown: function(e) {
+
+                    onclick: function(e) {
                         ctrl.open(!ctrl.open());
-                    },
+                    }
+                    /*,
+                    ontouchstart: function() {
+                        ctrl.open(!ctrl.open());
+                    }
+                    /*
                     ontouchend: function() {
                         ctrl.open(!ctrl.open());
                     },
+                    */
                 }
             ),
             m("div#options-tray", {
-                    style: "left: -5vw; width: 10vw; text-align: center", 
+                    style: "right: -1vw; position: absolute; text-align: center", 
                     class: ctrl.open() ? "tray-open" : "tray-closed"
                 },
 
                 // Tray contents here!
                 m("button.btn.btn-info.mech-obj-button", {
                         onclick: function() {
-                            location.reload();
+                            // Log that we've joined the group
+                            args.connection.logOnly("membershipChange", 
+                                Object.assign({}, args.me(), {action: "leave app (clicked reload/exit button)"})
+                            );
+                            
+                            if(args.me().type == 2) {
+                                //args.exitCallback(function() {
+								//	console.log("Reload");
+                                    location.reload();
+                                //});
+                            } else {
+                                args.exitCallback();
+                            }
                         }
                     },
-                    "Reload"
+                            args.me() ?
+                                (args.me().type != 2) ?
+                                    "Exit"
+                                : "Reload"
+                            : "Reload"
                 )
             )
         );
@@ -1106,12 +1694,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           onclick: m.redraw
         },
         m("div.mechanics-objects-holder", {
-          onmousedown: function(e) {
-            ctrl.open(!ctrl.open());
-          },
-          ontouchend: function() {
-            ctrl.open(!ctrl.open());
-          },
+                    onclick: function(e) {
+                        ctrl.open(!ctrl.open());
+                    }
         },
         "Tools"
         ),
@@ -1137,7 +1722,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 width: 4 * ctrl.arrowLength,
                                 height: 40
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         );
                     }
                 }, 
@@ -1167,7 +1752,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 originY: 'center',
                                 padding: 5 
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         );
                     }
                 }, 
@@ -1197,7 +1782,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         thickness: ctrl.arrowLength,  
                                         spacing: ctrl.gridsize
                                     },
-                                    ctrl.canvas, true, true
+                                    ctrl.canvas, true, true, "addFBDObject"
                                 );
                             }
                         }, 
@@ -1229,7 +1814,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         minThickness: ctrl.minThickness,
                                         maxThickness: ctrl.maxThickness
                                     },
-                                    ctrl.canvas, true, true
+                                    ctrl.canvas, true, true, "addFBDObject"
                                 );
                             }
                         }, 
@@ -1258,7 +1843,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                         radius: ctrl.arrowLength, 
                                         clockwise: (letters == "MC"),
                                     },
-                                    ctrl.canvas, true, true
+                                    ctrl.canvas, true, true, "addFBDObject"
                                 );
                             }    
                         }, 
@@ -1286,7 +1871,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 handleRadius: ctrl.handleRadius,
                                 strokeWidth: ctrl.strokeWidth,
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         );
                     }
                 }, 
@@ -1310,7 +1895,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 strokeWidth: ctrl.strokeWidth,
                                 name: "controlCurvedLine"
                             },
-                            ctrl.canvas, true, true
+                            ctrl.canvas, true, true, "addFBDObject"
                         ); 
                     }    
                 }, 
@@ -1329,19 +1914,31 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       controller: function(args) {
           var ctrl = {
               scrollbarHeight: m.prop(null),
+              scrollbarTop: m.prop(0),
               dragging: m.prop(false),
               setScroll: function(e) {
                   var scrollDest = e.offsetY / ctrl.scrollbarHeight();
-                  args.setScroll(scrollDest);
+                  console.log(scrollDest);
+                  if((typeof(scrollDest) == 'number') && (scrollDest >= 0) && (scrollDest <= 1)) {
+                      args.setScroll(scrollDest);
+                  }
               }
           };
 
           return ctrl;
       },
       view: function(ctrl, args) {
+          var barTop = ctrl.scrollbarTop();
           return m("svg.scrollbar#scrollbar", {
-                  config: function(el) {
+                  config: function(el, isInit) {
+
+                      /*
+                      if(isInit) {
+                          return;
+                      }
+                      */
                       ctrl.scrollbarHeight(el.clientHeight);
+                      ctrl.scrollbarTop(el.getBoundingClientRect().top);
                   },
                   onmousedown: function(e) {
                       args.scrollDragging(true);
@@ -1355,6 +1952,24 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                       ctrl.dragging(false);
                       ctrl.setScroll(e);
                   }*/
+                  ontouchstart: function(e) {
+                      console.log(e);
+                      var touch = e.touches[0];
+                      e.offsetY = touch.pageY - ctrl.scrollbarTop();// + window.scrollY;
+                      ctrl.setScroll(e);
+                  },
+                  /*
+                  ontouchend: function(e) {
+                      var touch = e.touches[0];
+                      e.offsetY = touch.pageY - touch.target.getBoundingClientRect().top;// + window.scrollY;
+                      ctrl.setScroll(e);
+                  },
+                  */
+                  ontouchmove: function(e) {
+                      var touch = e.touches[0];
+                      e.offsetY = touch.pageY - ctrl.scrollbarTop();// + window.scrollY;
+                      ctrl.setScroll(e);
+                  }
               },
               args.userList().map(function(user) {
                   // Draw circle on scroll bar if the user is on our page.
@@ -1365,13 +1980,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                           getScroll: args.getScroll,
                           user: user,
                           dragging: ctrl.dragging,
-                          color: args.connection ?
-                              args.connection.store ?
-                                args.connection.store.userColors ?
-                                    args.connection.store.userColors[user.id]
-                                  : '#888888'
-                                : '#888888'
-                              : '#888888',
+                          color: args.userColor(user.id),
                           userList: args.userList,
                           pointerEvents: args.user === user.id,
                           scrollbarHeight: ctrl.scrollbarHeight,
@@ -1413,8 +2022,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         },
         view: function(ctrl, args) {
             //return m("#pdf-container", drawPDF(ctrl, args, 1));
+            var pageNum = args.pageNumbers()[args.user] || 0;
             return m("#pdf-container", 
-                Array.apply(null, {length: args.numPages()[args.pageNumbers()[args.user]]}).map(function(__, i) {
+                Array.apply(null, {length: args.numPages()[pageNum]}).map(function(__, i) {
+                    console.log('page '+i);
                     return m.component(PDFPageHolder, Object.assign({}, args, {pageNum: i}));
                 })
             );
@@ -1425,6 +2036,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
     controller: function(args) {
       var ctrl = {
         canvas: null,
+          // TODO use docIdx everywhere
+        docIdx: args.pageNumbers()[args.user],
         erasing: false,
         fingerScrolling: m.prop(false),
         selecting: false,
@@ -1478,7 +2091,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
 
             if(activeObject) {
-                args.removeObject(activeObject, ctrl.canvas, true, true);
+                args.removeObject(activeObject, ctrl.canvas, true, true, "removeObject");
             }
 
             if(activeGroup) {
@@ -1487,7 +2100,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var groupID = uuidv1();
                 objects.forEach(function(obj) {
                     obj.groupID = groupID;
-                    args.removeObject(obj, ctrl.canvas, true, true);
+                    args.removeObject(obj, ctrl.canvas, true, true, "removeObject");
                 });
             }
         },
@@ -1519,13 +2132,31 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 ctrl.canvas.renderAll();
             }
         }
+
       };
+
+        // for reloading objects on the current page for a store change
+        ctrl.loadCanvasContents = function(contents) {
+            ctrl.canvas.objsByUUID = {};
+            if(contents) {
+                for(var i = 0, len = contents.length; i < len; i++)
+                    args.addObject(contents[i], ctrl.canvas, true, false);
+            }
+        };
+
+        // after we receive a 'set-store' message, clear canvas and add objects
+        ctrl.setStoreCallback = function() {
+            ctrl.canvas.clear();
+            var contents = args.docs()[ctrl.docIdx].canvasContents[args.pageNum];
+            console.log(contents);
+            ctrl.loadCanvasContents(contents);
+        };
 
       return ctrl;
     },
     view: function(ctrl, args) {
 
-      var currentDocument = args.pageNumbers()[args.user];
+      var currentDocument = args.pageNumbers()[args.user] || 0;
       var canvasId = args.getCanvasId(currentDocument, args.pageNum);
       var doc = args.docs()[currentDocument];
 
@@ -1540,6 +2171,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 var docs = args.docs();
                 docs[currentDocument].canvasWidth[args.pageNum] = el.clientWidth;
                 docs[currentDocument].canvasHeight[args.pageNum] = el.clientHeight;
+
+                console.log(el.clientWidth, el.clientHeight, el.clientHeight / el.clientWidth);
                 args.docs(docs);
             }
           }
@@ -1554,26 +2187,37 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // the user is finger-scrolling.
                     el.addEventListener(
                         "touchstart",
-                        function() {
+                        function(e) {
+                            /*
                             if(ctrl.canvas)
                                 ctrl.canvas.isDrawingMode = false;
+                            */
+                            e.preventDefault();
                         },
                         true
                     );
                     el.addEventListener(
                         "touchend",
-                        function() {
+                        function(e) {
+                            /*
                             if(ctrl.canvas) {
                                 //ctrl.canvas.isDrawingMode = (args.tool() == 1);
                                 ctrl.setTool();
                             }
+                            */
+                            e.preventDefault();
                         },
                         true
                     );
                     
-                }
+                },
             },
+            
+
             m("canvas.drawing-surface", {
+                onbeforeunload: function() {
+                    args.removeSetStoreCallback(ctrl.setStoreCallback);
+                },
                 config: function(el, isInit) {
                     if(ctrl.canvas)
                         ctrl.canvas.undoStack = doc.undoStack;
@@ -1606,7 +2250,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // Use the same coordinate system as all other users but scale to 
                     // the size of the page.
                     ctrl.canvas.setWidth(virtualPageWidth);
-                    ctrl.canvas.setHeight(virtualPageHeight);
+
+
+                    var vheight = args.docs()[currentDocument].virtualCanvasHeight[args.pageNum];
+                    if(vheight)
+                        ctrl.canvas.setHeight(vheight);
+                    else
+                        ctrl.canvas.setHeight(virtualPageHeight);
                     ctrl.canvas.setDimensions({
                             width: "100%",
                             height: "100%"
@@ -1616,12 +2266,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     );
 
                     // Load canvas data if any
-                    ctrl.canvas.objsByUUID = {};
                     var contents = docs[currentDocument].canvasContents[args.pageNum];
-                    if(contents) {
-                        for(var i = 0, len = contents.length; i < len; i++)
-                            args.addObject(contents[i], ctrl.canvas, true, false);
-                    }
+                    ctrl.loadCanvasContents(contents);
 
                     args.flushUpdateQueue(args.pageNumbers()[args.user], args.pageNum);
                     
@@ -1636,12 +2282,15 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         }
                     }
                     
+                    // If we receive set-store, clear contents and update
+                    args.addSetStoreCallback(ctrl.setStoreCallback);
 
                     // Use the right tool
                     ctrl.setTool();
 
                     // Set up event handlers
                     ctrl.canvas.on({
+
                         // Enforce scaling limits
                         "object:scaling": function(e) {
                             var scaleX = e.target.scaleX,
@@ -1692,7 +2341,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 if(objects.length == 0)
                                     ctrl.canvas.trigger('selection:cleared');
 
-                            } else if(e.target.type == "DistUnifLoad") {
+                            } else if((e.target.type == "DistUnifLoad") || (e.target.type == "DistTrianLoad")) {
                                 // Show new position and scale
                                 //console.log(e.target);
                                 if(e.target.group) {
@@ -1720,7 +2369,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                                 e.target.initialize(e.target);
                                 e.target.setCoords();
-                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");
+                                args.modifyObject(e.target, ctrl.canvas, false, true, "modifyFBDObject");
 
                             } else {
                                 args.modifyObject(e.target, ctrl.canvas, false, true, "modifyObject");

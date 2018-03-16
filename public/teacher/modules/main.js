@@ -1,4 +1,4 @@
-define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "bootstrap"], function(exports, m, $, models, userPicker, groupEditor, dataVis, bs) {
+define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules/groupEditor", "modules/datavis", "bootstrap", "synchronizedStateClient"], function(exports, m, $, models, userPicker, groupEditor, dataVis, bs, synchronizedStateClient) {
   var Classroom = models.Classroom;
   var User = models.User;
   var ClassroomSession = models.ClassroomSession;
@@ -9,6 +9,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var UserPicker = userPicker.userPicker;
   var GroupEditor = groupEditor.groupEditor;
   var DataVis = dataVis.DataVis;
+
+    var wsAddress = 'wss://' + window.location.host + "/ws";
 
   var Shell = {
     controller: function(args) {
@@ -44,10 +46,14 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             sessions: false,
             activities: false,
             classrooms: false
+        },
+        onunload: function() {
+            clearInterval(ctrl.refreshInterval);
         }
       };
 
       ctrl.refreshData();
+      ctrl.refreshInterval = setInterval(ctrl.refreshData, 10000);
 
       return ctrl;
     },
@@ -81,7 +87,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             m.component(Sessions, args),
           //m.component(StartSessionMenu, args),
           //m.component(ActiveSessions, args),
-          //m.component(PastSessions, args),
+          m.component(PastSessions, args),
           
           // TODO make these menus
           m.component(ActivitiesMenu, args),
@@ -196,10 +202,14 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 }));
                 m.redraw();
             });
+        },
+        onunload: function() {
+            clearInterval(ctrl.refreshInterval);
         }
       };
 
         ctrl.refresh();
+        ctrl.refreshInterval = setInterval(ctrl.refresh, 10000);
 
         return ctrl;
     },
@@ -265,53 +275,143 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   
   var PastSessions = {
     controller: function(args) {
-      return {
-        sessions: ClassroomSession.list()
+      var ctrl = {
+        sessions: m.prop([]),
+        showBody: args.showMenus.sessions,
+        refresh: function() {
+            ClassroomSession.list().then(function(sessions) {
+                ctrl.sessions(sessions.filter(function(session) {
+                    return session.endTime !== null;
+                }));
+
+                // Fetch groups
+                sessions.map(function(session) {
+                    Classroom.get(session.classroom).then(function(classroom) {
+                        classroom.groups().then(function(groups) {
+                            session.groups = groups;
+                        });
+                    });
+                });
+
+                m.redraw();
+            });
+        },
+        onunload: function() {
+            clearInterval(ctrl.refreshInterval);
+        },
+        // TODO need: group, me, session, syncStateClient(?) 
+        launchWhiteboardApp: function(group, session) {
+            // Add self to group and launch whiteboard
+            args.me().addGroup(group).then(function() {
+                m.mount(document.body, null);
+                
+                var me = args.me();
+                var metadata = (session.metadata ? JSON.parse(session.metadata) : {});
+                
+                session.getStoreId(group.id, me.id).then(function(storeId) {
+                    group.users().then(function(userList) {
+
+                        require(["/apps/" + metadata.app + "/main.js"], function(app) {
+                            var connection = synchronizedStateClient.connect(wsAddress, function() {
+                                connection.sync(storeId, 0); // playback start time is 0
+                                
+                                //connection.startPlayback(storeId, 0);
+                                var appReturn = {};
+                                app.load(connection, document.body, {
+                                    user: me,
+                                    group: group.id,
+                                    groupObject: group,
+                                    session: session,
+                                    appReturn: appReturn,
+
+                                    // start in observer mode!
+                                    observerMode: true,
+
+                                    exitCallback: function(appCallback) {
+                                        // Remove self from first group (dirty, but shouldn't be in more than one group)
+                                        args.me().groups().then(function(groups) {
+                                            var group = groups[0];
+
+                                            // Remove self from group and then return
+                                            args.me().removeGroup(group).then(function() {
+                                                if(appCallback) {
+                                                    appCallback(function() {
+                                                        //m.mount(document.body, exports.DataVis);
+                                                        location.reload();
+                                                    });
+                                                } else {
+                                                    //m.mount(document.body, exports.DataVis);
+                                                    location.reload();
+                                                }
+                                            });
+                                        });
+                                    }
+                                }); // app.load
+        
+                            }); // connect
+                        });
+
+                    }); // group.users
+
+                }); // getStoreId
+            });
+        } // launchWhiteboardApp
       };
+
+        ctrl.refresh();
+        //ctrl.refreshInterval = setInterval(ctrl.refresh, 10000);
+
+        return ctrl;
     },
     view: function(ctrl, args) {
-      var mySessions = args.sessions().filter(function(session) {
-        return session.endTime !== null;
-      });
+
 
       return m(".main-menu-section.bg-color-white", {
-          style: mySessions.length > 0 ? "" : "display: none"
+          style: ctrl.sessions().length > 0 ? "" : "display: none"
         },
-        m(".main-menu-header.primary-color-green.text-color-secondary", "Past Sessions"),
-        m(".main-menu-body",
-          m(".list-group",
-            mySessions.map(function(session) {
-              var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
-              var classroom = args.classrooms()[classroomIdx];
-              return m(".list-group-item.classroom",
-                m(".list-group-heading", {
-                    /*onclick: function() {
-                      m.route("/session/" + session.id);
-                    }*/
-                  },
-                  session.title,
-                  " [",
-                  classroom.title,
-                  "]",
-                  /*m("a.session-link", {
+        m(".main-menu-header.primary-color-green.text-color-secondary", "View past sessions"),
+          m(".main-menu-body.canscroll",
+              m(".list-group.canscroll",
+                  ctrl.sessions().map(function(session) {
+                      var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
+                      var classroom = args.classrooms()[classroomIdx];
+
+                      return m(".list-group-item.classroom",
+                          m(".list-group-heading", {},
+                              session.title,
+                              " [",
+                              classroom.title,
+                              "]",
+
+
+                              (session.groups ? session.groups.map(function(g) { 
+                                  return m("a.session-link.pull-right", {
+                                      onclick: function() {
+                                          ctrl.launchWhiteboardApp(g, session);
+                                      }
+                                    },
+                                      g.title
+                                  ); 
+                              }) : ""),
+                                m(".pull-right", "Watch recorded session for group:"),
+
+
+
+                              /* TODO remove this
+                  m("a.session-link.pull-right", {
                       onclick: function() {
-                          m.route("/session/" + session.id);
-                      }
-                    },
-                    m.trust("&laquo;Edit groups&raquo;")
-                  ),*/
-                  m("a.session-link", {
-                      onclick: function() {
+                              // TODO change link!
                           m.route("/visualize/" + session.id);
                       }
                     }, 
-                    m.trust("&laquo;Visualize&raquo;")
-                  )
-                )
-              );
-            })
+                    m.trust("&laquo;Play back session&raquo;")
+                  ) */
+
+                          )
+                      );
+                  })
+              )
           )
-        )
       );
     }
   };
@@ -727,11 +827,21 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   
   var StartActivityModal = {
     controller: function(args) {
+        var timeNow = new Date();
+        var hour = timeNow.getHours();
+        if(timeNow.getMinutes() >= 30)
+            hour++;
+        var day = timeNow.getDate();
+        var month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][timeNow.getMonth()];
+        
+        var datestring = "" + day + " " + month + " " + hour + ":00";
+
       var ctrl = {
         title: "Start a session using " + args.activity.title,
         doneButtonLabel: "Start",
         activity: args.activity,
-        sessionTitle: "New session - " + args.activity.title,
+        //sessionTitle: "New session - " + args.activity.title,
+        sessionTitle: args.activity.title + " - " + datestring,
         showEndTime: false,
           // TODO hour and a half?
         scheduledEndTime: Date.now() + 60000,

@@ -4,8 +4,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
   var User = models.User;
   var Classroom = models.Classroom;
   var ClassroomSession = models.ClassroomSession;
-  //var wsAddress = 'wss://' + window.location.host + "/ws";
   var wsAddress = 'wss://' + window.location.host + "/ws";
+  //var wsAddress = 'ws://' + window.location.host + "/ws";
   var Activity = models.Activity;
   var ActivityPage = models.ActivityPage;
   var appPath = "whiteboard";
@@ -15,12 +15,21 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     controller: function(args) {
       function refresh() {
         return User.me().then(function(me) {
+          
+            m.request({
+                method: 'GET',
+                url: '/api/v1/snapshot/' + me.id
+            }).then(function(res) {
+                ctrl.snapshots(res.data);
+            });
+
+
           me.classrooms().then(function(classrooms) {
             me.groups().then(function(groups) {
               var groupClassrooms = groups.map(function(group) { return group.classroom; });
+              ctrl.activeSessions([]);
               classrooms.forEach(function(classroom) {
                 classroom.sessions().then(function(sessions) {
-                  ctrl.activeSessions([]);
                   sessions.forEach(function(session) {
                     if (session.endTime !== null)
                       return;
@@ -29,6 +38,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                     ctrl.activeSessions().push({session: session, group: groups[groupIdx]});
                   });
 
+                }).then(function() {
+                    console.log(ctrl.activeSessions());
                 });
               });
             });
@@ -39,6 +50,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
 
       var ctrl = {
         activeSessions: m.prop([]),
+        snapshots: m.prop([]),
         me: refresh(),
         interval: setInterval(function() {
             ctrl.me = refresh();
@@ -51,7 +63,8 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
       return m(".container-fluid.bg-color-med.stretch",
         m(".row",
           m(widthClasses,
-            m.component(SessionSelect, ctrl)
+            m.component(SessionSelect, ctrl),
+            m.component(SnapshotsMenu, ctrl)
           )
         )
       );
@@ -85,7 +98,19 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                       ClassroomSession.get(sessionId).then(function(updatedActiveSession) {
                         if (updatedActiveSession.endTime !== null) {
                           clearInterval(args.interval);
-                          m.mount(document.body, Main);
+
+                          console.log(wbApp);
+                          // Run the whiteboard app's exit callback
+                          if(wbApp.exitCallback) {
+                              if(wbApp.logOnly) {
+                                  wbApp.logOnly("membershipChange", 
+                                      Object.assign({}, args.me(), {
+                                          action: "leave app (session ended)"
+                                      })
+                                  );
+                              }
+                              wbApp.exitCallback();
+                          }
                         }
                       });
 
@@ -93,7 +118,16 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                         var groupClassrooms = groups.map(function(group) { return group.classroom; });
                         var groupIdx = groupClassrooms.indexOf(classroomId);
 
+
                         if (groups[groupIdx].id !== groupId) {
+                            console.log("group change; reload app");
+                              if(wbApp.logOnly) {
+                                  wbApp.logOnly("membershipChange", 
+                                      Object.assign({}, args.me(), {
+                                          action: "reload app (changed groups)"
+                                      })
+                                  );
+                              }
                           groupId = groups[groupIdx].id;
                           loadSession(me, {session: activeSession.session, group: groups[groupIdx]});
                         }
@@ -111,7 +145,52 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
     }
   };
 
+  var SnapshotsMenu = {
+    controller: function(args) {
+        return {
+            snapshots: args.snapshots,
+            showMenu: (args.snapshots().length != 0)
+        };
+    },
+    view: function(ctrl, args) {
+        return m(".main-menu-section.bg-color-white",
+            m(".main-menu-header.primary-color-green.text-color-secondary",
+                "Your saved work"
+            ),
+
+            ctrl.showMenu ?
+                m("table.table.table-striped",
+                    m("thead",
+                        m("tr",
+                           m("th", "Session"),
+                            m("th", "Pages")
+                        )
+                    ),
+                    m("tbody",
+                        ctrl.snapshots().map(function(snapshot) {
+                            return m("tr",
+                                m("td", snapshot.title),
+                                m("td", snapshot.pages.map(function(snapshotPage) {
+                                        return m('a[href="/snapshots/' + snapshotPage.file + '"]', {
+                                                style: "padding-right: 1em",
+                                                download: snapshotPage.file
+                                            },
+                                            "" + (snapshotPage.doc + 1) + "." + (snapshotPage.page + 1)
+                                        );
+                                    })
+                                )
+                            );
+                        })
+                    )
+                )
+            : m("div", {style: "color: gray; text-align: center"}, "(no saved work)")
+        );
+    }
+  };
+
   m.mount(document.body, Main);
+
+    var wbApp;
 
   function loadSession(me, session) {
     m.mount(document.body, null);
@@ -127,16 +206,30 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
         require(["/apps/" + metadata.app + "/main.js"], function(app) {
           var connection = synchronizedStateClient.connect(wsAddress, function() {
             connection.sync(storeId);
+            var appReturn = {};
             app.load(connection, document.body, {
-              //pdf: "/media/" + metadata.pdf.filename,
               user: me,
               group: group.id,
               groupObject: group,
-              session: session
+              session: session,
+              appReturn: appReturn,
+              exitCallback: function(appCallback) {
+                
+                  console.log("loadSession exit callback");
+                  if(appCallback)
+                      appCallback();
+
+                // After the whiteboard app cleans up, return to our main menu
+                m.mount(document.body, Main);
+              }
             });
+            
+            wbApp = app;
+            
           });
         });
       });
     });
+    //return app;
   }
 });

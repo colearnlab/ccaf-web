@@ -6,14 +6,28 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
     tracker.loadFromDB();
 
     // Add methods for recording drawing events
-    tracker.setRecorder("addFreeDrawing", function(key, updateObj, timestamp) {
+    tracker.setRecorder("addFreeDrawing", "addFreeDrawing", function(key, updateObj, timestamp) {
         // Store the number of points in the path
         var pathLength = updateObj.data.path.length;
-        //console.log(pathLength);
         this.push(key, pathLength, updateObj.meta, timestamp);
     });
 
-    tracker.setRecorder("setPage", function(key, updateObj, timestamp) {
+    // Generic recorder for point values that don't change
+    var makeFixedPointsRecorder = function(points) {
+        return function(key, updateObj, timestamp) {
+            this.push(key, points, updateObj.meta, timestamp);
+        };
+    };
+
+    tracker.setRecorder("addFBDObject", "addFreeDrawing", makeFixedPointsRecorder(20));
+    tracker.setRecorder("modifyObject", "addFreeDrawing", makeFixedPointsRecorder(10));
+    tracker.setRecorder("removeObject", "addFreeDrawing", makeFixedPointsRecorder(10));
+    tracker.setRecorder("undoAddObject", "addFreeDrawing", makeFixedPointsRecorder(5));
+    tracker.setRecorder("undoModifyObject", "addFreeDrawing", makeFixedPointsRecorder(5));
+    tracker.setRecorder("undoRemoveObject", "addFreeDrawing", makeFixedPointsRecorder(5));
+
+
+    tracker.setRecorder("setPage", "setPage", function(key, updateObj, timestamp) {
         this.pageNumbers = this.pageNumbers || {};
         for(var userId in updateObj.data) {
             this.pageNumbers[userId] = updateObj.data[userId];
@@ -23,7 +37,10 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
     // Add methods for calculating interesting things from the raw event data
     tracker.setReporter("contributionToGroup", function(args) {
         // Get last minute of data (TODO store interval with process.env?)
-        var recentDrawing = this.getInterval("addFreeDrawing", Date.now() - 60000);
+        //var recentDrawing = this.getInterval("addFreeDrawing", Date.now() - 60000);
+        
+        // Get cumulative contributions over class
+        var recentDrawing = this.getInterval("addFreeDrawing");
         
         var groupTotals = {};
         for(var i = 0, len = recentDrawing.data.length; i < len; i++) {
@@ -39,7 +56,6 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
         }
 
         ////
-        //console.log(groupTotals);
         return groupTotals;
     });
 
@@ -56,7 +72,6 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
         while((now - this.latestHistoryUpdate) >= groupHistoryUpdateInterval) {
             var nextHistoryUpdate = this.latestHistoryUpdate + groupHistoryUpdateInterval;
             var drawingData = this.getInterval("addFreeDrawing", this.latestHistoryUpdate, nextHistoryUpdate);
-            //console.log(drawingData);
 
             // Add up group totals
             var groupTotals = {};
@@ -100,6 +115,8 @@ function StudentStatsTracker(db, sessionId) {
     this.recorders = {};
     this.reporters = {};
 
+    this.storeKeys = {};
+
     this.lastSavedIdx = {};
 
     this._data = {};
@@ -114,26 +131,26 @@ function StudentStatsTracker(db, sessionId) {
 
 
 // Stores a callback to record a certain type of event
-StudentStatsTracker.prototype.setRecorder = function(key, recorderCB) {
-    this.recorders[key] = recorderCB.bind(this);
+StudentStatsTracker.prototype.setRecorder = function(inputKey, storeKey, recorderCB) {
+    this.recorders[inputKey] = recorderCB.bind(this);
+    this.storeKeys[inputKey] = storeKey;
     
     // make arrays for recording update events and times
-    this._data[key] = [];
-    this._meta[key] = [];
-    this._timestamps[key] = [];
+    this._data[storeKey] = [];
+    this._meta[storeKey] = [];
+    this._timestamps[storeKey] = [];
 };
 
 
 // If an update has metadata and there is a matching recorder callback, run
 // the callback for the update message
 StudentStatsTracker.prototype.processUpdate = function(updateObj, timestamp) {
-    //console.log(updateObj.data);
     if(updateObj.meta) {
         // Choose the recorder callback
-        var key = updateObj.meta.type;
-        var recorderCB = this.recorders[key];
+        var inputKey = updateObj.meta.type;
+        var recorderCB = this.recorders[inputKey];
         if(recorderCB)
-            recorderCB(key, updateObj, timestamp);
+            recorderCB(this.storeKeys[inputKey], updateObj, timestamp);
     }
 };
     
@@ -224,16 +241,17 @@ StudentStatsTracker.prototype.saveToDB = function() {
     this.db.run("PRAGMA foreign_keys = on;");
     
     for(var recorderKey in this.recorders) {
-        var startIdx = this.lastSavedIdx[recorderKey];
+        var storeKey = this.storeKeys[recorderKey];
+        var startIdx = this.lastSavedIdx[storeKey];
 
         // Write all new events to the database
-        var timestamps = this._timestamps[recorderKey],
-            data = this._data[recorderKey],
-            meta = this._meta[recorderKey];
+        var timestamps = this._timestamps[storeKey],
+            data = this._data[storeKey],
+            meta = this._meta[storeKey];
         var endIdx = data.length;
         for(var i = startIdx; i < endIdx; i++) {
             this.db.run("INSERT INTO stats_events VALUES (:type, :timestamp, :data, :meta, :session);", {
-                ":type": recorderKey,
+                ":type": storeKey,
                 ":timestamp": timestamps[i],
                 ":data": JSON.stringify(data[i]),
                 ":meta": JSON.stringify(meta[i]),
@@ -242,7 +260,7 @@ StudentStatsTracker.prototype.saveToDB = function() {
         }
 
         // Keep track of which event we wrote last
-        this.lastSavedIdx[recorderKey] = endIdx;
+        this.lastSavedIdx[storeKey] = endIdx;
     }
 };
 
@@ -262,24 +280,24 @@ StudentStatsTracker.prototype.loadFromDB = function() {
 
     while(stmt.step()) {
         var ev = stmt.get();
-        var recorderKey = ev[0];
-        if(!(recorderKey in this._data)) {
-            this._timestamps[recorderKey] = [];
-            this._data[recorderKey] = [];
-            this._meta[recorderKey] = [];
+        var storeKey = ev[0];
+        if(!(storeKey in this._data)) {
+            this._timestamps[storeKey] = [];
+            this._data[storeKey] = [];
+            this._meta[storeKey] = [];
         }
 
         // TODO run recorders??
 
-        this._timestamps[recorderKey].push(ev[1]);
-        this._data[recorderKey].push(JSON.parse(ev[2]));
-        this._meta[recorderKey].push(JSON.parse(ev[3]));
+        this._timestamps[storeKey].push(ev[1]);
+        this._data[storeKey].push(JSON.parse(ev[2]));
+        this._meta[storeKey].push(JSON.parse(ev[3]));
     }
 
 
     // Keep track of what's already in the database
-    for(var recorderKey in this._timestamps) {
-        this.lastSavedIdx = this._timestamps[recorderKey].length - 1;
+    for(var storeKey in this._timestamps) {
+        this.lastSavedIdx[storeKey] = this._timestamps[storeKey].length - 1;
     }
 };
 

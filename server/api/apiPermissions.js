@@ -20,7 +20,9 @@ var apiAccessPermissions = {
             media: true,
             documents: true,
             users: true,
-            visualize: true
+            visualize: true,
+            snapshots: true,
+            getStoreId: true
         },
         PUT: {
             activity: true,
@@ -65,7 +67,11 @@ var apiAccessPermissions = {
             media: true,
             documents: true,
             users: true,
-        }
+            snapshots: true
+        },
+        POST: {
+            snapshots: true
+        },
     }
 };
 
@@ -89,7 +95,7 @@ exports.accessAllowed = function(req, apiPath) {
         }
     }
 
-    console.log(userTypes[req.user.type] + " attempted forbidden " + req.method + " request on \"" + apiPath + "\"");
+    console.log("" + req.user.email + " (" + userTypes[req.user.type] + ") attempted forbidden " + req.method + " request on \"" + apiPath + "\"");
     return false;
 };
 

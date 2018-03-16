@@ -383,7 +383,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                         m("th", "Duration"),
                         m("th", "File size"),
                         m("th", "")
-                    ),
+                    )
                 ),
                 m("tbody",
                     ctrl.logInfo() ?
