@@ -7,6 +7,8 @@ a collaborative drawing application for students, and real-time classroom
 visualization dashboard for teachers, and recording and playback of student
 drawing activity for later analysis.
 
+See our [wiki](https://github.com/colearnlab/ccaf-web/wiki) for more
+information.
 
 ## For students
 
