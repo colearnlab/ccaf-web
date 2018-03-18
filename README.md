@@ -10,11 +10,15 @@ drawing activity for later analysis.
 
 ## For students
 
+![Screenshot of student app] (https://raw.githubusercontent.com/colearnlab/ccaf-web/master/doc/student.png)
+
 Small groups of students can work together on assignments using tablets to draw
 on a shared document.
 
 
 ## For teachers
+
+![Screenshot of teacher app] (https://raw.githubusercontent.com/colearnlab/ccaf-web/master/doc/teacher.png)
 
 Statistics from the drawing application are collected and organized for the
 teacher to provide a visual representation of the progress and level of activity
