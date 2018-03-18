@@ -1,3 +1,7 @@
+/*
+ * apiPermissions.js: defines which types of users are allowed to use each API
+ *      endpoint.
+ */
 
 var userTypes = [
     "admin",
@@ -6,7 +10,7 @@ var userTypes = [
 ];
 
 
-// This table serves as a whitelist for 
+// API permissions whitelist 
 
 var apiAccessPermissions = {
     admin: true,

@@ -1,3 +1,8 @@
+/*
+ * server/api/visualize.js: Provides data from the stats tracker to the 
+ *      teacher visualization tool.
+ */
+
 var accessAllowed = require("./apiPermissions").accessAllowed;
 
 exports.createRoutes = function(app, db, stats) {
@@ -9,12 +14,12 @@ exports.createRoutes = function(app, db, stats) {
             }
             // GET: if the session exists, give a bunch of information to be drawn on the 
             // visualization page
-            
+
             var sessionId = req.params.sessionId;
-            
+
             // ensure session exists
             var stmt = db.prepare("SELECT * FROM classroom_sessions WHERE id=:id", {
-              ":id": sessionId
+                ":id": sessionId
             });
             if(!stmt.step()) {
                 res.status(404).json({data:{status:404}});

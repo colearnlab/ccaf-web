@@ -1,3 +1,7 @@
+/*
+ * main.js: Starts the CCAF server.
+ */
+
 //  Import the .env file and set process.env.
 require('dotenv').config();
 
@@ -11,14 +15,14 @@ var dbPath = path.resolve(__dirname, "..", "embedded.sqlite");
 
 //  If it doesn't exist, create it per the schema.
 if (!fs.existsSync(dbPath))
-  require("./createDB").mkdb(dbPath);
+    require("./createDB").mkdb(dbPath);
 
 
 //  Load the database and save it every 180 seconds (in case of a bad exit).
 var db = new sql.Database(fs.readFileSync(dbPath));
 setInterval(function() {
     // TODO prevent updates while exporting?
-  fs.writeFileSync(dbPath, new Buffer(db.export()));
+    fs.writeFileSync(dbPath, new Buffer(db.export()));
 }, 180000);
 
 //  The framework used to create the API.
@@ -28,7 +32,7 @@ var app = express();
 //  Parse JSON objects stored as querystrings.
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({
-  extended: true
+    extended: true
 }));
 
 //  Load the authentication module and intialize it.
@@ -40,12 +44,12 @@ var authObj = auth.initialize(app, db);
 app.all("/*", auth.ensureAuthenticated);
 
 var redirectToUserHomepage = function(req, res) {
-  if (req.user.type === 0)
-    res.redirect("/admin");
-  else if (req.user.type === 1)
-    res.redirect("/teacher");
-  else if (req.user.type === 2)
-    res.redirect("/student");
+    if (req.user.type === 0)
+        res.redirect("/admin");
+    else if (req.user.type === 1)
+        res.redirect("/teacher");
+    else if (req.user.type === 2)
+        res.redirect("/student");
 };
 
 app.use("/admin", function(req, res, next) {
@@ -94,26 +98,26 @@ require("./api/snapshot").createRoutes(app, db);
 
 //  verifyClient takes a http upgrade request and ensures that it is authenticated.
 var verifyClient = function(req, done) {
-  authObj.cookies(req, {}, function() {
-    //  No passport object: not authenticated.
-    if (!req.session.passport || typeof req.session.passport.user === "undefined")
-      return done(1);
+    authObj.cookies(req, {}, function() {
+        //  No passport object: not authenticated.
+        if (!req.session.passport || typeof req.session.passport.user === "undefined")
+            return done(1);
 
-    //  Try to look up the user in the database.
-    var stmt = db.prepare("SELECT * FROM users WHERE id=:id", {
-      ":id": req.session.passport.user
+        //  Try to look up the user in the database.
+        var stmt = db.prepare("SELECT * FROM users WHERE id=:id", {
+            ":id": req.session.passport.user
+        });
+
+        //  If the user is not there, callback with error.
+        if (!stmt.step())
+            return done(1);
+
+        //  If the user is there, callback with the user object.
+        var user = stmt.getAsObject();
+        stmt.free();
+
+        done(null, user);
     });
-
-    //  If the user is not there, callback with error.
-    if (!stmt.step())
-      return done(1);
-
-    //  If the user is there, callback with the user object.
-    var user = stmt.getAsObject();
-    stmt.free();
-
-    done(null, user);
-  });
 };
 
 //  Starting the HTTP server listening.
@@ -123,14 +127,16 @@ var httpServer = app.listen(parseInt(process.env.PORT));
 
 //  Create the synchronized state server.
 var synchronizedStateServer = require("./synchronizedState/main").server(
-  httpServer,
-  path.resolve(__dirname, "..", "stores"),
-  verifyClient,
-  studentStats
+    httpServer,
+    path.resolve(__dirname, "..", "stores"),
+    verifyClient,
+    studentStats
 );
 
 syncShared.stores = synchronizedStateServer.stores;
 
+// On exit, try to write out the database and cleanly shut down the synchronized
+// state server
 function exitHandler(err) {
     if (err) console.log(err.stack);
     fs.writeFileSync(dbPath, new Buffer(db.export()));

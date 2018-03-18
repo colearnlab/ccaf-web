@@ -1,3 +1,9 @@
+/*
+ * server/synchronizedState/main.js: This file provides the core of our
+ *      synchronized state machinery that facilitates shared drawing. See also:
+ *      public/shared/synchronizedStateClient.js
+ */
+
 //  Filesystem operations.
 var fs = require("fs"),
 
@@ -119,6 +125,7 @@ Server.prototype.processLogOnly = function(connection, message) {
         return;
 
     if(message.update.meta) {
+        // Run any stats tracker hooks
         this.stats.sessionStats[message.update.meta.s].processUpdate(message.update, message.clientTime);
     }
 
@@ -138,6 +145,9 @@ Server.prototype.processSync = function(connection, message) {
 
     var id = message.id;
 
+    // If playback time is given in the message, we prepare the session for
+    // playback mode, in which events from the log are sent out as if they were
+    // really happening. 
     var playbackTime = null;
     if(typeof(message.playbackTime) != 'undefined') {
         playbackTime = message.playbackTime;
@@ -171,6 +181,8 @@ Server.prototype.processSync = function(connection, message) {
             callback(store, playbackTime);
     };
 
+    // If playback mode, prepare for playback, otherwise just load the store for
+    // normal use
     if(playbackTime == null) {
         //  Obtain the store associated with that id.
         this.getOrCreateStore(id, afterLoadCallback.bind(this));
@@ -209,7 +221,7 @@ Server.prototype.processSync = function(connection, message) {
 //    updates: a mapping of paths to objects that will be placed at those paths.
 Server.prototype.processTransaction = function(connection, transaction) {
     var store = connection.store;
-        
+
     //  Precondition 1.
     if (!store || store.id !== transaction.storeId)
         return;
@@ -268,7 +280,7 @@ Server.prototype.processTransaction = function(connection, transaction) {
                 }
             }
 
-            // Playback controls
+            // Playback controls. Only used when session is in playback mode.
             if(key == "playback") {
                 switch(updateObj.mode) {
                     case 'seek':
@@ -392,9 +404,13 @@ Server.prototype.loadPlayback = function(storeId, callback) {
 };
 
 
+/*
+ * Based on logged events, sets up the store as it appeared at the given time
+ * offset.
+ */
 Server.prototype.seekPlayback = function(store, time, callback) {
     // TODO handle seeking forward as special case
-    
+
     // TODO handle setPage issue
     if(!store.updateQueue || !store.updateQueue[0])
         return;
@@ -404,7 +420,7 @@ Server.prototype.seekPlayback = function(store, time, callback) {
     store.sessionEndTime = store.updateQueue[store.updateQueue.length - 1].time;
     store.sessionStartTime = store.sessionTime0;
     store.sessionTargetTime = store.sessionTime0 + time;
-    
+
     // Nuke state but preserve users, _pages
     store.data = {users: store.data.users, _pages: {}};
 
@@ -458,6 +474,9 @@ Server.prototype.seekPlayback = function(store, time, callback) {
 };
 
 
+/*
+ * Plays back session events from the log.
+ */
 Server.prototype.startPlayback = function(store, callback) {
 
     // Repeating update function
@@ -540,6 +559,9 @@ Server.prototype.startPlayback = function(store, callback) {
 };
 
 
+/*
+ * Pauses playback.
+ */
 Server.prototype.pausePlayback = function(store) {
     // Prevent the next update from being sent
     clearTimeout(store.currentTimeout);

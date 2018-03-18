@@ -1,16 +1,35 @@
+/*
+ * studentStats.js: Collects various data from active sessions and prepares
+ *      stats for display in the teacher visualization tool.
+ */
+
 exports.sessionStats = {};
 
+// Sets up student stats tracking for a session.
 exports.makeStudentStatsTracker = function(db, sessionId) {
     // Create tracker and load any existing session data
     var tracker = new StudentStatsTracker(db, sessionId);
     tracker.loadFromDB();
 
+    /*
+     * The teacher vis tool primarily measures student activity using the 
+     * number of points in a student's free-drawing; more points are required
+     * for longer and more complicated lines. The free drawing recorder just
+     * keeps track of the number of points a student has drawn.
+     */
     // Add methods for recording drawing events
     tracker.setRecorder("addFreeDrawing", "addFreeDrawing", function(key, updateObj, timestamp) {
         // Store the number of points in the path
         var pathLength = updateObj.data.path.length;
         this.push(key, pathLength, updateObj.meta, timestamp);
     });
+
+
+    /*
+     * We decided that other actions in the app should count toward the activity
+     * measurement. The next several recorders assign (admittedly arbitrary)
+     * fixed point values to these activities.
+     */
 
     // Generic recorder for point values that don't change
     var makeFixedPointsRecorder = function(points) {
@@ -27,12 +46,23 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
     tracker.setRecorder("undoRemoveObject", "addFreeDrawing", makeFixedPointsRecorder(5));
 
 
+    /*
+     * Finally, we record which page each student is looking at.
+     */
+
+    // TODO replace "setPage" as part of student app overhaul
     tracker.setRecorder("setPage", "setPage", function(key, updateObj, timestamp) {
         this.pageNumbers = this.pageNumbers || {};
         for(var userId in updateObj.data) {
             this.pageNumbers[userId] = updateObj.data[userId];
         }
     });
+
+
+    /*
+     * From the activity data collected above, we first calculate each student's
+     * relative contribution to their group.
+     */
 
     // Add methods for calculating interesting things from the raw event data
     tracker.setReporter("contributionToGroup", function(args) {
@@ -59,6 +89,10 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
         return groupTotals;
     });
 
+
+    /*
+     * We report the relative activity of groups over the course of the session.
+     */
 
     tracker.setReporter("groupHistory", function(args) {
         // TODO store this somewhere
@@ -89,6 +123,11 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
         return this.groupHistory;
     });
 
+
+    /*
+     * Finally, we report which page each student is looking at.
+     */
+
     // Reporter method for users' page numbers
     tracker.setReporter("pageNumber", function(args) {
         return this.pageNumbers || {};
@@ -99,6 +138,18 @@ exports.makeStudentStatsTracker = function(db, sessionId) {
 
 // Save a session's stats data every minute
 var dbWriteInterval = 60 * 1000;
+
+
+/*
+ * StudentStatsTracker was designed to be a flexible tool for organizing stats
+ * about sessions. Essentially, "recorder" functions watch for events in 
+ * the session's synchronized state updates and update the stats tracker state.
+ * "Reporter" functions then regularly organize the data to provide useful
+ * statistics for clients like the teacher visualization tool.
+ *
+ * For persistence across server restarts, recorded data is saved in the
+ * database periodically and can be loaded later.
+ */
 
 function StudentStatsTracker(db, sessionId) {
     this.db = db;

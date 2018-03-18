@@ -1,3 +1,7 @@
+/*
+ * datavis.js - Visualization tools for teachers to monitor class activity.
+ */
+
 define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","userColors", "synchronizedStateClient"], function(exports, pdfjs, m, models, css, userColors, synchronizedStateClient) {
     var PDFJS = pdfjs.PDFJS,
         getUserColor = userColors.getColor,
@@ -21,6 +25,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
           }
       });
 */
+
+    /*
+     * Various style and size parameters may be set here.
+     */
 
     // for tuning the look of the group progress views
     var scaleDim = function(d) {
@@ -50,6 +58,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
         barStep = scaleDim(5),
         barLineWidth = 3;
 
+    // Main datavis component
     exports.DataVis = {
         controller: function(args) {
             var sessionId = m.route.param("sessionId");
@@ -113,9 +122,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
             // Load PDFs and generate thumbnails
             ClassroomSession.get(sessionId).then(function(session) {
                 ctrl.session(session);
+
+                // show the session name in the bar at the top of the screen
                 args.toolbarText(session.title);
 
-                // get groups
+                // get student groups
                 Classroom.get(ctrl.session().classroom).then(function(classroom) {
                     
                     classroom.groups().then(function(groups) {
@@ -126,6 +137,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                         groups.map(function(group) {
                             group.users().then(function(students) {
                                 sbg[group.id] = students;
+                                
+                                // Set colors for students in progress view
                                 for(var i = 0, len = students.length; i < len; i++)
                                     ctrl.userColors[students[i].id] = userColors.userColors[i];
                             });
@@ -136,6 +149,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                     });
                 });
 
+                // Download activity and documents
                 Activity.get(session.activityId).then(function(activity) {
                     ctrl.activity(activity);
                     
@@ -180,21 +194,25 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
         },
         view: function(ctrl, args) {
         
+            // TODO move these to the beginning of the file with other params
             var chartXOffset = 20,
                 chartYOffset = 20;
             var svgwidth = Math.floor(0.9 * document.body.clientWidth);
             var svgheight = Math.floor(0.25 * document.body.clientHeight);
             var chartWidth = svgwidth - chartXOffset,
                 chartHeight = svgheight - chartYOffset;
+
+            // By default, assume session is an hour long
             var sessionDuration = 60 * 60 * 1000;
-                // = Date.now() - ctrl.session().startTime//,  // TODO should this be an m.prop?
-                //updateInterval = 1 * 60 * 1000;
+            
             return m("div", {
                 // config here?
                 },
                 m.component(GroupOptionsBar, ctrl),
                 m("div.graph-view",
                     m("div.linechart-y-label", "Class Activity"),
+
+                    // Line chart at the top shows relative activity of all groups.
                     m("svg.linechart", {
                             width: svgwidth, 
                             height: svgheight
@@ -214,6 +232,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                             y2: svgheight - chartYOffset
                         }),
                         
+                        // Draw points and lines for each group
                         ctrl.groups().map(function(group, idx) {
                             var drawList = [],
                                 historyData = ctrl.summaryData().groupHistory || [];
@@ -304,7 +323,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                             m.redraw();
                         }
 
-                        // TODO define group-selector
+                        // Style the group progress box differently if selected
                         var groupSelector = "div.group-number";
                         if(idx == ctrl.selectedGroupNumber()) {
                             groupSelector += ".group-number-selected";
@@ -322,7 +341,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                                 ctrl.thumbnails().map(function(thumb, pageIdx) {
                                     return m("canvas", {
                                         width: pageWidth,
-                                        height: pageHeight + 22,
+                                        height: pageHeight + 22, // TODO 
                                         config: function(el, isInit) {
                                             var ctx = el.getContext('2d'),
                                                 img = new Image;
@@ -384,6 +403,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
         } // view
     };
 
+    // TODO maybe do away with this entirely in future teacher UI redesign
     var GroupOptionsBar = {
         controller: function(args) {
             return {
