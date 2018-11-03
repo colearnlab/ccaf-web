@@ -152,6 +152,7 @@ div.graph-view {
     */
     padding: 1em;
     color: #000000;
+    display:none;
 }
 
 div.linechart-y-label {
