@@ -26,7 +26,8 @@ var apiAccessPermissions = {
             users: true,
             visualize: true,
             snapshots: true,
-            getStoreId: true
+            getStoreId: true,
+            prompts: true,
         },
         PUT: {
             activity: true,

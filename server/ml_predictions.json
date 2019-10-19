@@ -1,0 +1,17 @@
+[
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.8969603174603173, "pred_code_ontasknoint": 0.39361904761904776, "pred_code_peerint": 0.6100353535353534, "pred_code_tasktalk": 0.5732326007326008, "pred_code_silent": 0.2993023088023088, "pred_code_taclass": 0.06184595959595959, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5683890577507599}, 
+    
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.3625851093351095, "pred_code_ontasknoint": 0.2570615079365079, "pred_code_peerint": 0.7233611111111111, "pred_code_tasktalk": 0.6921479076479077, "pred_code_silent": 0.1604642857142857, "pred_code_taclass": 0.1899729437229437, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5625},
+    
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.5232423324, "pred_code_ontasknoint": 0.39361904761904776, "pred_code_peerint": 0.6100353535353534, "pred_code_tasktalk": 0.5732326007326008, "pred_code_silent": 0.2993023088023088, "pred_code_taclass": 0.06184595959595959, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5683890577507599}, 
+    
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.5122342, "pred_code_ontasknoint": 0.2570615079365079, "pred_code_peerint": 0.7233611111111111, "pred_code_tasktalk": 0.6921479076479077, "pred_code_silent": 0.1604642857142857, "pred_code_taclass": 0.1899729437229437, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5625},
+    
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.8969603174603173, "pred_code_ontasknoint": 0.39361904761904776, "pred_code_peerint": 0.6100353535353534, "pred_code_tasktalk": 0.5732326007326008, "pred_code_silent": 0.2993023088023088, "pred_code_taclass": 0.06184595959595959, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5683890577507599}, 
+    
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.3625851093351095, "pred_code_ontasknoint": 0.2570615079365079, "pred_code_peerint": 0.7233611111111111, "pred_code_tasktalk": 0.6921479076479077, "pred_code_silent": 0.1604642857142857, "pred_code_taclass": 0.1899729437229437, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5625},
+    
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.5232423324, "pred_code_ontasknoint": 0.39361904761904776, "pred_code_peerint": 0.6100353535353534, "pred_code_tasktalk": 0.5732326007326008, "pred_code_silent": 0.2993023088023088, "pred_code_taclass": 0.06184595959595959, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5683890577507599}, 
+    
+    {"source_log_file": "test_updated_log1.logfile", "pred_code_ontask": 0.5122342, "pred_code_ontasknoint": 0.2570615079365079, "pred_code_peerint": 0.7233611111111111, "pred_code_tasktalk": 0.6921479076479077, "pred_code_silent": 0.1604642857142857, "pred_code_taclass": 0.1899729437229437, "prop_students_acting": 1.0, "ratio_2ndmost_to_most_active": 0.5625}
+]

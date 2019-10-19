@@ -1,7 +1,7 @@
 /*
  * datavis.js - Visualization tools for teachers to monitor class activity.
  */
-
+//var fs = reqiure('fs');
 define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","userColors", "synchronizedStateClient"], function(exports, pdfjs, m, models, css, userColors, synchronizedStateClient) {
     var PDFJS = pdfjs.PDFJS,
         getUserColor = userColors.getColor,
@@ -9,11 +9,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
         Classroom = models.Classroom,
         Activity = models.Activity,
         ClassroomSession = models.ClassroomSession,
+//        PromptsPage = models.PromptsPage,
         User = models.User;
+    
     var wsAddress = 'wss://' + window.location.host + "/ws";
     //var wsAddress = 'ws://' + window.location.host + "/ws";
 
     PDFJS.disableWorker = true; 
+//    var fs = require(["fs"]);
 
 /*
       var userGroup = Object.assign(new Group(), {id: args.group, title: "", classroom: -1});
@@ -62,6 +65,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
     exports.DataVis = {
         controller: function(args) {
             var sessionId = m.route.param("sessionId");
+            var userEmail = "";
             var ctrl = {
                 sessionId: m.prop(m.route.param("sessionId")),
                 
@@ -73,12 +77,28 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                 activity: m.prop(null),
 
                 thumbnails: m.prop([]),
+                
+                shouldPrompt: m.prop([]),
+                
+                promptTitles: m.prop([]),
+                
+                promptDesc: m.prop([]),
 
                 summaryData: m.prop({}),
                 groupHistoryMax: m.prop(null),
 
                 selectedGroupNumber: m.prop(null),
-
+                
+                selectedTaskTitle: m.prop(null),
+                
+                selectedTaskDesc: m.prop(null),
+                
+                isbtnclicked: m.prop(false),
+                
+                groupPrompt: m.prop(false),
+                
+                groupsAdded: false,
+                
                 // Get summary data
                 refreshData: function() {
                     m.request({
@@ -88,6 +108,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                     }).then(ctrl.summaryData).then(function() {
                         // Find maximum history data point for scaling the graph.
                         var maxPoint = 0;
+                        
                         gh = ctrl.summaryData().groupHistory;
                         for(var i = 0, len = gh.length; i < len; i++) {
                             var historyItem = gh[i];
@@ -104,19 +125,81 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                             }
                         }
                         ctrl.groupHistoryMax(maxPoint);
+                        
+                        
+                        
                     }).then(m.redraw);
-
-                    // Also refresh studentsByGroup
-                    ctrl.groups().map(function(group) {
-                        group.users().then(function(students) {
-                            ctrl.studentsByGroup()[group.id] = students;
-                            for(var i = 0, len = students.length; i < len; i++)
-                                ctrl.userColors[students[i].id] = userColors.userColors[i];
-
-                            m.redraw();
-                        });
+                    
+                },
+                
+                refreshPrompts: function(){
+                    m.request({
+                        method: "GET",
+                        url: "/api/v1/prompts/"
+                    })
+                    .then(function(result) {
+                        var grouplen = ctrl.groups().length;
+                        for (var i = 0; i < grouplen;i++){
+                            if (result.data[i].prompt == 1){
+                                ctrl.shouldPrompt[i] = 1
+                                ctrl.promptTitles[i] = result.data[i].prompt_title;
+                                ctrl.promptDesc[i] = result.data[i].prompt_desc;
+                            }
+                            else{
+                                ctrl.shouldPrompt[i] = result.data[i].prompt;
+                            }
+                        }
                     });
+                },
+                addGroups: function(){
+                    var grouplen = ctrl.groups().length;
+                    if (!ctrl.groupsAdded){
+                        var x = 0;
+                        for (var i = 0; i < grouplen;i++){
+                            ctrl.selectedGroupNumber(i);
+                            var selectedGroup = ctrl.groups()[ctrl.selectedGroupNumber()] || null;
+                            var grpid = selectedGroup.id;
+                            console.log("Group "+i+": "+grpid);
+                            m.request({
+                                method: "GET",
+                                url: "/api/v1/getStoreId/session/"+sessionId+"/group/"+grpid+"/user/1"
+                            })
+                            .then(function(result) {
+                                
+                                var grpstoreid = result.data;
+                                console.log("Group Store "+x+": " + grpstoreid);
+//                                m.request({
+//                                    method: "GET",
+//                                    url: "/api/v1/prompts/groups/"+grpstoreid
+//                                });
+                                m.request({
+                                    method: "GET",
+                                    url: "/api/v1/prompts/groups/"+grpstoreid+"/"+x
+                                });
+                                x++;
+                            });
+                            ctrl.selectedGroupNumber("null");
+                            
+                        }
+                        m.request({
+                            method: "GET",
+                            url: "/api/v1/users/me"
+                        })
+                        .then(function(result) {
+                            userEmail = result.data.email;
+                        });
+                        m.request({
+                            method: "GET",
+                            url: "/api/v1/prompts/session/"+sessionId
+                        });
+                        if (grouplen>0){
+                            ctrl.groupsAdded = true;
+                        }
+                        
+                    }
+                    
                 }
+                
             };
 
             // Load PDFs and generate thumbnails
@@ -177,23 +260,121 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
                 }); // Activity.get
             }); // ClassroomSession.get
-
+            
             // Load own user info
             User.me().then(ctrl.me);
-
+            
+            ctrl.refreshPrompts();
+            ctrl.refreshInterPrompts = setInterval(ctrl.refreshPrompts, 1000);
+            
+            
             // Start repeatedly updating summary data
             ctrl.refreshData();
-            ctrl.refreshInterval = setInterval(ctrl.refreshData, 10000);
-
+            ctrl.refreshInterval = setInterval(ctrl.refreshData, 1000);
+            
+            
+            ctrl.addGroups();
+            ctrl.refreshGroups = setInterval(ctrl.addGroups, 1000);
+            
+            exports.DataVis.updatePrompts = function() {
+                var date = new Date();
+                var timestamp = date.getTime();
+                var groupId = ctrl.selectedGroupNumber()+1;
+                var data_text = '{ "time": ' + timestamp + ', "prompt": '+ ctrl.promptTitles[ctrl.selectedGroupNumber()] + ', "Group": '+ groupId + ', "action": closed, "user": ' + userEmail + '}';
+                console.log(data_text);
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/log/"+ data_text
+                });
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/"+ctrl.selectedGroupNumber()+"/confirmontask"
+                });
+                console.log("Prompt Confirmed");
+            }
+            exports.DataVis.denyPrompt = function() {
+                var date = new Date();
+                var timestamp = date.getTime();
+                var groupId = ctrl.selectedGroupNumber()+1;
+                var data_text = '{ "time": ' + timestamp + ', "prompt": '+ ctrl.promptTitles[ctrl.selectedGroupNumber()] + ', "Group": '+ groupId + ', "action": denied, "user": ' + userEmail + '}';
+                console.log(data_text);
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/log/"+ data_text
+                });
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/"+ctrl.selectedGroupNumber()+"/denyontask"
+                });
+                console.log("Prompt Denied");
+            }
             // Provide a way to kill the updates
             exports.DataVis.exitCallback = function() {
                 clearInterval(ctrl.refreshInterval);
+                clearInterval(ctrl.refreshInterPrompts);
+                clearInterval(ctrl.refreshGroups);
             };
-
+            
+            exports.DataVis.editGroups = function() {
+                m.route("/session/" + sessionId);
+            };
+            
+            exports.DataVis.promptClicked = function() {
+                var date = new Date();
+                var timestamp = date.getTime();
+                var groupId = ctrl.selectedGroupNumber()+1;
+                console.log(ctrl.shouldPrompt(ctrl.selectedGroupNumber()));
+                var data_text = '{ "time": ' + timestamp + ', "prompt": '+ ctrl.promptTitles[ctrl.selectedGroupNumber()] + ', "Group": '+ groupId + ', "action": opened, "user": ' + userEmail + '}';
+                console.log(data_text);
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/log/"+ data_text
+                });
+            };
+            
+            exports.DataVis.workEnter = function() {
+                var date = new Date();
+                var timestamp = date.getTime();
+                var groupId = ctrl.selectedGroupNumber()+1;
+                console.log(ctrl.shouldPrompt(ctrl.selectedGroupNumber()));
+                var data_text = '{ "time": ' + timestamp + ', "Group": '+ groupId + ', "action": View Work, "user": ' + userEmail + '}';
+                console.log(data_text);
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/log/"+ data_text
+                });
+            };
+            
+            exports.DataVis.workLeave = function() {
+                var date = new Date();
+                var timestamp = date.getTime();
+                var groupId = ctrl.selectedGroupNumber()+1;
+                console.log(ctrl.shouldPrompt(ctrl.selectedGroupNumber()));
+                var data_text = '{ "time": ' + timestamp + ', "Group": '+ groupId + ', "action": Left Work, "user": ' + userEmail + '}';
+                console.log(data_text);
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/log/"+ data_text
+                });
+                ctrl.selectedGroupNumber('null');
+            };
+            
+            exports.DataVis.confirmPrompt = function() {
+                var date = new Date();
+                var timestamp = date.getTime();
+                var groupId = ctrl.selectedGroupNumber()+1;
+                var data_text = '{ "time": ' + timestamp + ', "prompt": '+ ctrl.promptTitles[ctrl.selectedGroupNumber()] + ', "Group": '+ groupId + ', "action": confirmed, "user": ' + userEmail + '}';
+                console.log(data_text);
+                m.request({
+                    method: "GET",
+                    url: "/api/v1/prompts/log/"+ data_text
+                });
+            };
+            
             return ctrl;
         },
         view: function(ctrl, args) {
-        
+            
             // TODO move these to the beginning of the file with other params
             var chartXOffset = 20,
                 chartYOffset = 20;
@@ -204,10 +385,20 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
             // By default, assume session is an hour long
             var sessionDuration = 60 * 60 * 1000;
-            
+//            console.log(exports.DataVis.controller.session);
             return m("div", {
                 // config here?
                 },
+                m("button.btn.btn-default.button1.btn-edit", {
+                        onclick: function() {
+                            // Go to group editor with current group selected
+                            console.log("clicked");
+                            exports.DataVis.exitCallback();
+                            exports.DataVis.editGroups();
+                        }
+                    },
+                    "Edit Groups"
+                ),
                 m.component(GroupOptionsBar, ctrl),
                 m("div.graph-view",
                     m("div.linechart-y-label", "Class Activity"),
@@ -317,27 +508,43 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
                 ),
 
                 m("div.progress-view",
+                    
                     ctrl.groups().map(function(group, idx) {
+                        var btnViewClicked = false;
                         var selectThisGroup = function() {
+                            console.log(btnViewClicked);
                             ctrl.selectedGroupNumber(idx);
+                            if (ctrl.shouldPrompt[idx] == 1 && !btnViewClicked){
+                                exports.DataVis.promptClicked();
+                            }
+                            ctrl.selectedTaskTitle(ctrl.promptTitles[idx]);
+                            ctrl.selectedTaskDesc(ctrl.promptDesc[idx]);
+                            ctrl.groupPrompt = ctrl.shouldPrompt[idx];
                             m.redraw();
                         }
-
+//                        exports.DataVis.setupArray();
                         // Style the group progress box differently if selected
-                        var groupSelector = "div.group-number";
-                        if(idx == ctrl.selectedGroupNumber()) {
-                            groupSelector += ".group-number-selected";
+                        
+                        var borderColor = "border-top: 15px solid #95a5a6;";
+                        if (ctrl.shouldPrompt[idx] == 1){
+                            borderColor = "border-top: 15px solid #F89C5C;";
                         }
-
+                        else if (ctrl.shouldPrompt[idx] == 0){
+                            borderColor = "border-top: 15px solid #FFDC6F;";
+                        }
+                        var groupSelector = "div.group-number";
+//                        console.log(ctrl.groups[ctrl.selectedGroupNumber(0)].id);
                         return m("div.group-progress-container",
                             m(groupSelector, {
                                     onclick: selectThisGroup
-                                }, 
+                                },
                                 idx + 1
                             ),
+                            
                             m("div.group-progress-view", {
+                                    style: borderColor,
                                     onclick: selectThisGroup
-                                }, 
+                                },
                                 ctrl.thumbnails().map(function(thumb, pageIdx) {
                                     return m("canvas", {
                                         width: pageWidth,
@@ -369,7 +576,10 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
                     contrib[group.id] = contrib[group.id] || {};
                     contrib[group.id][student.id] = contrib[group.id][student.id] || 0;
-                    var barFillHeight = contrib[group.id][student.id] / contrib[group.id].total * barHeight;
+                                                        
+                                                        
+//                    var barFillHeight = contrib[group.id][student.id] / contrib[group.id].total * barHeight;
+                    var barFillHeight = barHeight;
 
                     var barX = pageXOffset + studentIdx * (barStep + barWidth) + barStep;
                     var barY = pageYOffset + pageHeight - barYOffset;
@@ -387,18 +597,30 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
                     // draw bar fill
                     ctx.fillStyle = barColor;
+                    
                     ctx.fillRect(barX, barY + barHeight - barFillHeight, barWidth, barFillHeight);
                                                     }
                                                 });
                                             }
-
                                         }
                                     }) // canvas
-                                }))
+                                }),
+                              m("button.btn.btn-default.button1.btn-work", {
+                                        
+                                        onclick: function() {
+                                            // Go to group editor with current group selected
+                                            ctrl.isbtnclicked = true;
+                                            btnViewClicked = true;
+                                            selectThisGroup;
+                                        },
+                                    },
+                                    
+                                    "View Work"
+                                )   
+                                )
                             ); // progress-container
                     })
                 )
-
             );
         } // view
     };
@@ -437,6 +659,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
                                                     // Remove self from group and then return to datavis
                                                     args.me().removeGroup(group).then(function() {
+                                                        exports.DataVis.workLeave();
                                                         if(appCallback) {
                                                             appCallback(function() {
                                                                 //m.mount(document.body, exports.DataVis);
@@ -464,35 +687,136 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
         view: function(ctrl, args) {
             var selectedGroup = args.groups()[args.selectedGroupNumber()] || null;
             if(selectedGroup) {
-                return m("div.group-options-bar",
-                    m("div", {style: "display: inline-block; width: 7vw"}, selectedGroup.title),
-                    m("div.group-options-buttons",
-                        m("button.btn.btn-default.button1", {
-                                onclick: function() {
-                                    console.log("launching whiteboard app");
-                                    ctrl.launchWhiteboardApp(selectedGroup);
-                                }
-                            },
-                            "View document"
-                        ),
-                        m("button.btn.btn-default.button1", {
-                                onclick: function() {
-                                    // Go to group editor with current group selected
-                                    console.log("clicked");
-                                    exports.DataVis.exitCallback();
-                                    var qs = m.route.buildQueryString({
-                                        selected: selectedGroup.id
-                                    });
-                                    m.route("/session/" + args.sessionId() + "?" + qs);
-                                }
-                            },
-                            "Edit group"
+                if (args.isbtnclicked == true){
+                    exports.DataVis.workEnter();
+                    args.isbtnclicked = false;
+                    ctrl.launchWhiteboardApp(selectedGroup);
+                }
+                else{
+                    var idx = args.selectedGroupNumber();
+                    var shouldPrompt = args.groupPrompt;
+                    if (shouldPrompt == 1){
+                        m.request({
+                            method: "GET",
+                            url: "/api/v1/prompts/"+idx+"/remove"
+                        })
+                        return m(".modal.fade#classroom-edit-modal", {
+                          config: function(el) {
+                            $("#classroom-edit-modal").modal({
+                              backdrop: "static"
+                            });
+                            $("#classroom-edit-modal").modal("show");
+                          }
+                        },
+                        m(".modal-content.modal-prompt",
+                            m("div.modal-title", 
+                              selectedGroup.title
+
+                            ),
+                            m("div.modal-cont",
+                                m("div.col-md-6.modal-left", 
+                                    m("div.div-center",
+                                        m("p.p-monitor",
+                                          "Monitor for"
+                                        ),
+                                        m("p.p-prompt", 
+                                           args.selectedTaskTitle()
+                                        ),
+                                        m("p.p-minfo#btnmore", 
+                                            {
+                                                onclick: function(e) {
+                                                    $("#more-info").toggle();
+                                                    if ($('#btnmore').text() == "More Info"){
+                                                        $('#btnmore').html("Less Info");
+                                                    }
+                                                    else {
+                                                        $('#btnmore').html("More Info");
+                                                    }
+                                                }
+                                            },
+                                            "More Info"
+                                        ),
+                                        m("p.p-more#more-info", {
+                                            style: ("display: none")
+                                          },
+                                          args.selectedTaskDesc()
+                                        ),
+                                        m("div.btn-div",
+                                            m("button.btn.btn-default.btn-confirm#btn-confirm", 
+                                                {
+                                                    onclick: function(e) {
+                                                        exports.DataVis.confirmPrompt();
+                                                        $("#btn-confirm").prop("disabled",true);
+                                                        $("#btn-deny").prop("disabled",true);
+                                                        $("#div-confirm").show();
+                                                    },
+                                                }, "Confirm Issue"
+                                            ),
+                                            m("button.btn.btn-default.btn-confirm#btn-deny", 
+                                                {
+                                                    onclick: function(e) {
+                                                        $("#classroom-edit-modal").modal("hide");
+                                                        exports.DataVis.denyPrompt();
+                                                        args.selectedGroupNumber('null');
+                                                        
+                                                        
+                                                    },
+                                                    "data-dismiss": "modal"
+                                                    
+                                                }, "Deny Issue"
+                                            )
+
+                                        )
+
+                                    )
+                                ),
+                                m("div.col-md-6.modal-right", 
+                                    m("div.div-center#div-confirm[style='display:none']",
+                                        m("p.p-prompt[style='font-style:italic']", 
+                                          "Tips to Address the Group"
+                                        ),
+                                        m("p.p-more[style='font-weight:bold;margin:0;']",
+                                            "Explain that this is a collaborative task, which means they have to help each other to understand the problem."
+                                        ),
+                                        m("br"),
+                                        m("p", 
+                                          "For Example:"
+                                        ),
+                                        m("ul.prompt-options",
+                                            m("li",
+                                             "“Discussing the problem with your group member will help you build on each others' ideas to arrive to one solution to the problem”"
+                                            ),
+                                            m("li",
+                                             "“Share your ideas with the group; provide an argument for your reasoning”"
+                                            )
+                                        ),
+                                        m("br"),
+                                        m("div.btn-div",
+                                            m("button.btn.btn-default.btn-confirm", 
+                                                {
+                                                    onclick: function(e) {
+                                                        $("#classroom-edit-modal").modal("hide");
+                                                        exports.DataVis.updatePrompts();
+                                                        args.selectedGroupNumber('null');
+                                                    },
+                                                    "data-dismiss": "modal"
+                                                },
+                                                "Done"
+                                            )
+
+                                        )
+
+                                    )
+                                )
+                            )
                         )
-                        // others here?
-                        // show group members
-                        // edit roster
-                    )
-                );
+                      );
+                    }
+                    else {
+                        return m("div", "");
+                    }
+                }
+                
             } else {
                 return m("div", "");
             }
@@ -501,3 +825,14 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "models", "css","
 
 });
 
+//m(".modal-header",
+//    m("h4.modal-title", 
+//        selectedGroup.title,
+//    )
+//),
+//m(".modal-body",
+//  "Modal Body"
+//),
+//m(".modal-footer",
+//
+//)

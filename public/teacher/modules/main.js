@@ -10,7 +10,8 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
   var GroupEditor = groupEditor.groupEditor;
   var DataVis = dataVis.DataVis;
 
-    var wsAddress = 'wss://' + window.location.host + "/ws";
+    var wsAddress = 'wss://' + window.location.host + "/ws";//When running on Csteps server
+//    var wsAddress = 'ws://' + window.location.host + "/ws"; //When running locally
 
   var Shell = {
     controller: function(args) {
@@ -242,8 +243,11 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                   "]",
                   m("a.session-link.pull-right", {
                       onclick: function() {
-                        session.endTime = (+ new Date());
-                        session.save().then(ctrl.refresh);
+                        var endSession = confirm("Are you sure you want to end the session?\n\n Press Yes to End Session or Cancel.");
+                        if (endSession == true) {
+                            session.endTime = (+ new Date());
+                            session.save().then(ctrl.refresh);
+                        }
                       }
                     },
                     m.trust("&laquo;End session&raquo;")
@@ -373,6 +377,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
           m(".main-menu-body.canscroll",
               m(".list-group.canscroll",
                   ctrl.sessions().map(function(session) {
+                      
                       var classroomIdx = args.classrooms().map(function(classroom) { return classroom.id; }).indexOf(session.classroom);
                       var classroom = args.classrooms()[classroomIdx];
 
@@ -393,7 +398,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                                       g.title
                                   ); 
                               }) : ""),
-                                m(".pull-right", "Watch recorded session for group:"),
+                                m(".pull-right", "Watch recorded session for group:")
 
 
 
@@ -927,11 +932,17 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                     //newClassroomSession.metadata = {pdf: filename.data, app: "whiteboard"};
                     newClassroomSession.metadata = {app: "whiteboard"};
                     newClassroomSession.activityId = ctrl.activity.id;
-                    
                     // Close modal, save, and go to the visualizations page
                     args.cancelStartActivity();
                     newClassroomSession.save().then(function() {
-                      m.route("/visualize/" + newClassroomSession.id);
+                        m.request({
+                            method: "GET",
+                            url: "/api/v1/prompts/newsession/"+newClassroomSession.id
+                        })
+                        .then(function(result) {
+                            m.route("/visualize/" + newClassroomSession.id);
+                        });
+                        
                     });
                     
                 },

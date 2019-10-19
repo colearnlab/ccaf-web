@@ -66,6 +66,7 @@ Connection.prototype.send = function(channel, message, seq) {
 
   //  Set a timeout to retry the message if an ack is not received.
   this.sendSeqToTimeoutId[seq] = setTimeout((function() {
+    console.log('Timeout triggered');
     this.send(channel, message, seq);
   }).bind(this), this.timeout);
 };

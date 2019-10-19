@@ -6,29 +6,34 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
     controller: function(args) {
       return {
         links: {
-          "administrators": "Manage administrators",
-          "teachers": "Manage teachers",
-          "students": "Manage students"
+          "administrators": "Manage Administrators",
+          "teachers": "Manage Teachers",
+          "students": "Manage Students"
         }
       };
     },
     view: function(ctrl, component) {
-      return m("div.container#main",
+      return m("div#main",
         m("row",
-          m("div.col-sm-4.col-md-3",
+          m("div.col-sm-4.col-md-3.left-bar",
+            m("p.menu-head",
+              "Choose an option:"
+            ),
             m("ul.nav.nav-pills.nav-stacked",
               m("li",
                   m("a", {
                       href: "/teacher"
-                    }, "Teacher mode"
+                    }, 
+                    m("span.glyphicon.glyphicon-blackboard"),
+                    "Teacher Mode"
                   ),
 
                   m("a", {
                         href: "#/logs"
                     },
-                    "Session logs"
+                    m("span.glyphicon .glyphicon-paste"),
+                    "Session Logs"
                   )
-
               ),
 
               
@@ -47,14 +52,21 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
                   m("a", {
                       href: "#/" + hash
                     },
+                    m("span.glyphicon.glyphicon-user"),
                     linkText
                   )
                 );
               })
             )
           ),
-          m("div.col-sm-8.col-md-9",
-            m.component(component)
+          m("div.col-sm-8.col-md-9.right-bar",
+            m("h1.right-head",
+              "Admin Tools"
+            ),
+            
+            m("div.right_content",
+                m.component(component)
+            )
           )
         )
       );
@@ -64,7 +76,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
   // A simple placeholder when you first visit the page.
   var Placeholder = {
     view: function(__, args) {
-      return m("div", "Select an option.");
+//      return m("div", "Select an option.");
     }
   };
 
@@ -124,7 +136,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
           : ""),
         m("table.table.table-striped.user-listing",
           m("thead",
-            m("tr",
+            m("tr.theading",
               m("th",
                 "Name"
               ),
@@ -152,7 +164,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
               });
             }),
             m("tr",
-              m("td[colspan=3].user-listing-add-user",
+              m("td[colspan=3].user-listing-add-user.add_user",
                 // To add a user, simply set the currently edited user property
                 // to a new user.
                 m("a", {
@@ -193,7 +205,7 @@ define("main", ["exports", "mithril", "jquery", "underscore", "models", "bootstr
         m("td",
           User.prettyPrintTypes[args.user.type],
           m.trust("&nbsp;&nbsp;&nbsp;"),
-          m("span.glyphicon.glyphicon-remove", {
+          m("span.glyphicon.glyphicon-remove.rem_user", {
               style: (args.lastUser && args.user.type == User.types.administrator ? "display: none;" : ""),
               onclick: args.triggerDelete
             }

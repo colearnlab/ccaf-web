@@ -94,7 +94,8 @@ define(["exports", "mithril", "models", "interact"], function(exports, m, models
           */
           m.component(Groups, ctrl),
           m("button.btn.btn-danger#end-session-button", {
-            style: ctrl.mode() === "session" ? "" : "display: none",
+//            style: ctrl.mode() === "session" ? "" : "display: none",
+            style: "display: none",
             onclick: function(e) {
               ctrl.session().endTime = (+ new Date());
               ctrl.session().save().then(function() {

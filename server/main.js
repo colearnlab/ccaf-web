@@ -81,7 +81,7 @@ db.each("SELECT id FROM classroom_sessions WHERE endTime IS NULL;", {}, function
 });
 
 var syncShared = {
-    logOutputDir: path.resolve(__dirname, "..", process.env.LOG_BACKUP_DIR)
+//    logOutputDir: path.resolve(__dirname, "..", process.env.LOG_BACKUP_DIR)
 };
 
 //  Create API routes.
@@ -94,7 +94,7 @@ require("./api/media").createRoutes(app, db);
 require("./api/visualize").createRoutes(app, db, studentStats);
 require("./api/activity").createRoutes(app, db);
 require("./api/snapshot").createRoutes(app, db);
-
+require("./api/prompts").createRoutes(app,db);
 
 //  verifyClient takes a http upgrade request and ensures that it is authenticated.
 var verifyClient = function(req, done) {

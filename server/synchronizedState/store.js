@@ -1,10 +1,3 @@
-/*
- * server/synchronizedState/store.js: Original shared state datastore and
- *      logger; this file isn't used anymore.
- *
- *      See server/synchronizedState/storeUncompressed.js.
- */
-
 //  Filesystem operations.
 var fs = require("fs"),
 
