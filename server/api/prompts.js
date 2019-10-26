@@ -39,7 +39,7 @@ for (var i = 0; i < taskPrediction.length; i++) {
 //function that refreshes predictions every certain seconds
 function refreshPredictions () {
     //should be 15 for 5 min gap
-    if (startTimer && timeElapsed > 250){
+    if (startTimer && timeElapsed > 300){
         //Read predictions
         var predictions = fs.readFileSync('././prediction_server/ml_predictions.json');
         predictions = JSON.parse(predictions);
