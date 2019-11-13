@@ -39,7 +39,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                   });
 
                 }).then(function() {
-                    console.log(ctrl.activeSessions());
+                    // console.log(ctrl.activeSessions());
                 });
               });
             });
@@ -99,7 +99,7 @@ define("main", ["exports", "mithril", "synchronizedStateClient", "models", "mult
                         if (updatedActiveSession.endTime !== null) {
                           clearInterval(args.interval);
 
-                          console.log(wbApp);
+                          // console.log(wbApp);
                           // Run the whiteboard app's exit callback
                           if(wbApp.exitCallback) {
                               if(wbApp.logOnly) {

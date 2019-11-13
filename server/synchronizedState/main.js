@@ -68,6 +68,7 @@ function Server(server, dir, verifyClient, stats) {
         //  Call the verifyClient function with the upgrade request. The upgrade
         //  request has a cookie that can be examined to find the session (if it
         //  exists). verifyClient invokes a callback that follows the typical format.
+        console.log(rawConnection.upgradeReq);
         verifyClient(rawConnection.upgradeReq, (function(err, user) {
             if (err)
                 return rawConnection.close();

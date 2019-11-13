@@ -102,7 +102,7 @@ exports.initialize = function(app, db) {
       //  should be only one.
       var acctEmail;
       profile.emails.forEach(function(email) {
-        if (email.type === "account") {
+        if (email.type === "ACCOUNT") {
           acctEmail = email.value;
         }
       });

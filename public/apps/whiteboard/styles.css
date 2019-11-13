@@ -337,10 +337,10 @@ div.page-container {
 
 svg.scrollbar {
     position: absolute;
-    right: 1em;
+    right: 0em;
     top: 9vh; 
     height: 89vh;
-    width: 20px;
+    width: 40px;
 
     background-color: #f3f8fb;
     border-radius: 2em;

@@ -2004,7 +2004,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
   var ScrollbarCircle = {
     controller: function(args) {
         return {
-            radius: 9
+            radius: 19
         };
     },
     view: function(ctrl, args) {
