@@ -36,7 +36,7 @@
     "requirejs": "^2.1.20",
     "sql.js": "^0.4.0",
     "underscore": "^1.8.3",
-    "ws": "^2.0.3"
+    "ws": "^7.2.0"
   },
   "scripts": {
     "install": "node build",
