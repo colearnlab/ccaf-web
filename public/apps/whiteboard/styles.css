@@ -323,7 +323,7 @@ img.tool-icon {
 /*/////////////////////////*/
 div.toolbar {
     width: 100%;
-    height 3em;
+    height: 3em;
     background-color: #699;
 }
 
@@ -348,5 +348,67 @@ svg.scrollbar {
     border-color: #699;
     border-style: solid;
 }
+
+.tray_users_open {
+  position: absolute;
+  width: 175px;
+  background: white;
+  border: 2px solid #999999;
+  top: 50px;
+  /* right: 14vw; */
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  overflow: hidden;
+}
+
+.tray_users {
+  display: none;
+}
+.tray_users_open table {
+  width: 100%;
+}
+.tray_users_open {
+  background: #d6d6d6;
+}
+
+.tray_users_open table tr {
+  height: 40px;
+  border-bottom: 1px solid #999999;
+}
+
+.tray_users_open table tr:last-child {
+  border-bottom: 0;
+}
+
+.tray_users_open table tr p {
+  margin: 0;
+}
+
+.tray_users_open table tr p {
+  margin: 0;
+  margin-left: 15px;
+  font-size: 16px;
+}
+
+.tray_users_open table tr input {
+  width: 20px;
+  height: 20px;
+  display: block;
+  margin: 0 auto;
+}
+
+.tray_users_open td.left{
+  width: 50px;
+  border-right: 1px solid #999999;
+}
+
+.tray_users_open .no-active {
+  margin: 0;
+  line-height: 40px;
+  width: 100%;
+  text-align: center;
+}
+
+
 
 

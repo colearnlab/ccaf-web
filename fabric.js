@@ -8145,6 +8145,15 @@ fabric.BaseBrush = fabric.util.createClass(/** @lends fabric.BaseBrush.prototype
       var ctx = this.canvas.contextTop;
       ctx.closePath();
 
+      var newPoints = [];
+      for (var i = 0; i < this._points.length; i++){
+        if (this._points[i].x != NaN && this._points[i].y != NaN){
+          newPoints.push(this._points[i]);
+        }
+      }
+
+      this._points = newPoints;
+
       var pathData = this.convertPointsToSVGPath(this._points).join('');
       if (pathData === 'M 0 0 Q 0 0 0 0 L 0 0') {
         // do not create 0 width/height paths, as they are
@@ -8156,6 +8165,8 @@ fabric.BaseBrush = fabric.util.createClass(/** @lends fabric.BaseBrush.prototype
       }
 
       var path = this.createPath(pathData);
+
+
 
       this.canvas.add(path);
       path.setCoords();

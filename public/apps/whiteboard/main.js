@@ -236,7 +236,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     });
                 },
                 becomeUser: function(user) {
-                    console.log("switched user: " + user.email);
+                    // console.log("switched user: " + user.email);
                     args.user = user.id;
                     m.redraw();
                 }
@@ -276,7 +276,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
                             // check for end of playback
                             if(ctrl.playbackTime >= ctrl.duration) {
-                                console.log("reached end of playback");
+                                // console.log("reached end of playback");
                                 ctrl.togglePlayPause();
                                 return;
                             }
@@ -399,6 +399,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         offline: m.prop(false),
 
         me: m.prop(null),
+
+        //for individually display student's work
+        sel_user: -1,
         exitCallback: function(appCallback) {
             if(ctrl.snapshotInterval) {
                 clearInterval(ctrl.snapshotInterval);
@@ -473,7 +476,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         setPage: function(pageNum) {
             //ctrl.flushUpdateQueue(pageNum);
             
-            console.log('Set page number: ' + pageNum);
+            // console.log('Set page number: ' + pageNum);
 
             // Notify group
             args.connection.transaction([["setPage"]], function(userCurrentPages) {
@@ -652,7 +655,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           doObjectTransaction: function(obj, canvas, transactionType) {
               if(!obj.uuid) {
                   console.warn("Missing uuid for transaction");
-                  console.log(obj);
+                //   console.log(obj);
                   return;
               };
 
@@ -680,6 +683,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
 
         addObject: function(obj, canvas, doAdd, doTransaction, transactionType, skipUndo) {
             if(doAdd) {
+
+                
                 // Make
                 if(obj.name == "controlCurvedLine") {
                     obj = mechanicsObjects.addControlledCurvedLine(null, obj);
@@ -694,6 +699,20 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     // Do nothing if obj.type isn't defined
                     return;
                 }
+                
+                //use the following code to work on displaying certain student's writing. 
+                //Make drawings from non-selected users invisible.
+                if (ctrl.me().type != 2 && ctrl.sel_user != -1){
+                    if (ctrl.lastToModify[obj.uuid] != ctrl.sel_user){
+                        obj.visible = false;;
+                    }
+                    else {
+                        obj.visible = true;
+                    }
+                }
+                else {
+                    obj.visible = true;
+                }
 
                 // Add
                 if(obj instanceof Array) {
@@ -703,6 +722,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 } else {
                     canvas.add(obj);
                 }
+
             }
  
             // If there are control handles, they have been added to the canvas and can be ignored now.
@@ -869,13 +889,13 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                     
                     // put object in canvas cache
                     docs[meta.doc].canvasContents[meta.page].push(obj);
-                    console.log(docs[meta.doc].canvasContents[meta.page]);
+                    // console.log(docs[meta.doc].canvasContents[meta.page]);
 
                     // set curId so we don't reject subsequent updates after rewind
                     ctrl.curId[uuid] = meta._id - 1;
                 }
 
-                console.log(docs);
+                // console.log(docs);
 
                 // Run callbacks
                 ctrl.setStoreCallbacks.forEach(function(callback) {
@@ -1068,7 +1088,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 if(canvas && (updateMeta.doc == ctrl.pageNumbers()[args.user])) {
                     ctrl.applyUpdate(updateObj, canvas);
                 } else {
-                    console.log("queued update");
+                    // console.log("queued update");
                     ctrl.updateQueue.push({data: updateObj, meta: updateMeta});
                 }
             }
@@ -1286,7 +1306,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         if(!args.observerMode) {
             // Set up a network-disconnect message
             window.addEventListener('offline', function(e) {
-                console.log('offline', e);
+                // console.log('offline', e);
 
                 ctrl.offline(true);
 
@@ -1297,7 +1317,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             });
 
             window.addEventListener('online', function(e) {
-                console.log('online', e);
+                // console.log('online', e);
 
                 ctrl.offline(false);
                 location.reload();
@@ -1347,7 +1367,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             ctrl.setMainScroll = function(scroll) {
                 el.scrollTop = parseInt(scroll * (el.scrollHeight - window.innerHeight));
                 m.redraw();
-                console.log(el.scrollTop);
+                // console.log(el.scrollTop);
             };
  
           },
@@ -1433,7 +1453,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           var currentDocument = args.pageNumbers()[args.user] || 0;
           args.setSelectionBox(null, currentDocument, args.pageNum);
           
-          console.log("change page!");
+        //   console.log("change page!");
           args.saveCanvases(doc);   // Save contents of all canvases
           $('.canvas-container').remove();  // Remove canvases from DOM
           args.lastDrawn({});   // Signal that we need to change PDFs
@@ -1442,6 +1462,45 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
           args.setPage(newDoc); // Notify group of page change
       };
       args.changePage = changePage;
+
+      var changePageCB = function(doc, newDoc, callback) {
+        var currentDocument = args.pageNumbers()[args.user] || 0;
+        args.setSelectionBox(null, currentDocument, args.pageNum);
+        
+      //   console.log("change page!");
+        args.saveCanvases(doc);   // Save contents of all canvases
+        $('.canvas-container').remove();  // Remove canvases from DOM
+        args.lastDrawn({});   // Signal that we need to change PDFs
+        args.pageNumbers()[args.user] = newDoc; // Set the local page number
+        m.redraw();   // Rebuild canvases
+        args.setPage(newDoc); // Notify group of page change
+        callback();
+    };
+
+      args.users_list = args.userList();
+
+      var changeUser = function (student_id) {
+        if (student_id){
+            args.sel_user = parseInt(student_id);
+        }
+        var doc = args.pageNumbers()[args.user];
+        if(doc > 0){
+            changePageCB(doc, doc - 1, function () {
+                // var doc2 = args.pageNumbers()[args.user];
+                // changePage(doc2, doc2 + 1);
+                console.log("page 1")
+            });
+        }
+        else if(doc < (args.activity().pages.length - 1)){
+            changePageCB(doc, doc + 1, function () {
+                // var doc2 = args.pageNumbers()[args.user];
+                // changePage(doc2, doc2 - 1);
+                console.log("page 2")
+            });
+        }
+      }
+
+      args.changeUser = changeUser;
 
       var pageNum = args.pageNumbers()[args.user];
       if(typeof(pageNum) == 'undefined') {
@@ -1556,6 +1615,68 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 draggable: false,
                 src: (args.tool() == 0) ? "/shared/icons/Icons_F_Pen_W_Filled.png" : "/shared/icons/Icons_F_Pen_W.png"
             }),
+
+            args.me() ?
+                (args.me().type != 2) ?
+                    m("img.tool-right.pull-right", {
+                        onclick: function() {
+                            if (document.getElementById("users_tray").className == "tray_users_open") {
+                                document.getElementById("users_tray").className = "tray_users";
+                            }
+                            else {
+                                var rect = this.getBoundingClientRect();
+                                document.getElementById("users_tray").className = "tray_users_open";
+                                document.getElementById("users_tray").style.marginLeft = rect.left + 'px';
+                            }
+                        },
+                        draggable: false,
+                        src: (args.tool() == 0) ? "/shared/icons/Icons_F_Pen_W_Filled.png" : "/shared/icons/Icons_F_Pen_W.png"
+                    })
+                : m("div", {style: "display:none"})
+            :m("div", {style: "display:none"}),
+
+            m("div.tray_users", { 
+                id: "users_tray"
+             },
+            (args.users_list.length > 1 ?
+                m("table", 
+                    (args.users_list.map(function(user) {
+                        if (user.type != 2) {
+                            return ""
+                        }
+                        var netid = user.email.split('@')[0];
+                        if (netid.length > 10) {
+                            netid =  netid.substring(0, 4) + '....' + netid.substring(netid.length - 4);
+                        }
+                        return m("tr",
+                            m("td.left",
+                                m("input[type=checkbox]", {
+                                    name: "emails",
+                                    value: user.id,
+                                    onclick: function () {
+                                        if (this.checked) {
+                                            var checkboxes = document.getElementsByName('emails')
+                                            for (var i = 0, n = checkboxes.length; i < n; i++) {
+                                                checkboxes[i].checked = false;
+                                            }
+                                            this.checked = true;
+                                            changeUser(this.value);
+                                        }
+                                        else {
+                                            changeUser(-1);
+                                        }
+                                    }
+                                })
+                            ),
+                            m("td",
+                                m("p", netid)
+                            )
+                        )
+                    }))
+                )
+                :
+                m("p.no-active", "no active users"))
+            ),
 
           
           // Only show the objects menu if we're on a sketch page
@@ -1924,7 +2045,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
               dragging: m.prop(false),
               setScroll: function(e) {
                   var scrollDest = e.offsetY / ctrl.scrollbarHeight();
-                  console.log(scrollDest);
+                //   console.log(scrollDest);
                   if((typeof(scrollDest) == 'number') && (scrollDest >= 0) && (scrollDest <= 1)) {
                       args.setScroll(scrollDest);
                   }
@@ -1959,7 +2080,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                       ctrl.setScroll(e);
                   }*/
                   ontouchstart: function(e) {
-                      console.log(e);
+                    //   console.log(e);
                       var touch = e.touches[0];
                       e.offsetY = touch.pageY - ctrl.scrollbarTop();// + window.scrollY;
                       ctrl.setScroll(e);
@@ -2031,7 +2152,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
             var pageNum = args.pageNumbers()[args.user] || 0;
             return m("#pdf-container", 
                 Array.apply(null, {length: args.numPages()[pageNum]}).map(function(__, i) {
-                    console.log('page '+i);
+                    // console.log('page '+i);
                     return m.component(PDFPageHolder, Object.assign({}, args, {pageNum: i}));
                 })
             );
@@ -2154,7 +2275,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         ctrl.setStoreCallback = function() {
             ctrl.canvas.clear();
             var contents = args.docs()[ctrl.docIdx].canvasContents[args.pageNum];
-            console.log(contents);
+            // console.log(contents);
             ctrl.loadCanvasContents(contents);
         };
 
@@ -2178,7 +2299,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 docs[currentDocument].canvasWidth[args.pageNum] = el.clientWidth;
                 docs[currentDocument].canvasHeight[args.pageNum] = el.clientHeight;
 
-                console.log(el.clientWidth, el.clientHeight, el.clientHeight / el.clientWidth);
+                // console.log(el.clientWidth, el.clientHeight, el.clientHeight / el.clientWidth);
                 args.docs(docs);
             }
           }
@@ -2368,7 +2489,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                     uuid = e.target.uuid;
  
                                 if(e.target.scaleX != 1.0) {
-                                    console.log(e.target.range, e.target.scaleX, e.target.width);
+                                    // console.log(e.target.range, e.target.scaleX, e.target.width);
                                     e.target.range = e.target.scaleX * e.target.width;
                                     e.target.scaleX = 1.0;
                                 }

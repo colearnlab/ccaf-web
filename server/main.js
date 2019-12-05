@@ -95,6 +95,7 @@ require("./api/visualize").createRoutes(app, db, studentStats);
 require("./api/activity").createRoutes(app, db);
 require("./api/snapshot").createRoutes(app, db);
 require("./api/prompts").createRoutes(app,db);
+require("./api/sendWork").createRoutes(app,db);
 
 //  verifyClient takes a http upgrade request and ensures that it is authenticated.
 var verifyClient = function(req, done) {

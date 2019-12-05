@@ -28,6 +28,7 @@ var apiAccessPermissions = {
             snapshots: true,
             getStoreId: true,
             prompts: true,
+            sendWork: true,
         },
         PUT: {
             activity: true,
@@ -38,6 +39,7 @@ var apiAccessPermissions = {
             media: true,
             documents: true,
             users: true,
+            sendWork: true,
         },
         POST: {
             activity: true,
@@ -47,7 +49,7 @@ var apiAccessPermissions = {
             groups: true,
             media: true,
             documents: true,
-
+            sendWork: true,
             users: true,
         },
         DELETE: {
