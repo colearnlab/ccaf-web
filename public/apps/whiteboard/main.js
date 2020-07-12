@@ -7,7 +7,6 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
         }
     }, {passive: false});
 
-    
   var PDFJS = pdfjs.PDFJS;
   var Activity = models.Activity,
       ActivityPage = models.ActivityPage,
@@ -1242,7 +1241,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                                 // Export image of drawn objects
                                 var drawingImage = new Image;
                                 drawingImage.onload = function() {
-                                    ctx.drawImage(drawingImage, 0, 0);
+                                    ctx.drawImage(drawingImage, 0, 0, virtualPageWidth, virtualPageHeight);
 
                                     // Now upload as an image
                                     var snapshotUrl = exportCanvas.toDataURL();
@@ -1282,18 +1281,18 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
       
       // Load own user data
       User.me().then(ctrl.me).then(function() {  
-          // run snapshot saving every five minutes (students only)
-          var myType = ctrl.me().type;
-          if((myType == 2) || (myType == 'student') || (myType == 'Student'))
-              ctrl.snapshotInterval = setInterval(ctrl.saveSnapshots, 5 * 60 * 1000);
+        // run snapshot saving every five minutes (students only)
+        var myType = ctrl.me().type;
+        if((myType == 2) || (myType == 'student') || (myType == 'Student'))
+            ctrl.snapshotInterval = setInterval(ctrl.saveSnapshots, 5 * 60 * 1000);
 
-          // Log that we've joined the group
-          args.connection.logOnly("membershipChange", 
-              Object.assign({}, ctrl.me(), {action: "load app"})
-          );
-      
-          m.redraw();
-      });
+        // Log that we've joined the group
+        args.connection.logOnly("membershipChange", 
+            Object.assign({}, ctrl.me(), {action: "load app"})
+        );
+    
+        m.redraw();
+    });
 
       realViewHeight = document.body.clientHeight;
       
@@ -1620,6 +1619,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                 (args.me().type != 2) ?
                     m("img.tool-right.pull-right", {
                         onclick: function() {
+                            console.log(args.userList());
                             if (document.getElementById("users_tray").className == "tray_users_open") {
                                 document.getElementById("users_tray").className = "tray_users";
                             }
@@ -1630,7 +1630,7 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                             }
                         },
                         draggable: false,
-                        src: (args.tool() == 0) ? "/shared/icons/Icons_F_Pen_W_Filled.png" : "/shared/icons/Icons_F_Pen_W.png"
+                        src: "/shared/icons/Icons_F_Edit_W.png"
                     })
                 : m("div", {style: "display:none"})
             :m("div", {style: "display:none"}),
@@ -1648,7 +1648,8 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                         if (netid.length > 10) {
                             netid =  netid.substring(0, 4) + '....' + netid.substring(netid.length - 4);
                         }
-                        return m("tr",
+                        var colors = args.userColors();
+                        return m("tr", {style: "background: " + colors[user.id]},
                             m("td.left",
                                 m("input[type=checkbox]", {
                                     name: "emails",
@@ -2047,7 +2048,11 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   var scrollDest = e.offsetY / ctrl.scrollbarHeight();
                 //   console.log(scrollDest);
                   if((typeof(scrollDest) == 'number') && (scrollDest >= 0) && (scrollDest <= 1)) {
-                      args.setScroll(scrollDest);
+                    setTimeout(
+                        function(){
+                            args.setScroll(scrollDest);
+                        }, 
+                    200);
                   }
               }
           };
@@ -2094,8 +2099,9 @@ define(["exports", "pdfjs-dist/build/pdf.combined", "mithril", "jquery", "bootst
                   */
                   ontouchmove: function(e) {
                       var touch = e.touches[0];
-                      e.offsetY = touch.pageY - ctrl.scrollbarTop();// + window.scrollY;
-                      ctrl.setScroll(e);
+                        e.offsetY = touch.pageY - ctrl.scrollbarTop();// + window.scrollY;
+                        ctrl.setScroll(e);
+                      
                   }
               },
               args.userList().map(function(user) {

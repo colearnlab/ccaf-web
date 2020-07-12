@@ -133,7 +133,7 @@ exports.createRoutes = function(app, db) {
         );
 
         // Update database
-        db.run('INSERT INTO snapshots VALUES (NULL, :filename, :sessionId, :userId, :docNum, :pageNum);', {
+        db.run('INSERT INTO snapshots VALUES(NULL, :filename, :sessionId, :userId, :docNum, :pageNum);', {
             ":filename": filename,
             ":sessionId": req.params.sessionId,
             ":userId": req.params.userId,

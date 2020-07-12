@@ -110,7 +110,7 @@ exports.createRoutes = function(app, db) {
         }
       var users = [];
 
-      db.each("SELECT id, name, email, type FROM group_user_mapping LEFT JOIN users ON group_user_mapping.user = users.id WHERE groupId=:group", {
+      db.each("SELECT id, name, email, type FROM group_user_mapping LEFT JOIN users ON group_user_mapping.user = users.id WHERE groupId=:group ORDER BY type DESC", {
           ":group": req.params.groupId
         },
         function(user) {

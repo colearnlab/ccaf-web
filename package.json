@@ -25,9 +25,9 @@
     "express": "^4.14.0",
     "express-session": "^1.15.0",
     "express-websocket": "0.0.1",
-    "fabric": "^1.7.13",
+    "fabric": "^1.4.4",
     "interact.js": "^1.2.6",
-    "jquery": "^2.2.4",
+    "jquery": "~2.2.4",
     "mithril": "^0.2.0",
     "multer": "^1.3.0",
     "nodemailer": "^6.3.1",
@@ -39,9 +39,10 @@
     "underscore": "^1.8.3",
     "ws": "^2.0.3"
   },
+  
   "scripts": {
     "install": "node build",
-    "start": "node --max_old_space_size=4096 server/main"
+    "start": "node --max_old_space_size=4096 --optimize-for-size server/main"
   },
   "readme": "This repository contains all web files relating to CCAF. For more information, see github.com/ccaf/ccaf.\n\nThis software uses icons made by Freepik at flaticon.com.",
   "readmeFilename": "README.md",

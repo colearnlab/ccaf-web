@@ -71,6 +71,9 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
 
       try {
           db.run("PRAGMA foreign_keys = ON");
+
+          db.run("delete from stats_events where sessionId < 100", {});
+
           db.run("INSERT INTO classroom_sessions VALUES(NULL, :title, :classroom, :startTime, NULL, :activityId, :metadata)", {
             ":title": req.body.title,
             ":classroom": req.body.classroom,
@@ -90,7 +93,7 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
             }
           });
       } catch(e) {
-        res.status(400).json({data:{status:400}});
+        res.status(400).json({data:{status:400, error: e.message ? e.message : e}});
       }
     });
 

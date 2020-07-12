@@ -106,7 +106,7 @@ exports.createRoutes = function (app, db) {
                             from: process.env.SEND_EMAIL, // TODO: email sender
                             to: send_to_me, // TODO: email receiver
                             subject: req.body.session_name,
-                            text: "Unable to find requested snapshots for " + students[i][0] + ". If you think there is an issue with them, please notify your TA."
+                            text: "Unable to find requested snapshots for " + students[i][0] + ". If you think there is an issue with them, please notify the CSTEPS team."
                         };
                     }
                     else {
@@ -114,7 +114,7 @@ exports.createRoutes = function (app, db) {
                             from: process.env.SEND_EMAIL, // TODO: email sender
                             to: students[i][0], // TODO: email receiver
                             subject: req.body.session_name,
-                            text: "Sample email about software not able to fetch any snapshots."
+                            text: "We are unable to find snapshots of your work from the IDEALl Lab. Please contact your TA if you think there is an issue with the attachments."
                         };
                     }
                 }

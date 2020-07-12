@@ -365,7 +365,7 @@ svg.scrollbar {
   display: none;
 }
 .tray_users_open table {
-  width: 100%;
+  width: 175px;
 }
 .tray_users_open {
   background: #d6d6d6;

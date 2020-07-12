@@ -19,7 +19,6 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         me: m.prop({}),
         refreshData: function () {
           ctrl.me = User.me().then(function (me) {
-            //ctrl.classrooms = me.classrooms().then(function(classrooms) {
             ctrl.classrooms = Classroom.list().then(function (classrooms) {
 
               classrooms.filter(function (classroom) {
@@ -34,7 +33,6 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             });
             return me;
           }).then(function (me) {
-            //ctrl.activities = me.activities();
             Activity.list().then(ctrl.activities);
             return me;
           });
@@ -62,7 +60,6 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       return m("div.container-fluid.bg-color-med#main.stretch",
         m("#toolbar.primary-color-blue.text-color-secondary",
           m("span.glyphicon.glyphicon-circle-arrow-left#back-button", {
-            //style: (typeof m.route.param("classroomId") !== "undefined" || typeof m.route.param("sessionId") !== "undefined" ? "" : "display: none"),
             style: (m.route() === "/") ? "display: none" : "",
             onclick: function () {
               if (component.exitCallback)
@@ -1106,7 +1103,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                     .then(function (result) {
                       m.route("/visualize/" + newClassroomSession.id);
                     });
-
+                  // m.route("/visualize/" + newClassroomSession.id);
                 });
 
               },

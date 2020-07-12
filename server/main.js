@@ -100,7 +100,6 @@ require("./api/sendWork").createRoutes(app,db);
 //  verifyClient takes a http upgrade request and ensures that it is authenticated.
 var verifyClient = function(req, done) {
     authObj.cookies(req, {}, function() {
-        console.log("works till here");
         //  No passport object: not authenticated.
         if (!req.session.passport || typeof req.session.passport.user === "undefined")
             return done(1);

@@ -26,8 +26,11 @@ exports.createRoutes = function(app, db, stats) {
                 return;
             }
 
+            var response = null;
             // get group activity histories
-            var response = stats.sessionStats[sessionId].reportAll(null);
+            if (stats.sessionStats[sessionId]){
+                response = stats.sessionStats[sessionId].reportAll(null);
+            }
 
             // send response
             res.status(200).json(response);
