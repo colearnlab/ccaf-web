@@ -51,13 +51,21 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
             res.status(403).json({data:{status:403}});
             return;
         }
-      
-      console.log(req.user.type);
-      console.log(req.user);
 
       var sessions = [];
 
-      db.each("SELECT * FROM classroom_sessions",
+      var query = "";
+      if (req.user.type == 0) {
+        query = "SELECT * FROM classroom_sessions";
+      }
+      else {
+        query = `SELECT * FROM classroom_sessions where classroom IN (SELECT id FROM classrooms WHERE owner = ${req.user.id}
+          UNION
+          SELECT classroom FROM classroom_user_mapping, users  where users.id = user and users.id = ${req.user.id}
+          )`;
+      }
+
+      db.each(query,
         {},
         function(session) {
           sessions.push(session);

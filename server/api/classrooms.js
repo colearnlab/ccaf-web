@@ -9,7 +9,18 @@ exports.createRoutes = function(app, db) {
         }
       var classrooms = [];
 
-      db.each("SELECT * FROM classrooms",
+      var query = "";
+      if (req.user.type == 0) {
+        query = "SELECT * FROM classrooms";
+      }
+      else {
+        query = `SELECT * FROM classrooms where id IN (SELECT id FROM classrooms WHERE owner = ${req.user.id}
+          UNION
+          SELECT classroom FROM classroom_user_mapping, users  where users.id = user and users.id = ${req.user.id}
+          )`;
+      }
+
+      db.each(query,
         {},
         function(classroom) {
           classrooms.push(classroom);
