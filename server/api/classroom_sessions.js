@@ -51,6 +51,9 @@ exports.createRoutes = function(app, db, stats, sharedSync) {
             res.status(403).json({data:{status:403}});
             return;
         }
+      
+      console.log(req.user.type);
+      console.log(req.user);
 
       var sessions = [];
 
