@@ -1,6 +1,6 @@
 .stretch {
   height: 100%;
-  overflow: hidden;
+  overflow: scroll;
 }
 
 #toolbar {
@@ -11,6 +11,7 @@
   line-height: 50px;
   padding-left: 15px;
   font-size: 32px;
+  z-index: 1;
 }
 
 .student {
@@ -30,12 +31,12 @@
 
 .main-menu-header {
   padding: 0;
-  height: 30px;
+  height: 40px;
   overflow: hidden;
 }
 
 .main-menu-header > span {
-  line-height: 30px;
+  line-height: 40px;
 }
 
 .main-menu-body {
@@ -43,18 +44,17 @@
 }
 
 .main-menu-header {
-  height: 30px;
+  height: 40px;
   width: 100%;
-  border-radius: 3px 3px 0px 0px;
-  line-height: 30px;
+  line-height: 40px;
   padding-left: 0.5em;
-  padding-right: 0.25em;
+  padding-right: 0.5em;
   font-size: 1.75rem;
   border-bottom: 1px solid lightgray;
 }
 
 .main-menu-body {
-  height: 140px;
+  height: 200px;
   width: 100%;
   overflow: hidden;
   position: relative;

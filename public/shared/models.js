@@ -371,6 +371,11 @@ define(["exports", "mithril", "jquery"], function(exports, m, $) {
         }).then(function(activities) {
             return activities.data.map(function(activity) {
                 var ret = new Activity(activity.title, activity.owner);
+                ret.course_info = {
+                    course: activity.course,
+                    course_name: activity.course_name,
+                    course_owner: activity.course_owner,
+                }
                 ret.id = activity.id;
                 return ret;
             });

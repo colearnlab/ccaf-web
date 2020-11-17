@@ -7,17 +7,30 @@ exports.createRoutes = function(app, db) {
             res.status(403).json({data:{status:403}});
             return;
         }
+
+      // db.run("INSERT INTO courses VALUES (1, 'Extras', 394)");
+
       var classrooms = [];
 
       var query = "";
       if (req.user.type == 0) {
-        query = "SELECT * FROM classrooms";
+        query = `
+          SELECT C.id, C.title, C.owner, C.course, Co.title as course_name, Co.owner as course_owner 
+          FROM classrooms C, courses Co 
+          WHERE C.course = Co.id
+          ORDER BY course_name
+        `;
       }
       else {
-        query = `SELECT * FROM classrooms where id IN (SELECT id FROM classrooms WHERE owner = ${req.user.id}
+        query = `
+          SELECT C.id, C.title, C.owner, C.course, Co.title as course_name, Co.owner as course_owner 
+          FROM classrooms C, courses Co 
+          WHERE C.course = Co.id AND C.id IN 
+          (SELECT id FROM classrooms WHERE owner = ${req.user.id}
           UNION
-          SELECT classroom FROM classroom_user_mapping, users  where users.id = user and users.id = ${req.user.id}
-          )`;
+          SELECT classroom FROM classroom_user_mapping, users  where users.id = user and users.id = ${req.user.id})
+          ORDER BY course_name
+        `;
       }
 
       db.each(query,
@@ -35,10 +48,21 @@ exports.createRoutes = function(app, db) {
             return;
         }
       try {
+
+        // Check if class is attached to new course
+        if (req.body.course == -1) {
+          db.run("INSERT INTO courses VALUES(NULL, :title, :owner)", {
+            ":title": req.body.course_name,
+            ":owner": req.body.owner,
+          });
+          req.body.course = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+        }
+
         db.run("PRAGMA foreign_keys = ON");
-        db.run("INSERT INTO classrooms VALUES(NULL, :title, :owner)", {
+        db.run("INSERT INTO classrooms VALUES(NULL, :title, :owner, :course)", {
           ":title": req.body.title,
-          ":owner": req.body.owner
+          ":owner": req.body.owner,
+          ":course": req.body.course
         });
 
         res.json({
@@ -74,7 +98,8 @@ exports.createRoutes = function(app, db) {
       var params = {
         ":id": req.params.classroomId,
         ":title": req.body.title,
-        ":owner": req.body.owner
+        ":owner": req.body.owner,
+        ":course": req.body.course
       };
 
       var insertString = [];

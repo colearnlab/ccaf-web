@@ -25,10 +25,11 @@ exports.createRoutes = function(app, db) {
 
         try {
             db.run("PRAGMA foreign_keys = ON");
-            db.run("INSERT INTO activities VALUES(NULL, :title, :time, :teacherId)", {
+            db.run("INSERT INTO activities VALUES(NULL, :title, :time, :teacherId, :course)", {
                 ":title": req.body.title,
                 ":time": (+ new Date()),
-                ":teacherId": req.body.owner
+                ":teacherId": req.body.owner,
+                ":course": parseInt(req.body.course)
             });
 
             var activityId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
@@ -71,9 +72,10 @@ exports.createRoutes = function(app, db) {
 
         var activityId = req.params.activityId;
         // Get activity row and all associated pages in order
-        var stmt = db.prepare("SELECT * FROM activities WHERE id=:id;", {
+        var stmt = db.prepare("SELECT A.id, A.title, A.timeupdated, A.owner, A.course, Co.title as course_name, Co.owner as course_owner FROM activities A, courses Co WHERE A.id=:id and A.course = Co.id;", {
             ":id": activityId
         });
+        
 
         if(!stmt.step()) {
             res.status(404).json({data:{status:404}});
@@ -114,7 +116,8 @@ exports.createRoutes = function(app, db) {
             ":id": req.params.activityId,
             ":timeUpdated": (+ new Date()),
             ":title": req.body.title,
-            ":owner": req.body.owner
+            ":owner": req.body.owner,
+            ":course": parseInt(req.body.course)
         };
 
         var pages = JSON.parse(req.body.pages);
@@ -197,10 +200,36 @@ exports.createRoutes = function(app, db) {
                 res.status(403).json({data:{status:403}});
                 return;
             }
+
+            var query = "";
+            if (req.user.type == 0) {
+                query = `
+                SELECT A.id, A.title, A.timeupdated, A.owner, A.course, Co.title as course_name, Co.owner as course_owner 
+                FROM activities A, courses Co 
+                WHERE A.course = Co.id
+                ORDER BY course_name, timeUpdated DESC
+                `;
+            }
+            else {
+                query = `   
+                SELECT A.id, A.title, A.timeupdated, A.owner, A.course, Co.title as course_name, Co.owner as course_owner 
+                FROM activities A, courses Co 
+                WHERE A.course = Co.id AND A.course IN 
+                (
+                    SELECT distinct cast(C.course as int) as course_id
+                    FROM classrooms C, courses Co 
+                    WHERE C.course = Co.id AND C.id IN 
+                    (SELECT id FROM classrooms WHERE owner = ${req.user.id}
+                    UNION
+                    SELECT classroom FROM classroom_user_mapping, users  where users.id = user and users.id = ${req.user.id})
+                )
+                ORDER BY course_name, timeUpdated DESC
+                `;
+            }
         
             // Get all activities belonging to user :ownerId
             var activities = [];
-            db.each("SELECT * FROM activities ORDER BY timeUpdated DESC;", 
+            db.each(query, 
                 {},
                 function(row) {
                     activities.push(row);
@@ -220,12 +249,24 @@ exports.createRoutes = function(app, db) {
 
         // Get all activities belonging to user :ownerId
         var activities = [];
-        db.each("SELECT * FROM activities WHERE owner=:ownerId ORDER BY timeUpdated DESC;", 
-            {":ownerId": req.params.ownerId},
+        var query  = `
+            SELECT A.id, A.title, A.timeupdated, A.owner, A.course, Co.title as course_name, Co.owner as course_owner 
+            FROM activities A, courses Co 
+            WHERE A.course = Co.id AND A.owner = ${req.params.ownerId}
+            ORDER BY course_name, timeUpdated DESC
+        `;
+        db.each(query, 
+            {},
             function(row) {
                 activities.push(row);
             }
         );
+        // db.each("SELECT * FROM activities WHERE owner=:ownerId ORDER BY timeUpdated DESC;", 
+        //     {":ownerId": req.params.ownerId},
+        //     function(row) {
+        //         activities.push(row);
+        //     }
+        // );
 
         // TODO 404 on bad ownerId, or just return an empty array?
         res.status(200).json({data: activities});

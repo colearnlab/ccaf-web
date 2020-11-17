@@ -37,6 +37,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             return me;
           });
         },
+        courses: {},
         toolbarText: m.prop(""),
         activities: m.prop([]),
         classrooms: m.prop([]),
@@ -214,7 +215,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
               args.showMenus.sessions = ctrl.showBody = !ctrl.showBody;
             }
           },
-          m.trust((ctrl.showBody ? "&#9660; " : "&#9658; ") + "View and manage active sessions")),
+          m.trust((ctrl.showBody ? "&#9662; " : "&#9656; ") + "View and manage active sessions")),
         m(".main-menu-body", {
             style: (ctrl.showBody ? "" : "display: none;")
           },
@@ -369,7 +370,6 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
       if (ctrl.sendWork) {
         var sel_session = ctrl.sendWork;
         var send_to_me = "";
-        // var curr_users = ["parthpatel1898@gmail.com", "cstepsuser1@gmail.com", "cstepsuser2@gmail.com"];
 
         return m(".modal.fade#send-work-modal", {
             config: function () {
@@ -501,10 +501,13 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
 
               return m(".list-group-item.classroom",
                 m(".list-group-heading", {},
+                  m(".session-info",
+                    m(".glyphicon.glyphicon-user.icon-left"),
+                    classroom.title,
+                    m(".glyphicon.glyphicon-book.icon-right"),
+                    classroom.course_name
+                  ),
                   session.title,
-                  " [",
-                  classroom.title,
-                  "]",
 
                   //Remove .hide-recorded to bring this back up.
                   (session.groups ? session.groups.map(function (g) {
@@ -566,7 +569,9 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         editingClassroom: null,
         deletingClassroom: null,
         creating: false,
-        showBody: args.showMenus.classrooms
+        showBody: args.showMenus.classrooms,
+        course_name: "",
+        add_course: false,
       };
     },
     view: function (ctrl, args) {
@@ -575,6 +580,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             me: args.me,
             creating: ctrl.creating,
             classroom: ctrl.editingClassroom,
+            courses: args.courses,
             triggerDelete: function () {
               ctrl.deletingClassroom = ctrl.editingClassroom;
             },
@@ -605,7 +611,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         m('.main-menu-section.bg-color-white', {
             /*
             style: args.sessions().filter(function(session) {
-              return session.endTime === null;
+              return session.endTime === null;      
             }).length === 0 ? "" : "display: none"*/
           },
           m('.main-menu-header.primary-color-blue.text-color-secondary', {
@@ -613,7 +619,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 args.showMenus.classrooms = ctrl.showBody = !ctrl.showBody;
               }
             },
-            m.trust((ctrl.showBody ? "&#9660; Class Rosters" : "&#9658; Class Rosters")),
+            m.trust((ctrl.showBody ? "&#9662; Class Rosters" : "&#9656; Class Rosters")),
             m('span.glyphicon.glyphicon-plus.pull-right', {
               style: (ctrl.showBody ? "" : "display: none"),
               onclick: function (e) {
@@ -632,34 +638,39 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 style: "color: gray; text-align: center"
               }, "(no classrooms)"),
               ctrl.classrooms().map(function (classroom) {
-                return m(".list-group-item.classroom",
-                  m(".list-group-heading", {
-                      onclick: function () {
-                        m.route("/classroom/" + classroom.id);
-                      }
-                    },
-                    classroom.title,
-                    /*
-                    m("a.session-link.pull-right", {
-                      style: "color: gray",
-                      onclick: function(e) {
-                        m.route("/classroom/" + classroom.id);
-                        //ctrl.editingClassroom = Object.assign(new Classroom(), JSON.parse(JSON.stringify(classroom)));
-                        //e.stopPropagation();
-                      }}, m.trust("&laquo;Edit class roster&raquo;")
-                    ),
-                    */
-                    //m("span.glyphicon.glyphicon-edit.pull-right", {
-                    m("a.session-link.pull-right", {
-                      style: "color: gray",
-                      onclick: function (e) {
-                        ctrl.creating = false;
-                        ctrl.editingClassroom = Object.assign(new Classroom(), JSON.parse(JSON.stringify(classroom)));
-                        e.stopPropagation();
-                      }
-                    }, m.trust("&laquo;Edit&raquo;"))
+                if (ctrl.course_name != classroom.course_name) {
+                  ctrl.add_course = true;
+                  ctrl.course_name = classroom.course_name;
+                  args.courses[classroom.course] = classroom.course_name;
+                }
+                else {
+                  ctrl.add_course = false;
+                }
+                return [
+                  ctrl.add_course ? 
+                  m(".list-group-item.classroom.course_cont",
+                    m(".list-group-heading.course_title", 
+                      classroom.course_name
+                    )
+                  ) : "",
+                  m(".list-group-item.classroom",
+                    m(".list-group-heading", {
+                        onclick: function () {
+                          m.route("/classroom/" + classroom.id);
+                        }
+                      },
+                      classroom.title,
+                      m("a.session-link.pull-right", {
+                        style: "color: gray",
+                        onclick: function (e) {
+                          ctrl.creating = false;
+                          ctrl.editingClassroom = Object.assign(new Classroom(), JSON.parse(JSON.stringify(classroom)));
+                          e.stopPropagation();
+                        }
+                      }, m.trust("&laquo;Edit&raquo;"))
+                    )
                   )
-                );
+                ];
               })
             )
           )
@@ -703,6 +714,39 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                   })
                 )
               ),
+
+              m(".form-group",
+                m("label.control-label[for=classroom-modal-title]", "Course"),
+                m("select.form-control", {
+                    value: ctrl.classroom.course,
+                    onchange: function (e) {
+                      ctrl.classroom.course = parseInt(e.target.value);
+                    }
+                  },
+                  Object.keys(args.courses).map(function (key) {
+                    return m("option", {
+                      value: key
+                    }, args.courses[key]);
+                  }),
+                  args.me().type == 0 ? m("option", {value: -1}, "Other") : ""
+                )
+              ),
+
+              m(".form-group", {
+                  style: ctrl.classroom.course != -1 ? "display: none;" : ""
+                },
+                m("label.control-label[for=classroom-modal-title]", "Course Name"),
+                m("div",
+                  m("input.input-sm.form-control#classroom-modal-title", {
+                    value: ctrl.classroom.course_name ? ctrl.classroom.course_name : "",
+                    oninput: function (el) {
+                      ctrl.classroom.course_name = el.target.value;
+                    }
+                  })
+                )
+              ),
+                
+
               m(".form-group", {
                   style: typeof ctrl.classroom.id === "undefined" ? "display: none;" : ""
                 },
@@ -796,8 +840,9 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
         startActivity: null,
         showRecentDocsModal: false,
 
-        showBody: args.showMenus.activities
-
+        showBody: args.showMenus.activities,
+        course_name: "",
+        add_course: false,
       };
       ctrl.addPage = function (page) {
         //console.log(ctrl.editingActivity());
@@ -818,6 +863,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
             me: args.me,
             creating: ctrl.creating,
             activity: ctrl.editingActivity,
+            courses: args.courses,
             triggerDelete: function () {
               ctrl.deletingActivity = ctrl.editingActivity;
             },
@@ -875,7 +921,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 args.showMenus.activities = ctrl.showBody = !ctrl.showBody;
               }
             },
-            m.trust((ctrl.showBody ? "&#9660; Activities" : "&#9658; Activities")),
+            m.trust((ctrl.showBody ? "&#9662; Activities" : "&#9656; Activities")),
             m('span.glyphicon.glyphicon-plus.pull-right', {
               style: (ctrl.showBody ? "" : "display: none"),
               onclick: function (e) {
@@ -895,8 +941,21 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                 style: "color: gray; text-align: center"
               }, "(no activities)"),
               ctrl.activities().map(function (activity) {
+                if (activity.course_info.course_name != ctrl.course_name) {
+                  ctrl.add_course = true;
+                  ctrl.course_name = activity.course_info.course_name;
+                }
+                else {
+                  ctrl.add_course = false;
+                }
                 if (ctrl.deleteActivityPromptId == activity.id) {
-                  return m(".list-group-item", {
+                  return [
+                    ctrl.add_course ? m(".list-group-item.activity.course_cont",
+                      m(".list-group-heading.course_title", 
+                        activity.course_info.course_name
+                      )
+                    ) : "",
+                    m(".list-group-item", {
                       onclick: function (e) {
                         e.stopPropagation();
                       }
@@ -920,9 +979,15 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                         },
                         "Cancel")
                     )
-                  );
+                  )];
                 } else {
-                  return m(".list-group-item.activity",
+                  return [
+                    ctrl.add_course ? m(".list-group-item.activity.course_cont",
+                      m(".list-group-heading.course_title", 
+                        activity.course_info.course_name
+                      )
+                    ) : "",
+                    m(".list-group-item.activity",
                     m(".list-group-heading", {
                         onclick: function () {
                           //ctrl.editingActivity = Object.assign(new Activity(activity.title, activity.owner), JSON.parse(JSON.stringify(activity)));
@@ -964,7 +1029,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                         }
                       }, m.trust("&laquo;Start a session&raquo;"))
                     ) // heading
-                  );
+                  )];
                 } // if
               })
             )
@@ -1035,9 +1100,11 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                   },
                   m("option", ""),
                   args.classrooms().map(function (classroom) {
-                    return m("option", {
-                      value: classroom.id
-                    }, classroom.title);
+                    if (classroom.course == ctrl.activity.course_info.course){
+                      return m("option", {
+                        value: classroom.id
+                      }, classroom.title);
+                    }
                   })
                 )
 
@@ -1107,7 +1174,7 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
     controller: function (args) {
       var ctrl = {
         notOwner: args.activity.owner !== args.me().id,
-        activity: args.activity,
+        activity: args.activity
       };
 
       if (args.creating) {
@@ -1146,6 +1213,23 @@ define('main', ["exports", "mithril", "jquery", "models", "userPicker", "modules
                   })
                 )
               ),
+
+              m(".form-group",
+                m("label.control-label[for=classroom-modal-title]", "Course"),
+                m("select.form-control", {
+                    value: ctrl.activity().course,
+                    onchange: function (e) {
+                      ctrl.activity().course = e.target.value;
+                    }
+                  },
+                  Object.keys(args.courses).map(function (key) {
+                    return m("option", {
+                      value: key
+                    }, args.courses[key]);
+                  })
+                )
+              ),
+
               m("label", {
                 style: "display: block"
               }, "Pages"),
